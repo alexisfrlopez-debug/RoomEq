@@ -17,6 +17,7 @@ RoomEq est une application de bureau Windows qui combine **égaliseur paramétri
 9. [Compiler depuis les sources](#compiler-depuis-les-sources)
 10. [Architecture technique](#architecture-technique)
 11. [Dépannage et questions fréquentes](#dépannage-et-questions-fréquentes)
+12. [Licence et distribution](#licence-et-distribution)
 
 ---
 
@@ -327,3 +328,15 @@ Le téléchargement ne se fait que depuis `https://download.vb-audio.com` (versi
 
 **Je veux retrouver mes périphériques d'origine après un routage.**
 C'est automatique : à l'arrêt du routage (« ■ Arrêter le routage »), la sortie et l'entrée par défaut mémorisées avant la bascule sont restaurées. Si l'application a été fermée pendant le routage, démarrez puis arrêtez le routage une fois (ou utilisez le panneau son).
+
+---
+
+## Licence et distribution
+
+RoomEq est distribué sous **licence MIT** : vous pouvez librement utiliser, étudier, modifier et redistribuer le logiciel — y compris à des fins commerciales — à la seule condition de conserver la mention de copyright et le texte de licence dans les copies ([LICENSE](LICENSE)).
+
+- **Utilisateur final** : installez, utilisez, partagez sans restriction.
+- **Développeur** : le code (DSP, calibration, audio, Avalonia) peut être réutilisé dans vos propres projets, y compris commerciaux, sous réserve d'attribution.
+- **Composants tiers** (Avalonia, NAudio, CommunityToolkit.Mvvm…) : ils restent sous leurs licences permissives respectives, détaillées dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Sous licence MIT, la valeur ajoutée d'une distribution officielle repose sur la **commodité** : version signée du Microsoft Store avec mises à jour automatiques, packaging prêt à l'emploi, support, documentation et suivi du projet. Les pistes de distribution et de monétisation (Windows Store, vente directe, winget, portages) sont décrites dans [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
