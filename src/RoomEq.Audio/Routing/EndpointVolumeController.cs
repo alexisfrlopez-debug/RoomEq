@@ -16,6 +16,14 @@ public sealed class EndpointVolumeController : IDisposable
     private string? _rawDeviceId;
     private bool _disposed;
 
+    /// <summary>
+    /// Conversion du curseur « Volume » de la barre supérieure (0..1.5) en volume
+    /// Windows du périphérique (0..1) : la plage utile 0–100 % règle la carte
+    /// physique ; au-delà de 100 %, le volume Windows reste au maximum et seule
+    /// l'amplification du lecteur interne augmente (150 % = +3,5 dB).
+    /// </summary>
+    public static double SliderToEndpoint(double sliderVolume) => Math.Clamp(sliderVolume, 0.0, 1.0);
+
     /// <summary>Le volume du périphérique cible est-il accessible ?</summary>
     public bool Available { get; private set; }
 

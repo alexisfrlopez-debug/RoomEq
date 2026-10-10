@@ -14,6 +14,18 @@ using RoomEq.Core.Io;
 namespace RoomEq.App.ViewModels;
 
 /// <summary>
+/// Choix du menu déroulant des signaux de test : soit un signal généré à la
+/// volée par le moteur (bruit, sinus, balayage — voir TestSignalCatalog), soit
+/// un fichier WAV téléchargé depuis le catalogue officiel du projet.
+/// </summary>
+public sealed record TestSignalChoice(
+    string Id,
+    string DisplayName,
+    string Category,
+    GeneratorSignalItem? Generator,
+    string? FilePath);
+
+/// <summary>
 /// ViewModel principal : sorties audio, transport, volume, bypass, et sous-ViewModels.
 /// </summary>
 public partial class MainViewModel : ObservableObject
@@ -38,6 +50,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string statusText = "Prêt.";
     [ObservableProperty] private string sourceName = "";
     [ObservableProperty] private bool isPlaying;
+
+    /// <summary>Menu déroulant des signaux de test (intégrés + fichiers téléchargés).</summary>
+    public ObservableCollection<TestSignalChoice> SignalChoices { get; } = new();
+    [ObservableProperty] private TestSignalChoice? selectedSignal;
+
+    /// <summary>Demande l'ouverture du catalogue de signaux (fenêtre gérée par la vue).</summary>
+    public event Action? SignalCatalogRequested;
 
     public MainViewModel()
     {
@@ -86,6 +105,7 @@ public partial class MainViewModel : ObservableObject
         SelectedOutput = Outputs.FirstOrDefault();
         if (SelectedOutput != null) Engine.SetOutput(SelectedOutput.Id);
         Engine.EnsureDefaultOutput();
+        LoadSignalChoices();
 
         // télémétrie (version de test) : envoi des journaux toutes les 5 minutes
         _telemetryTimer = new Avalonia.Threading.DispatcherTimer(
@@ -154,7 +174,17 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnVolumeChanged(double value)
     {
+        // 1) lecteur interne (fichiers, signaux de test) : gain après l'EQ ;
+        // 2) son ROUTÉ (Windows → carte virtuelle → mixeur → carte physique) :
+        //    ce chemin ne passe PAS par le lecteur interne — le curseur pilote
+        //    donc aussi le volume Windows de la carte physique routée (même
+        //    cible que Ctrl+Alt+↑ / ↓). Sans lui, le curseur paraîtrait « sans
+        //    effet » sur la sortie sélectionnée dans l'usage principal.
         Engine.Volume = value;
+        Mixer.ApplyTopBarVolume(value);
+        StatusText = value <= 0.001
+            ? "Volume coupé (lecteur interne + carte physique routée)."
+            : $"Volume : {value:0%} — lecteur interne + volume Windows de la carte physique routée.";
     }
 
     partial void OnBypassChanged(bool value)
@@ -196,27 +226,65 @@ public partial class MainViewModel : ObservableObject
         RefreshTransportState();
     }
 
-    [RelayCommand]
-    private void TestWhiteNoise()
+    // ================================================================ signaux de test
+
+    /// <summary>Reconstruit le menu déroulant : signaux intégrés + bibliothèque téléchargée.</summary>
+    public void RefreshSignalChoices() => LoadSignalChoices();
+
+    private void LoadSignalChoices()
     {
-        Engine.PlayTestSignal(TestSignal.WhiteNoise, 0.2);
-        RefreshTransportState();
-        StatusText = "Bruit blanc de test (amp. -14 dBFS) — ajustez le volume.";
+        TestSignalChoice? previous = SelectedSignal;
+        SignalChoices.Clear();
+        foreach (var g in TestSignalCatalog.BuiltIn)
+            SignalChoices.Add(new TestSignalChoice(g.Id, g.DisplayName, g.Category, g, null));
+
+        var store = new SignalStore();
+        foreach (var f in store.List())
+            SignalChoices.Add(new TestSignalChoice(
+                "fichier|" + f.FileName, f.DisplayName, "Téléchargés", null, store.PathFor(f.FileName)));
+
+        // conserve la sélection précédente si elle existe encore, sinon le signal
+        // par défaut (bruit rose : réglage de niveau d'écoute)
+        SelectedSignal = (previous != null ? SignalChoices.FirstOrDefault(c => c.Id == previous.Id) : null)
+                         ?? SignalChoices.FirstOrDefault(c => c.Id == TestSignalCatalog.DefaultItemId)
+                         ?? SignalChoices.FirstOrDefault();
     }
 
     [RelayCommand]
-    private void TestPinkNoise()
+    private void PlaySelectedSignal()
     {
-        Engine.PlayTestSignal(TestSignal.PinkNoise, 0.35);
-        RefreshTransportState();
-        StatusText = "Bruit rose de test.";
+        var choice = SelectedSignal;
+        if (choice == null) return;
+
+        if (choice.Generator is { } g)
+        {
+            Engine.PlayTestSignal(g.Signal, g.Amplitude, g.SineFrequency, g.SweepSpec);
+            RefreshTransportState();
+            StatusText = g.DisplayName + " — ajustez le volume si besoin.";
+            return;
+        }
+
+        if (choice.FilePath != null)
+        {
+            try
+            {
+                // les fichiers du catalogue sont courts : lecture en boucle pour
+                // un usage à l'oreille continu, comme les signaux générés
+                var reader = new NAudio.Wave.AudioFileReader(choice.FilePath);
+                void Restart() { try { reader.Position = 0; } catch { /* fichier retiré ? */ } }
+                Engine.PlaySource(new LoopingSampleProvider(reader, Restart) { Loop = true },
+                    choice.DisplayName, Restart);
+                RefreshTransportState();
+                StatusText = choice.DisplayName + " (fichier téléchargé, lecture en boucle).";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "Lecture impossible : " + ex.Message;
+                DiagnosticsLog.Error("Lecture d'un signal téléchargé : " + ex.Message);
+            }
+        }
     }
 
     [RelayCommand]
-    private void TestSine()
-    {
-        Engine.PlayTestSignal(TestSignal.Sine, 0.2, 1000);
-        RefreshTransportState();
-        StatusText = "Sinus 1 kHz de test.";
-    }
+    private void OpenSignalCatalog() => SignalCatalogRequested?.Invoke();
 }

@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using RoomEq.App.Controls;
 using RoomEq.App.ViewModels;
 using RoomEq.Core.Io;
 
@@ -34,6 +35,9 @@ public partial class MainWindow : Window
                 _osdTimer.Stop();
                 VolumeOsd.IsVisible = false;
             });
+
+        // catalogue des signaux de test supplémentaires (téléchargement)
+        vm.SignalCatalogRequested += () => SignalCatalogDialog.Show(this, vm.RefreshSignalChoices);
 
         // routage automatique au lancement si configuré
         Dispatcher.UIThread.Post(() => vm.Mixer.AutoStartIfConfigured());

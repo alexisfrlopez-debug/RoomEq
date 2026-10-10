@@ -367,6 +367,23 @@ public partial class MixerViewModel : ObservableObject
     [RelayCommand] private void RoutedVolumeUp() => NudgeRoutedVolume(+1);
     [RelayCommand] private void RoutedVolumeDown() => NudgeRoutedVolume(-1);
 
+    /// <summary>
+    /// Applique le curseur « Volume » de la barre supérieure au périphérique
+    /// physique routé : 0–100 % règle le volume Windows de la carte (le son routé
+    /// ne passe PAS par le lecteur interne, d'où ce pont) ; au-delà de 100 % le
+    /// volume Windows reste au maximum et seul le gain du lecteur interne monte.
+    /// Sans effet si la sortie n'expose pas de volume Windows (ASIO).
+    /// </summary>
+    public void ApplyTopBarVolume(double value)
+    {
+        if (!_endpointVolume.Available) return;
+        double target = EndpointVolumeController.SliderToEndpoint(value);
+        double current = _endpointVolume.VolumeScalar;
+        if (current < 0 || Math.Abs(current - target) > 0.0035)
+            _endpointVolume.SetVolumeScalar(target);
+        RefreshRoutedVolumeDisplay();
+    }
+
     [RelayCommand]
     private void ToggleRoutedMute()
     {

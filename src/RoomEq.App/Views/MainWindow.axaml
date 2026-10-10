@@ -20,8 +20,8 @@
         <Grid RowDefinitions="Auto,*,Auto">
 
             <!-- Barre supérieure : sortie, transport, volume -->
-            <!-- 1.8.1 : défilement HORIZONTAL — sur une fenêtre étroite, les boutons
-                 de droite (Bruit blanc / Bruit rose / Sinus 1k) restent accessibles
+            <!-- 1.8.1 : défilement HORIZONTAL — sur une fenêtre étroite, les contrôles
+                 de droite (menu des signaux, téléchargement) restent accessibles
                  en faisant défiler la barre au lieu d'être coupés -->
             <Border Grid.Row="0" Background="#1A1D26" Padding="0,8"
                     BorderBrush="#2A2F3A" BorderThickness="0,0,0,1">
@@ -62,7 +62,7 @@
                     <Slider Minimum="0" Maximum="1.5" Value="{Binding Volume}" Width="120" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding Volume, StringFormat={}{0:0%}}" VerticalAlignment="Center" Width="44" FontSize="11"/>
                     <controls:HelpButton HelpTitle="Volume et transport"
-                                         HelpText="« Lecture / Arrêt » contrôlent le lecteur interne (fichier ouvert ou signal de test).&#10;&#10;Le volume s'applique APRÈS l'égaliseur, avec le préampli du preset : 100 % = 0 dB, 150 % = +3,5 dB (risque d'écrêtage si le préampli est déjà négatif pour compenser).&#10;&#10;Astuce : pour régler le volume du son ROUTÉ (Windows → EQ → enceintes), utilisez Ctrl+Alt+↑ / ↓ — le fader Windows de la carte virtuelle est sans effet."/>
+                                         HelpText="« Lecture / Arrêt » contrôlent le lecteur interne (fichier ouvert ou signal de test).&#10;&#10;Le curseur Volume agit sur DEUX chemins :&#10;• le lecteur interne : gain après l'égaliseur — 100 % = 0 dB, 150 % = +3,5 dB ;&#10;• le volume Windows de la carte physique routée (sortie master de l'onglet Mixage) : de 0 à 100 %, le curseur règle directement la carte — c'est ce qui rend le curseur audible sur le son routé, dont le chemin ne passe pas par ce lecteur.&#10;&#10;Au-delà de 100 %, la carte reste au maximum et seul le gain du lecteur monte. Ctrl+Alt+↑ / ↓ / M règlent toujours la carte physique seule."/>
 
                     <ToggleButton IsChecked="{Binding Bypass}" Content="Bypass EQ" VerticalAlignment="Center"/>
                     <controls:HelpButton HelpTitle="Bypass EQ"
@@ -70,11 +70,20 @@
 
                     <Separator Width="1" Height="26" Background="#2A2F3A" Margin="6,0"/>
 
-                    <Button Content="Bruit blanc" Command="{Binding TestWhiteNoiseCommand}" FontSize="11"/>
-                    <Button Content="Bruit rose" Command="{Binding TestPinkNoiseCommand}" FontSize="11"/>
-                    <Button Content="Sinus 1k" Command="{Binding TestSineCommand}" FontSize="11"/>
+                    <!-- 1.9.0 : menu déroulant unique (bruits, sinus, balayages, fichiers
+                         téléchargés) à la place des trois boutons fixes -->
+                    <ComboBox Width="240" ItemsSource="{Binding SignalChoices}"
+                              SelectedItem="{Binding SelectedSignal}" FontSize="11.5">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="Jouer" Command="{Binding PlaySelectedSignalCommand}" FontSize="11"/>
+                    <Button Content="Télécharger d'autres…" Command="{Binding OpenSignalCatalogCommand}" FontSize="11"/>
                     <controls:HelpButton HelpTitle="Signaux de test"
-                                         HelpText="Jouent immédiatement un signal d'essai sur la sortie sélectionnée :&#10;&#10;• Bruit blanc : énergie égale par Hz — son « sifflant », sert de test brut.&#10;• Bruit rose : énergie égale par octave — son « équilibré », idéal pour régler le niveau d'écoute.&#10;• Sinus 1 kHz : repère de référence (—14 dBFS).&#10;&#10;Réglez le volume pour un niveau confortable, sans écrêtage, avant toute calibration."/>
+                                         HelpText="Choisissez un signal dans le menu déroulant puis « Jouer » pour l'écouter sur la sortie sélectionnée.&#10;&#10;Générés par l'application : bruits blanc / rose / brun / violet, sinus de 50 Hz à 15 kHz, balayages logarithmiques (le bruit rose est idéal pour régler le niveau d'écoute ; les balayages servent à la calibration).&#10;&#10;« Télécharger d'autres… » ajoute des signaux publiés avec le projet (impulsions, bruit gris, multi-tones, balayage lent…) : ils sont enregistrés localement puis apparaissent dans le même menu, section « Téléchargés ».&#10;&#10;Réglez le volume pour un niveau confortable, sans écrêtage, avant toute calibration."/>
                 </StackPanel>
                 </ScrollViewer>
             </Border>
