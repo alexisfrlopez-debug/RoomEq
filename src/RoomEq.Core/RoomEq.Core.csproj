@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Noyau DSP de RoomEq : filtres biquad, FFT, analyse spectrale, design de correction acoustique.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Calibration\MicLibrary.json" />
+    <InternalsVisibleTo Include="RoomEq.Core.Tests" />
+  </ItemGroup>
+
+</Project>
