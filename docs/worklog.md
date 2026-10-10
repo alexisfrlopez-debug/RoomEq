@@ -282,3 +282,45 @@ Work Log:
 Stage Summary:
 - RoomEq v1.8.1 : quand la fenêtre est étroite, la barre supérieure (dont les boutons Bruit blanc / Bruit rose / Sinus 1k), la barre de contrôle de l'Analyseur et la barre de routage du Mixage DÉFILENT horizontalement — plus aucun bouton inatteignable ; barre supérieure allégée pour tenir sans défilement sur écran 1920 px ; défilement vertical du Mixage (1.8.0) conservé.
 - 173/173 tests verts ; livrables download/RoomEq-1.8.1-win-x64-test.zip, RoomEq-1.8.1-win-x64-public.zip, RoomEq-1.8.1-source.zip ; docs à jour.
+
+---
+Task ID: 13
+Agent: Super Z (principal)
+Task: Publier le projet sur GitHub (demande utilisateur : « mettre ce projet sur github », avec le dossier « connexions » fourni par Drive).
+
+Work Log:
+- Restauration complète depuis le Drive (150 fichiers via manifeste 1ZADiHl…) dans une sandbox vierge ; identifiants OAuth placés dans secrets/. Les scripts data/scripts/ restaurés étaient des pages HTML d'avertissement virus-scan → re-téléchargement avec confirm=t (scripts/fix_restore_scripts.py) : 17/17 OK.
+- Identification du token GitHub fourni (token_git.txt) : compte alexisfrlopez-debug, 1 repo existant (AutoStarDroid).
+- Choix utilisateur : repo PUBLIC « RoomEq », code source + docs internes + scripts data, identité git = login GitHub noreply, commits par étape, .gitignore renforcé.
+- Audit anti-fuite : source RoomEq propre (aucun ID Drive/email/secret) ; en revanche INSTRUCTIONS-REPRISE.md, worklog.md et 5 scripts contiennent l'ID racine Drive, l'ID du fichier token OAuth (lien de téléchargement direct !), l'email du compte, le nom du projet GCP — data/scripts/telemetrie.json contient client_secret + refresh_token réels.
+- Sanitisation (scripts/assemble_github_repo.py (outil interne, non publié)) : 8 IDs Drive → placeholders __ID_*__, email → proprietaire@example.com, projet-gcp-prive → projet-gcp-prive, oauth_token_relais → oauth_token_relais.json, telemetrie.json EXCLU et remplacé par telemetrie.json.example (placeholders). Passe de vérification : zéro fuite (IDs, regex ID Drive, secrets réels).
+- Dépôt assemblé dans workspace/roomq-github/RoomEq : sources + docs/ (2 fichiers sanit.) + scripts/ (16 sanit. + 1 exemple) + .gitignore renforcé (secrets, build, journaux) + .gitattributes.
+- 8 commits par étape (chore init / core / audio / app / test / docs / docs interne / scripts), auteur alexisfrlopez-debug <alexisfrlopez-debug@users.noreply.github.com>.
+- Repo créé via API (public, description FR, has_issues) ; push main + tag v1.8.1 OK ; topics ajoutés (audio, equalizer, room-correction, dotnet, avalonia, naudio, wasapi, asio, windows, dsp, xunit).
+- Vérification finale sur le distant : 127 blobs (src 85, tests 17, scripts 17, docs 2, racine 6) ; scan raw.githubusercontent des fichiers sensibles : propre ; telemetrie.json réel absent (404).
+- INSTRUCTIONS-REPRISE.md mis à jour (§0 ligne GitHub, §7 protocole de publication) pour la continuité des sessions.
+
+Stage Summary:
+- https://github.com/alexisfrlopez-debug/RoomEq — dépôt PUBLIC v1.8.1 (tag v1.8.1), 8 commits, 127 fichiers, aucun secret ni ID réel.
+- Pipeline de publication réutilisable : scripts/assemble_github_repo.py (outil interne, non publié) (sanitisation + anti-fuite) → commits → tag → push ; documenté dans INSTRUCTIONS-REPRISE.md §7.
+- Le dossier Drive « connexions » (tokens) reste volontairement HORS du dépôt ; rappel sécurité : les credentials OAuth sont toujours lisibles par lien dans data/ sur le Drive (cf. §6) — à déplacer vers un dossier privé.
+
+Correction (même session, Task 13) :
+- Incident : le premier drive_backup.py (mode MIROIR data/) a supprimé 16 fichiers de data/scripts/ sur le Drive — les scripts restaurés étaient dans data/scripts/ local au lieu de scripts/ (convention). Fichiers sains conservés en local (re-téléchargés confirm=t).
+- Correctif : copie data/scripts/* → scripts/ (17 fichiers réels, telemetrie.json inclus conformément à la convention) + relance : 16 re-uploads, --dry-run stable (0 diff), --verify 153/153 OK. Les IDs documentés au §3 (drive_backup.py, manifeste) sont préservés (mise à jour en place) ; les 16 fichiers recréés ont de nouveaux IDs non référencés au §3.
+
+---
+Task ID: 14
+Agent: Super Z (principal)
+Task: Licence du projet (demande utilisateur) + perspective Windows Store / monétisation.
+
+Work Log:
+- Dépendances auditées : Avalonia 11.3.2, Avalonia.Desktop, Avalonia.Themes.Fluent, CommunityToolkit.Mvvm 8.4.0, NAudio 2.2.1 (toutes MIT) ; tests : Microsoft.NET.Test.Sdk 17.11.1 (MIT), xunit 2.9.2 + runner 2.8.2 (Apache 2.0) — aucune contrainte sur la licence du projet.
+- Choix initial utilisateur : propriétaire source-visible (PolyForm envisagé, option « Propriétaire » retenue) + guide de distribution ; LICENSE bilingue FR/EN rédigée, THIRD_PARTY_NOTICES.md, docs/DISTRIBUTION.md (MSIX/runFullTrust/Partner Center, vente directe, winget, portages, légal FR), README section 12 « Licence et distribution ».
+- Changement d'avis utilisateur : licence MIT POUR la monétisation → LICENSE réécrite en MIT standard (copyright (c) 2026 Alexis Lopez), README/DISTRIBUTION.md alignés (monétisation par la commodité : Store signé, mises à jour, support ; modèles achat unique / gratuit+Pro / dons). Zéro référence propriétaire résiduelle (rg vérifié).
+- Assembly script (scripts/assemble_github_repo.py (outil interne, non publié)) étendu : LICENSE + THIRD_PARTY_NOTICES.md copiés, docs/DISTRIBUTION.md maintenu dans l'arbre source et copié non sanatisé ; arbre source synchronisé (LICENSE, THIRD_PARTY_NOTICES.md, README.md, docs/DISTRIBUTION.md).
+- 2 commits poussés sur main (c178db3 legal, b82f789 docs) ; GitHub détecte « MIT License » ; fichiers distants vérifiés (HTTP 200).
+
+Stage Summary:
+- Repo sous licence MIT (badge/section GitHub OK) + THIRD_PARTY_NOTICES.md complet + docs/DISTRIBUTION.md (feuille de route Store/vente directe/winget/portages).
+- La monétisation MIT repose sur la commodité (Store, mises à jour auto, support) — documentée dans DISTRIBUTION.md ; prochaine étape concrète possible : Releases GitHub + winget, puis packaging MSIX.

@@ -18,6 +18,7 @@
 | **Source locale** | `/home/z/my-project/workspace/roomq-source/RoomEq` |
 | **SDK .NET** | `/home/z/.dotnet` → `export PATH="$HOME/.dotnet:$PATH"` (8.0.425) |
 | **Tests** | 173/173 verts (108 Core + 65 Audio) |
+| **GitHub** | https://github.com/alexisfrlopez-debug/RoomEq — dépôt PUBLIC sanitisé (v1.8.1, tag `v1.8.1`) : docs internes et scripts avec placeholders `__ID_*__`, aucune donnée personnelle. Re-sanitiser via `scripts/assemble_github_repo.py (outil interne, non publié)` avant tout nouveau push. **Relève à chaque session** : issues/PR/commentaires (§7bis, `scripts/github_releve.py`). Licence MIT. |
 | **Drive** | Racine : https://drive.google.com/drive/folders/__ID_RACINE_DRIVE__ |
 | **Règle d'or** | Fin de session = append au `worklog.md` **puis** `python3 scripts/drive_backup.py` |
 
@@ -44,9 +45,12 @@
    dotnet test tests/RoomEq.Core.Tests     # 108 tests
    dotnet test tests/RoomEq.Audio.Tests    # 65 tests
    ```
-5. **Clarifier la demande du jour avec l'utilisateur** si elle est ambiguë, sinon
+5. **Relève GitHub (§7bis)** — issues / pull requests / commentaires reçus
+   depuis la dernière session : `python3 scripts/github_releve.py` puis
+   traiter selon le protocole §7bis.4 (aussi refaire en fin de session).
+6. **Clarifier la demande du jour avec l'utilisateur** si elle est ambiguë, sinon
    exécuter la tâche demandée.
-6. **En fin de session (obligatoire)** : append au worklog + sauvegarde incrémentielle (§5).
+7. **En fin de session (obligatoire)** : append au worklog + sauvegarde incrémentielle (§5).
 
 ---
 
@@ -432,6 +436,10 @@ python3 scripts/drive_backup.py --restore /home/z/my-project --manifest-id __MAN
 curl -sL 'https://drive.usercontent.google.com/download?id=__ID_FICHIER_TOKEN_OAUTH__&export=download' \
      -o secrets/oauth_token_relais.json
 
+# 3bis) Token GitHub (relève §7bis + push du dépôt public) — dossier Drive « connexions »
+curl -sL 'https://drive.usercontent.google.com/download?id=__ID_FICHIER_TOKEN_GIT__&export=download' \
+     -o secrets/token_git.txt
+
 # 4) Installer le SDK .NET 8 s'il manque (voir §1.3), puis build + tests (§1.4).
 ```
 
@@ -523,8 +531,85 @@ python3 /home/z/my-project/scripts/drive_backup.py --verify     # re-télécharg
 - **Tests** : tout jalon de code doit finir avec `dotnet test` vert avant livraison.
 - **Génération de code** : scripts persistés sous `/home/z/my-project/scripts/`
   (jamais de code long en ligne de commande).
+- **Publication GitHub** : le dépôt public `alexisfrlopez-debug/RoomEq` reçoit les
+  versions (tag = version de `Directory.Build.props`). Protocole : relancer
+  `python3 scripts/assemble_github_repo.py (outil interne, non publié)` (reconstruit `workspace/roomq-github/RoomEq`
+  depuis les sources + sanatisation : IDs → `__ID_*__`, email, secrets de
+  télémétrie →
+  `.example`), vérifier la passe anti-fuite, puis commits + tag + push. JAMAIS
+  d'identifiants, d'IDs Drive réels, d'email ou de `telemetrie.json` réel dans le dépôt.
 - **Pièges XAML Avalonia** : pas de virgule dans un `StringFormat` (casse le parseur) ;
   `WrapPanel` n'a pas de `Spacing` en Avalonia 11.
+
+---
+
+## 7 bis. Relève et traitement GitHub (dépôt public)
+
+Le dépôt GitHub reçoit du public : **issues**, **pull requests**, commentaires
+(et, de façon non actionnable : étoiles, forks, téléchargements de Releases).
+Le tout est relevé **à chaque session** et traité selon le protocole ci-dessous.
+
+### 7bis.1 Quand
+
+- **Début de session** (après build/tests verts de l'étape 4, avant de coder) :
+  relève complète → `python3 scripts/github_releve.py` (état « dernière relève »
+  persisté dans `scripts/github_releve_state.json`, synchronisé par la
+  sauvegarde Drive — d'où une continuité entre les sessions).
+- **Fin de session** : nouvelle relève rapide pour répondre à ce qui est arrivé
+  pendant la session, puis append au worklog.
+
+### 7bis.2 Authentification
+
+- Token GitHub : fichier `token_git.txt` du dossier Drive « connexions »
+  (ID `__ID_DOSSIER_CONNEXIONS__`) → copier en local :
+  `secrets/token_git.txt` (hors sauvegarde, hors repo, JAMAIS dans un
+  message/issue/push). À ajouter au bootstrap §4 dans une nouvelle sandbox.
+- API REST v3 en `curl` (pas de `gh` CLI) :
+  `curl -s -H "Authorization: Bearer $(cat secrets/token_git.txt)" https://api.github.com/repos/alexisfrlopez-debug/RoomEq/issues?state=open`
+- Outil prêt à l'emploi : `scripts/github_releve.py` (`--since` pour forcer une
+  date, `--all` pour tout, `--no-save`) — rapport : issues ouvertes, PR
+  ouvertes, nouveaux commentaires, issues fermées récemment, étoiles/forks.
+
+### 7bis.3 Ce qui est relevé
+
+| Élément | Source | Action attendue |
+|---|---|---|
+| Issues ouvertes | `GET /repos/…/issues?state=open` (hors PR) | Classifier puis traiter (7bis.4) |
+| Nouveaux commentaires | paramètre `since` de la dernière relève | Répondre |
+| Pull requests | `GET /repos/…/pulls?state=open` | Review (7bis.4.5) |
+| Issues fermées récemment | `state=closed&since=…` | Vérifier que la réponse est partie |
+| Étoiles/forks/Releases | info | Note au worklog si jalon |
+
+### 7bis.4 Protocole de traitement (par élément)
+
+1. **Classifier** : `bug` / `amélioration` / `question` / `spam-hors-sujet`
+   (étiquettes créées au besoin via l'API).
+2. **Bug** : reproduire (préciser la version), corriger avec test xUnit vert
+   (règle §7 « Tests »), commit `fix: … (fixes #N)` → fermeture automatique ;
+   livrable + Drive si jalon de version ; PUIS répondre sur l'issue.
+3. **Amélioration** : petite et claire → implémenter (même cycle qu'un bug) ;
+   sinon l'ajouter au §9 (pistes) avec le lien de l'issue et répondre que
+   c'est noté. Périmètre/stratégie ambigu → en discuter avec l'utilisateur
+   AVANT de s'engager publiquement.
+4. **Question** : répondre en français, courtois, précis ; renvoyer vers le
+   README/DISTRIBUTION.md quand la réponse y figure.
+5. **Pull request** : remercier systématiquement ; vérifier tests verts +
+   aucun secret + style du projet ; fusionner seulement si conforme.
+   Sous MIT, une contribution fusionnée est couverte par la licence du projet.
+6. **Spam / hors-sujet** : fermer avec une phrase neutre, sans engagement.
+7. **Répondre AVANT de fermer** une issue ; jamais de délai ferme annoncé ;
+   jamais de secret/ID réel/token dans une réponse publique.
+8. **Traçabilité** : append au worklog (Task « relève GitHub ») — items
+   relevés, actions, réponses, issues fermées.
+
+### 7bis.5 Hygiène du dépôt
+
+- Le repo public reste la copie SANITISÉE : après TOUT changement des docs
+  internes ou scripts, re-passer `scripts/assemble_github_repo.py (outil interne, non publié)` puis
+  commit/push — jamais de modification directe dans
+  `workspace/roomq-github/RoomEq` sans synchroniser l'arbre source.
+- Tag git = version de `Directory.Build.props` ; Releases = zips de
+  `download/` (futur).
 
 ---
 
