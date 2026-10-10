@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:RoomEq.App.Controls"
+             xmlns:views="clr-namespace:RoomEq.App.Views"
+             x:Class="RoomEq.App.Views.AnalyzerTab">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- 1.8.1 : défilement horizontal de la barre de contrôle — sur une fenêtre
+             étroite, tous les réglages (source, micro, FFT) restent accessibles -->
+        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="Source" VerticalAlignment="Center" Foreground="#8B93A7" FontSize="11"/>
+            <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode}" Width="120" MinHeight="30"/>
+            <controls:HelpButton HelpTitle="Analyseur temps réel"
+                                 HelpText="Affiche le spectre en temps réel, en bandes 1/6 d'octave :&#10;&#10;• Source « Sortie » : signal dérivé APRÈS l'égaliseur (ce que RoomEq envoie réellement).&#10;• Source « Micro » : capture continue du micro choisi — montre la pièce.&#10;• « Compenser le profil micro » : retire la réponse du micro pour une lecture fidèle.&#10;• FFT : taille de fenêtre — grande = meilleure résolution des graves, réaction plus lente.&#10;&#10;Utilisation type : lancez un bruit rose (barre du haut) et comparez la courbe avant/après activation de l'égaliseur."/>
+            <ComboBox ItemsSource="{Binding MicDevices}" SelectedItem="{Binding SelectedMic}"
+                      Width="260" IsEnabled="{Binding MicModeActive}" MinHeight="30">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding DisplayName}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Content="{Binding MicRunning, Converter={x:Static views:AnalyzerTab.StartStop}}"
+                    Command="{Binding ToggleMicCommand}"/>
+            <CheckBox Content="Compenser le profil micro" IsChecked="{Binding ApplyMicCompensation}"
+                      VerticalAlignment="Center" IsEnabled="{Binding MicModeActive}"/>
+            <TextBlock Text="FFT" VerticalAlignment="Center" Foreground="#8B93A7" FontSize="11" Margin="10,0,0,0"/>
+            <ComboBox ItemsSource="{Binding FftSizes}" SelectedItem="{Binding FftSize}" Width="90" MinHeight="30"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="1" Background="#181B23" CornerRadius="6"
+                BorderBrush="#2A2F3A" BorderThickness="1" ClipToBounds="True">
+            <controls:PlotControl x:Name="Plot"/>
+        </Border>
+
+        <TextBlock Grid.Row="2" Text="{Binding Info}" Foreground="#8B93A7" Margin="0,6,0,0" FontSize="11"/>
+    </Grid>
+</UserControl>

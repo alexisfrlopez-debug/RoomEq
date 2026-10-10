@@ -1,0 +1,176 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:RoomEq.App.Controls"
+             x:Class="RoomEq.App.Views.CalibrationTab">
+
+    <Grid ColumnDefinitions="320,*">
+
+        <!-- Panneau de conduite de la mesure -->
+        <ScrollViewer Grid.Column="0" Margin="0,0,8,0">
+            <StackPanel Spacing="9">
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="1 · Sortie et niveau" Classes="h3" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Sortie et niveau"
+                                         HelpText="Le signal de test est joué sur la sortie sélectionnée dans la barre du haut (bypass automatique de l'égaliseur pendant la mesure : on mesure la pièce, pas la correction).&#10;&#10;Niveau conseillé : 0,20 (environ −14 dBFS). Assez fort pour dominer le bruit de fond, sans jamais écrêter : baissez d'abord le volume, montez jusqu'à un niveau d'écoute normal-fort."/>
+
+                </StackPanel>
+                <TextBlock Classes="muted"
+                           Text="Le bruit blanc est joué sur la sortie sélectionnée dans la barre du haut. Réglez le volume pour un niveau d'écoute normal (sans écrêtage)."/>
+                <TextBlock Text="Niveau du bruit de test" Foreground="#8B93A7" FontSize="11"/>
+                <Slider Minimum="0.05" Maximum="0.5" Value="{Binding TestLevel}"/>
+                <TextBlock Text="{Binding TestLevel, StringFormat=Amplitude : {0:0.00} (-14 à -6 dBFS)}"
+                           Foreground="#8B93A7" FontSize="11"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="2 · Micro de mesure" Classes="h3" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Micro de mesure"
+                                         HelpText="Choisissez votre micro PHYSIQUE : les cartes virtuelles (CABLE Output, VoiceMeeter…) ne captent pas la pièce, la mesure échouerait (détection de capture muette).&#10;&#10;Canal : si le micro expose plusieurs canaux et que l'un est muet ou parasite, forcez « Canal 1 seul (mono) » — le mixage stéréo diluerait alors le signal.&#10;&#10;Profil micro : si la réponse de votre micro est connue (onglet Micro), elle est retirée de la mesure — indispensable pour une correction juste dans les aigus."/>
+                </StackPanel>
+                <ComboBox ItemsSource="{Binding MicDevices}" SelectedItem="{Binding SelectedMicDevice}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayName}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Content="Rechercher les micros" Command="{Binding RefreshMicsCommand}" FontSize="11"/>
+                <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap"
+                           Text="Important : choisissez votre micro PHYSIQUE. Les cartes virtuelles (CABLE Output, VoiceMeeter…) ne captent pas la pièce — la mesure échouerait."/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasChannelChoice}">
+                    <TextBlock Text="Canal du micro" Foreground="#8B93A7" FontSize="11" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Canal du micro (mono)"
+                                         HelpText="Un micro multi-canaux expose parfois des canaux muets ou de qualité inégale.&#10;&#10;• Mixage stéréo : moyenne des canaux 1 et 2 (défaut).&#10;• Canal N seul (mono) : capture UNIQUEMENT ce canal — indispensable si l'autre voie est muette (le mixage diviserait le niveau par deux et fausserait l'analyse)."/>
+                </StackPanel>
+                <ComboBox ItemsSource="{Binding CaptureChannels}" SelectedItem="{Binding SelectedCaptureChannel}"
+                          HorizontalAlignment="Stretch" IsVisible="{Binding HasChannelChoice}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Label}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <CheckBox Content="Utiliser le profil micro (correction de la réponse du micro)"
+                          IsChecked="{Binding UseMicProfile}" IsEnabled="{Binding HasMicProfile}"/>
+                <TextBlock Classes="muted"
+                           Text="Importez le profil dans l'onglet Micro. Sans profil, le micro est supposé linéaire."/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="3 · Signaux de mesure" Classes="h3" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Signaux de mesure"
+                                         HelpText="Mode multi-signaux : chaque signal coché est mesuré tour à tour (bruits + balayage progressif), puis les courbes sont croisées par médiane — les fréquences peu fiables (résonances variables, bruit) sont neutralisées.&#10;&#10;• Bruit blanc/rose/brun/violet : vues globales complémentaires du spectre.&#10;• Balayage progressif 20 Hz → 20 kHz : une passe continue qui étalonne TOUT le spectre (déconvolution de Farina).&#10;&#10;Le nombre de bandes, leurs fréquences et leurs largeurs sont ensuite placés AUTOMATIQUEMENT, sans aucun doublon."/>
+                </StackPanel>
+                <CheckBox Content="Mesure multi-signaux (précision maximale)"
+                          IsChecked="{Binding MultiSignal}"
+                          ToolTip.Tip="Mesure chaque signal tour à tour, croise les résultats (médiane robuste) et place automatiquement le nombre de bandes, leurs fréquences et leurs largeurs."/>
+                <TextBlock Classes="muted"
+                           Text="Tous les bruits et le balayage sinusoïdal (montée progressive 20 Hz → 20 kHz) sont mesurés successivement ; le croisement des résultats donne une courbe robuste et le plan d'égalisation est optimisé automatiquement, sans doublon de bandes."/>
+
+                <ItemsControl ItemsSource="{Binding SignalOptions}" Margin="0,2,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#20242E" CornerRadius="4" Padding="7,4" Margin="0,2">
+                                <StackPanel>
+                                    <CheckBox IsChecked="{Binding IsSelected}"
+                                              Content="{Binding Name}" FontWeight="Bold" FontSize="11"/>
+                                    <TextBlock Text="{Binding Description}" Classes="muted" FontSize="10"
+                                               TextWrapping="Wrap" Margin="20,1,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="4 · Intégration et cible" Classes="h3" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Intégration et cible"
+                                         HelpText="• Durée par signal : plus longue = moyenne plus stable (8 s suffisent dans une pièce calme).&#10;• Balayage : lent = précis dans les graves ; rapide = mesure courte.&#10;• Courbe cible : la forme recherchée après correction (plate = neutre ; shelf de graves pour redonner du corps ; studio pour un léger voile descendant).&#10;• Boost/coupe max : garde-fous de sécurité — les boosts excessifs sont impossibles (excursions des haut-parleurs), les coupes fortes sont permises (résorber une résonance)."/>
+                </StackPanel>
+                <TextBlock Text="Durée par signal (secondes)" Foreground="#8B93A7" FontSize="11"/>
+                <Slider Minimum="8" Maximum="20" Value="{Binding Duration}"/>
+                <TextBlock Text="{Binding Duration, StringFormat={}{0:0} s par signal}" Foreground="#8B93A7" FontSize="11"/>
+                <TextBlock Text="{Binding SweepSeconds, StringFormat=Balayage progressif : {0:0} s — 20 Hz → 20 kHz}" Foreground="#8B93A7" FontSize="11"/>
+                <Slider Minimum="6" Maximum="20" Value="{Binding SweepSeconds}"/>
+                <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap"
+                           Text="Balayage lent = meilleure précision dans les graves (plus de temps par octave) ; balayage rapide = mesure plus courte."/>
+                <TextBlock Text="{Binding PlanSummary, StringFormat=Plan : {0}}" Foreground="#22D3EE" FontSize="11" TextWrapping="Wrap"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Courbe cible" Foreground="#8B93A7" FontSize="11" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Courbe cible"
+                                         HelpText="La correction ne vise pas le « plat absolu » mais la courbe choisie :&#10;&#10;• Plate (neutre) : réponse linéaire, référence pour l'écoute critique.&#10;• Plate + shelf de graves : relève doucement les basses (écoute grand public).&#10;• Studio (pente -1 dB/oct) : pente descendante douce, conforme aux rooms de monitoring."/>
+                </StackPanel>
+                <ComboBox ItemsSource="{Binding TargetOptions}" SelectedItem="{Binding SelectedTarget}" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Label}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <StackPanel Grid.Column="0" Spacing="2">
+                        <TextBlock Text="Boost max (dB)" Foreground="#8B93A7" FontSize="11"/>
+                        <NumericUpDown Value="{Binding MaxBoost}" Minimum="0" Maximum="12"
+                                       Increment="1" FormatString="0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock Text="Coupe max (dB)" Foreground="#8B93A7" FontSize="11"/>
+                        <NumericUpDown Value="{Binding MaxCut}" Minimum="3" Maximum="18"
+                                       Increment="1" FormatString="0"/>
+                    </StackPanel>
+                </Grid>
+
+                <Button Content="Démarrer la calibration" Classes="accent"
+                        Command="{Binding StartCommand}" IsEnabled="{Binding !IsMeasuring}" Margin="0,6,0,0"/>
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                    <Button Grid.Column="0" Content="Annuler la mesure" Command="{Binding CancelCommand}"
+                            IsEnabled="{Binding IsMeasuring}"
+                            ToolTip.Tip="Interrompt la mesure en cours (aucun résultat n'est conservé)."/>
+                    <Button Grid.Column="1" Content="Réinitialiser la courbe" Command="{Binding ResetCurveCommand}"
+                            IsEnabled="{Binding HasResult}"
+                            ToolTip.Tip="Vide le graphe et efface le résultat avant de relancer un test. Une mesure en cours est annulée."/>
+                </Grid>
+                <Button Content="Enregistrer le preset de calibration" Command="{Binding SavePresetCommand}"
+                        IsEnabled="{Binding HasResult}" FontSize="11"
+                        ToolTip.Tip="Enregistre le preset généré dans la bibliothèque (onglet Égaliseur → liste des presets) sans quitter cet onglet."/>
+
+                <ProgressBar Minimum="0" Maximum="1" Value="{Binding Progress}"/>
+                <TextBlock Text="{Binding Phase}" Classes="muted" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding ErrorStatus}" Foreground="#F87171" FontSize="12" FontWeight="SemiBold"
+                           TextWrapping="Wrap" IsVisible="{Binding ErrorStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                <TextBlock Text="{Binding ResultSummary}" Foreground="#4ADE80" FontSize="11" TextWrapping="Wrap"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Procédure recommandée" Classes="h3" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Procédure recommandée"
+                                         HelpText="Résumé des 6 étapes : préparer la pièce, placer le micro à la position d'écoute, lancer la mesure multi-signaux, vérifier le résultat, réinitialiser avant de refaire, importer la courbe dans l'Égaliseur avec la précision choisie. Voir le détail ci-dessous."/>
+                </StackPanel>
+                <TextBlock Classes="muted"
+                           Text="1. Fermez fenêtres et portes, coupez la ventilation.&#10;2. Placez le micro à la position d'écoute, sur pied, à hauteur d'oreille, orienté vers le plafond (micro de mesure).&#10;3. Lancez la calibration : chaque signal sélectionné est mesuré tour à tour (bruit blanc, rose, brun, violet, puis balayage progressif 20 Hz → 20 kHz).&#10;4. Les mesures sont croisées (médiane) et le preset optimal — bandes sans doublon, fréquences, largeurs — est généré et appliqué automatiquement.&#10;5. « Réinitialiser la courbe » vide le graphe avant une nouvelle mesure.&#10;6. Dans l'onglet Égaliseur, « Importer la courbe de calibration » régénère les bandes depuis la courbe affichée ici, avec la précision choisie."/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Journal de diagnostic" Classes="h3" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Journal de diagnostic et télémétrie"
+                                         HelpText="Toutes les étapes de la calibration sont tracées dans un fichier par jour (chemin affiché ci-dessous).&#10;&#10;Cette version de test envoie automatiquement le journal vers le Drive de développement (à la fermeture puis toutes les 5 minutes) : en cas de problème, le diagnostic est fait à distance — aucun fichier à joindre manuellement.&#10;« Envoyer maintenant » force un envoi immédiat."/>
+                </StackPanel>
+                <TextBlock Text="{Binding LogPathDisplay}" Classes="muted" FontSize="10" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding TelemetryText}" FontSize="10" TextWrapping="Wrap"
+                           Foreground="#8B93A7"/>
+                <Button Content="Envoyer maintenant" Command="{Binding SendLogsNowCommand}" FontSize="11"
+                        IsVisible="{Binding TelemetryEnabled}"
+                        ToolTip.Tip="Téléverse immédiatement les journaux du jour et d'hier vers le dossier Drive de développement."/>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Graphe de résultat -->
+        <Border Grid.Column="1" Background="#181B23" CornerRadius="6"
+                BorderBrush="#2A2F3A" BorderThickness="1" ClipToBounds="True">
+            <controls:PlotControl x:Name="Plot"/>
+        </Border>
+    </Grid>
+</UserControl>

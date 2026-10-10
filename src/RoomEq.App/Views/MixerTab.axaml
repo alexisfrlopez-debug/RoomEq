@@ -1,0 +1,409 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:RoomEq.App.Controls"
+             x:Class="RoomEq.App.Views.MixerTab">
+
+    <UserControl.Styles>
+        <!-- statut de routage coloré -->
+        <Style Selector="TextBlock.active">
+            <Setter Property="Foreground" Value="#4ADE80"/>
+        </Style>
+        <!-- tranche sélectionnée -->
+        <Style Selector="Border.strip.selected">
+            <Setter Property="BorderBrush" Value="#FF9F1C"/>
+            <Setter Property="BorderThickness" Value="1.4"/>
+        </Style>
+        <!-- commutateurs de tranche -->
+        <Style Selector="ToggleButton.mute:checked /template/ ContentPresenter">
+            <Setter Property="Background" Value="#F0533F"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="ToggleButton.solo:checked /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFC53D"/>
+            <Setter Property="Foreground" Value="#12141A"/>
+        </Style>
+        <Style Selector="ToggleButton.ms">
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="Padding" Value="4,1"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="Button.mini">
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="Padding" Value="4,1"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+        <Style Selector="Slider.fader">
+            <Setter Property="Width" Value="34"/>
+        </Style>
+        <!-- espacement des éléments de la barre à retour (WrapPanel sans Spacing) -->
+        <Style Selector="WrapPanel > TextBlock">
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <Style Selector="WrapPanel > Button">
+            <Setter Property="Margin" Value="0,0,8,4"/>
+        </Style>
+        <Style Selector="WrapPanel > CheckBox">
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- ═══ Barre de routage Windows → EQ ═══ -->
+        <Border Grid.Row="0" Background="#1A1D26" CornerRadius="6" Padding="10,8"
+                BorderBrush="#2A2F3A" BorderThickness="1" Margin="0,0,0,6">
+            <StackPanel Orientation="Vertical" Spacing="6">
+                <!-- 1.8.1 : défilement horizontal de la barre de routage — tous les
+                     réglages restent accessibles même sur une fenêtre étroite -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding RoutingStatusText}" FontWeight="Bold"
+                               VerticalAlignment="Center" Classes.active="{Binding IsRunning}"/>
+                    <controls:HelpButton HelpTitle="Routage du son Windows"
+                                         HelpText="Chaîne complète : Windows joue dans la carte virtuelle → RoomEq capte sa sortie → égaliseur → rendu sur la sortie physique choisie (en haut à droite du MASTER).&#10;&#10;Au démarrage, les périphériques par défaut de Windows sont basculés vers la carte virtuelle (et l'entrée si l'option est cochée) ; à l'arrêt, les défauts d'origine sont restaurés.&#10;&#10;Le fader MASTER règle le niveau interne de RoomEq — le VOLUME FINAL des enceintes se règle avec Ctrl+Alt+↑ / ↓ (voir « Volume carte physique »)."/>
+                    <Button Classes="accent" Content="Router Windows vers l'EQ"
+                            Command="{Binding ToggleRoutingCommand}"
+                            IsVisible="{Binding !IsRunning}"/>
+                    <Button Content="■ Arrêter le routage" Command="{Binding ToggleRoutingCommand}"
+                            IsVisible="{Binding IsRunning}"/>
+                    <CheckBox Content="Auto au lancement" IsChecked="{Binding AutoStart}"
+                              VerticalAlignment="Center" FontSize="11"
+                              ToolTip.Tip="Démarre le routage automatiquement à l'ouverture de RoomEq"/>
+                    <CheckBox Content="Router dès l'installation" IsChecked="{Binding AutoRouteOnInstall}"
+                              VerticalAlignment="Center" FontSize="11"
+                              ToolTip.Tip="Après une installation réussie : Windows bascule automatiquement vers la carte virtuelle (sortie par défaut), la piste câble est ajoutée et le routage démarre"/>
+
+                    <Separator Width="1" Height="24" Background="#2A2F3A" Margin="4,0"/>
+
+                    <TextBlock Text="Carte virtuelle :" VerticalAlignment="Center" FontSize="11"
+                               Foreground="#8B93A7"/>
+                    <ComboBox ItemsSource="{Binding VirtualProviders}"
+                              SelectedItem="{Binding SelectedProvider}"
+                              MinWidth="190" FontSize="11" MinHeight="26"
+                              ToolTip.Tip="{Binding SelectedProvider.Description}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}" FontSize="11"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <controls:HelpButton HelpTitle="Protocoles de carte virtuelle"
+                                         HelpText="Le protocole choisit l'infrastructure qui fait passer le son Windows dans RoomEq :&#10;&#10;• Boucle WASAPI native : rien à installer, fonctionne partout (léger décalage possible).&#10;• VB-CABLE : paire d'entrée/sortie virtuelle fiable, recommandée.&#10;• VoiceMeeter : console virtuelle complète (plus d'entrées, plus de réglages).&#10;• Virtual Audio Cable (VAC) : alternative payante.&#10;&#10;« Installer automatiquement » télécharge depuis le site officiel et lance l'installateur (acceptez l'invite administrateur)."/>
+                    <Button Content="⟳" FontSize="11" MinWidth="30" Command="{Binding RefreshDevicesCommand}"
+                            ToolTip.Tip="Rafraîchir périphériques et carte virtuelle"/>
+                </StackPanel>
+                </ScrollViewer>
+
+                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding VirtualStatusText}" VerticalAlignment="Center"
+                               FontSize="11" Foreground="#8B93A7" MaxWidth="440"
+                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+
+                    <Button Content="Installer automatiquement…" FontSize="11"
+                            Command="{Binding InstallVirtualCardCommand}"
+                            IsVisible="{Binding CanAutoInstall}"
+                            IsEnabled="{Binding !IsInstalling}"
+                            ToolTip.Tip="Télécharge la version courante depuis le site officiel (découverte automatique), vérifie, extrait et lance l'installateur (invite UAC si nécessaire), puis détecte l'arrivée des nouveaux périphériques et bascule Windows dessus."/>
+                    <Button Content="Page du produit…" FontSize="11"
+                            Command="{Binding OpenProductPageCommand}"
+                            IsVisible="{Binding HasProductPage}"/>
+                    <Button Content="Définir par défaut" FontSize="11"
+                            Command="{Binding SetVirtualDefaultCommand}"
+                            IsEnabled="{Binding VirtualCard.CableInputFound}"
+                            ToolTip.Tip="Définit l'entrée de la carte virtuelle comme sortie par défaut de Windows : tout le son passe alors par RoomEq"/>
+                    <Button Content="Panneau son" FontSize="11" Command="{Binding OpenSoundPanelCommand}"/>
+                    <controls:HelpButton HelpTitle="Installation et bascule"
+                                         HelpText="• Installer automatiquement : téléchargement officiel + installateur (invite administrateur) + détection des nouveaux périphériques.&#10;• Définir par défaut : place l'entrée de la carte virtuelle comme sortie par défaut de Windows (tout le son passe alors par RoomEq, même sans routage actif).&#10;• Entrée par défaut → carte virtuelle : les autres applications voient un « micro virtuel » qui reçoit ce que Windows joue.&#10;• Panneau son : ouvre mmsys.cpl pour les réglages manuels."/>
+                    <CheckBox Content="Entrée par défaut → carte virtuelle" IsChecked="{Binding SwitchDefaultCapture}"
+                              VerticalAlignment="Center" FontSize="11"
+                              ToolTip.Tip="Pendant le routage : l'entrée par défaut de Windows devient la sortie de la carte virtuelle (micro virtuel pour les autres applications). Restaurée automatiquement à l'arrêt."/>
+                </WrapPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsInstalling}">
+                    <ProgressBar Width="220" Height="10" VerticalAlignment="Center"
+                                 IsIndeterminate="{Binding InstallIndeterminate}"
+                                 Minimum="0" Maximum="100" Value="{Binding InstallPercent}"/>
+                    <TextBlock Text="{Binding InstallPhaseText}" FontSize="10.5"
+                               Foreground="#FFC53D" VerticalAlignment="Center"
+                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+
+                <TextBlock Text="{Binding ProviderLicenseNote}" FontSize="9.5"
+                           Foreground="#6B7385" TextWrapping="Wrap"
+                           IsVisible="{Binding HasLicenseNote}"/>
+
+                <Expander Header="Guide — faire apparaître RoomEq comme carte son de Windows" FontSize="11">
+                    <StackPanel Spacing="4" Margin="4,6,0,2">
+                        <ItemsControl ItemsSource="{Binding SelectedProvider.GuideLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Classes="muted" Text="{Binding}" TextWrapping="Wrap"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Classes="muted" Margin="0,4,0,0"
+                                   Text="Table de mixage : chaque piste = une entrée ou une sortie de Windows (ou une source interne), avec son propre égaliseur (bouton EQ de la tranche), son fader, son pan, Mute/Solo et ses VU."/>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </Border>
+
+        <!-- ═══ Console + éditeur d'EQ de piste ═══ -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,330">
+
+            <!-- Tranches -->
+            <DockPanel Grid.Column="0" LastChildFill="True">
+                <Expander DockPanel.Dock="Bottom" Header="＋ Ajouter une piste (entrées, sorties en boucle, sources internes)"
+                          FontSize="11" Margin="0,6,0,0">
+                    <ScrollViewer MaxHeight="180">
+                        <ItemsControl ItemsSource="{Binding AvailableSources}" Margin="2,4">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding Name}" Margin="0,0,6,6" FontSize="11"
+                                            Command="{Binding $parent[UserControl].DataContext.AddTrackCommand}"
+                                            CommandParameter="{Binding}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Expander>
+
+                <!-- défilement horizontal (tranches) ET vertical : une tranche est
+                     plus haute que la fenêtre — on la fait défiler entièrement -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                        <ItemsControl ItemsSource="{Binding Channels}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Classes="strip" Width="142" Margin="0,0,6,0"
+                                            Background="#20242E" CornerRadius="6" Padding="8,6"
+                                            BorderBrush="#2A2F3A" BorderThickness="1"
+                                            Classes.selected="{Binding IsSelected}">
+                                        <StackPanel Spacing="5">
+                                            <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="11"
+                                                       TextWrapping="Wrap" MaxHeight="30"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Badge}" FontSize="8.5" FontWeight="Bold"
+                                                       Foreground="{Binding BadgeColor}"/>
+
+                                            <controls:VuMeter Height="96"
+                                                              LevelL="{Binding LevelL}"
+                                                              LevelR="{Binding LevelR}"
+                                                              PeakL="{Binding PeakL}"
+                                                              PeakR="{Binding PeakR}"/>
+
+                                            <!-- Panoramique -->
+                                            <Slider Minimum="-1" Maximum="1" Value="{Binding Pan}"
+                                                    TickFrequency="0.5" IsSnapToTickEnabled="False"
+                                                    ToolTip.Tip="Panoramique"/>
+
+                                            <!-- Fader -->
+                                            <Slider Classes="fader" Minimum="0" Maximum="1.5"
+                                                    Value="{Binding Fader}" Orientation="Vertical"
+                                                    Height="150" HorizontalAlignment="Center"
+                                                    ToolTip.Tip="Fader (1,0 = 0 dB)"/>
+                                            <TextBlock Text="{Binding FaderText}" FontSize="10"
+                                                       Foreground="#8B93A7" HorizontalAlignment="Center"/>
+
+                                            <StackPanel Orientation="Horizontal" Spacing="4"
+                                                        HorizontalAlignment="Center">
+                                                <ToggleButton Classes="ms mute" Content="M" IsChecked="{Binding Mute}"
+                                                              ToolTip.Tip="Mute"/>
+                                                <ToggleButton Classes="ms solo" Content="S" IsChecked="{Binding Solo}"
+                                                              ToolTip.Tip="Solo"/>
+                                                <Button Classes="mini" Content="EQ"
+                                                        Command="{Binding $parent[UserControl].DataContext.SelectTrackCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip.Tip="Égaliseur de la piste"/>
+                                                <Button Classes="mini" Content="✕"
+                                                        Command="{Binding $parent[UserControl].DataContext.RemoveTrackCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip.Tip="Retirer la piste"/>
+                                            </StackPanel>
+
+                                            <!-- Lecteur interne -->
+                                            <StackPanel IsVisible="{Binding IsPlayer}" Spacing="3">
+                                                <Button Classes="mini" Content="Ouvrir un fichier…"
+                                                        Click="OnPickChannelFile"
+                                                        IsEnabled="{Binding !HasFile}"/>
+                                                <Button Classes="mini" Content="Éjecter" Click="OnEjectChannelFile"
+                                                        IsEnabled="{Binding HasFile}"/>
+                                            </StackPanel>
+
+                                            <!-- Générateur interne -->
+                                            <StackPanel IsVisible="{Binding IsGenerator}" Spacing="3">
+                                                <ComboBox SelectedItem="{Binding SelectedSignalText}"
+                                                          ItemsSource="{Binding SignalTexts}"
+                                                          FontSize="10" MinHeight="24" Width="118"/>
+                                                <ToggleButton Classes="ms" Content="ON" IsChecked="{Binding GeneratorOn}"
+                                                              HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- ═══ Tranche MASTER ═══ -->
+                        <Border Width="170" Margin="8,0,0,0" Background="#181B23" CornerRadius="6"
+                                Padding="10,8" BorderBrush="#FF9F1C" BorderThickness="1.2">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="MASTER" FontWeight="Bold" FontSize="13"
+                                           Foreground="#FF9F1C" HorizontalAlignment="Center"/>
+                                <ComboBox ItemsSource="{Binding Outputs}"
+                                          SelectedItem="{Binding SelectedOutput}"
+                                          FontSize="10" MinHeight="26">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="10"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <TextBlock Text="{Binding OutputInfoText}" FontSize="9"
+                                           Foreground="#8B93A7" TextWrapping="Wrap" MaxHeight="26"
+                                           TextTrimming="CharacterEllipsis"/>
+
+                                <!-- Volume WINDOWS de la sortie physique (Ctrl+Alt+↑/↓/M) -->
+                                <StackPanel Spacing="3">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="Vol. carte physique" FontSize="9"
+                                                   Foreground="#FF9F1C" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <controls:HelpButton HelpTitle="Volume carte physique"
+                                                             HelpText="Règle le volume WINDOWS de la sortie sélectionnée ci-dessus (enceintes, casque…) — pas celui de la carte virtuelle, qui n'a AUCUN effet sur le niveau perçu.&#10;&#10;Raccourcis clavier (fonctionnent partout) :&#10;• Ctrl+Alt+↑ : +5 %&#10;• Ctrl+Alt+↓ : −5 %&#10;• Ctrl+Alt+M : sourdine&#10;&#10;Le fader MASTER ci-contre règle le niveau interne de RoomEq ; ce curseur règle le niveau système de la carte physique."/>
+                                    </StackPanel>
+                                    <Slider Minimum="0" Maximum="1" Value="{Binding RoutedVolume}"
+                                            IsEnabled="{Binding HasRoutedVolume}"
+                                            ToolTip.Tip="Volume système du périphérique de sortie physique"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                                        <Button Classes="mini" Content="−" Command="{Binding RoutedVolumeDownCommand}"
+                                                IsEnabled="{Binding HasRoutedVolume}" ToolTip.Tip="−5 % (Ctrl+Alt+↓)"/>
+                                        <TextBlock Text="{Binding RoutedVolumeText}" FontSize="10"
+                                                   Foreground="#8B93A7" MinWidth="40" TextAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                        <Button Classes="mini" Content="+" Command="{Binding RoutedVolumeUpCommand}"
+                                                IsEnabled="{Binding HasRoutedVolume}" ToolTip.Tip="+5 % (Ctrl+Alt+↑)"/>
+                                        <Button Classes="mini" Content="M" Command="{Binding ToggleRoutedMuteCommand}"
+                                                IsEnabled="{Binding HasRoutedVolume}" ToolTip.Tip="Sourdine (Ctrl+Alt+M)"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <controls:VuMeter Height="130"
+                                                  LevelL="{Binding MasterDispL}"
+                                                  LevelR="{Binding MasterDispR}"
+                                                  PeakL="{Binding MasterHoldL}"
+                                                  PeakR="{Binding MasterHoldR}"/>
+
+                                <Slider Minimum="0" Maximum="1.5" Value="{Binding MasterFader}"
+                                        Orientation="Vertical" Height="150" Width="40"
+                                        HorizontalAlignment="Center" ToolTip.Tip="Fader master"/>
+                                <TextBlock Text="{Binding MasterFaderText}" FontSize="10"
+                                           Foreground="#8B93A7" HorizontalAlignment="Center"/>
+                                <ToggleButton Classes="ms mute" Content="M" IsChecked="{Binding MasterMute}"
+                                              HorizontalAlignment="Center" ToolTip.Tip="Mute master"/>
+                                <TextBlock Text="EQ principal appliqué" FontSize="9"
+                                           Foreground="#8B93A7" HorizontalAlignment="Center"
+                                           TextWrapping="Wrap" TextAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+
+            <!-- Éditeur d'EQ de la piste sélectionnée -->
+            <Border Grid.Column="1" Margin="8,0,0,0" Background="#181B23" CornerRadius="6"
+                    BorderBrush="#2A2F3A" BorderThickness="1" Padding="10,8">
+                <ScrollViewer>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Égaliseur de piste" Classes="h2"/>
+                        <TextBlock Text="{Binding TrackEq.Title}" FontSize="11" Foreground="#22D3EE"
+                                   TextWrapping="Wrap"/>
+
+                        <Border Background="#141720" CornerRadius="4" Height="150"
+                                ClipToBounds="True">
+                            <controls:PlotControl x:Name="TrackEqPlot" XMin="20" XMax="20000"
+                                                  YMin="-15" YMax="15" TickStepY="3"/>
+                        </Border>
+                        <TextBlock Text="{Binding TrackEq.CurveInfo}" FontSize="10" Foreground="#8B93A7"/>
+
+                        <WrapPanel>
+                            <Button Classes="mini" Content="+ Bande" Margin="0,0,4,4"
+                                    Command="{Binding TrackEq.AddBandCommand}"/>
+                            <Button Classes="mini" Content="Aplatir" Margin="0,0,4,4"
+                                    Command="{Binding TrackEq.FlattenCommand}"/>
+                            <Button Classes="mini" Content="Aucun EQ" Margin="0,0,4,4"
+                                    Command="{Binding TrackEq.ClearAllCommand}"/>
+                            <Button Classes="mini" Content="Coupe-bas 80 Hz" Margin="0,0,4,4"
+                                    Command="{Binding TrackEq.QuickPresetCommand}" CommandParameter="hp80"/>
+                            <Button Classes="mini" Content="Présence 3 kHz" Margin="0,0,4,4"
+                                    Command="{Binding TrackEq.QuickPresetCommand}" CommandParameter="presence"/>
+                            <Button Classes="mini" Content="Aigus adoucis" Margin="0,0,4,4"
+                                    Command="{Binding TrackEq.QuickPresetCommand}" CommandParameter="soft"/>
+                        </WrapPanel>
+
+                        <ItemsControl ItemsSource="{Binding TrackEq.Bands}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#20242E" CornerRadius="4" Padding="6,4" Margin="0,2">
+                                        <StackPanel Spacing="4">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <CheckBox IsChecked="{Binding Enabled}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding FreqText}" Width="66"
+                                                           VerticalAlignment="Center" Foreground="#22D3EE"
+                                                           FontWeight="Bold" FontSize="11"/>
+                                                <ComboBox ItemsSource="{Binding Types}"
+                                                          SelectedItem="{Binding Type}" Width="100"
+                                                          FontSize="11" MinHeight="26"/>
+                                                <Button Content="X" FontSize="10" Padding="6,2" MinHeight="24"
+                                                        Command="{Binding $parent[UserControl].DataContext.TrackEq.RemoveBandCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="Fréq" Width="32" FontSize="10"
+                                                           Foreground="#8B93A7" VerticalAlignment="Center"/>
+                                                <NumericUpDown Value="{Binding Frequency}" Minimum="20" Maximum="20000"
+                                                               Increment="10" Width="96" FormatString="0" MinHeight="26"/>
+                                                <TextBlock Text="Gain" Width="30" FontSize="10"
+                                                           Foreground="#8B93A7" VerticalAlignment="Center"/>
+                                                <NumericUpDown Value="{Binding GainDb}" Minimum="-24" Maximum="24"
+                                                               Increment="0.5" Width="80" FormatString="0.0" MinHeight="26"/>
+                                                <TextBlock Text="Q" Width="12" FontSize="10"
+                                                           Foreground="#8B93A7" VerticalAlignment="Center"/>
+                                                <NumericUpDown Value="{Binding Q}" Minimum="0.1" Maximum="20"
+                                                               Increment="0.1" Width="74" FormatString="0.00" MinHeight="26"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Classes="muted"
+                                   Text="Chaque piste possède son propre égaliseur, indépendant de l'onglet Égaliseur (qui reste appliqué au bus master). Les réglages sont conservés d'une session à l'autre."/>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Égaliseur de piste — boutons rapides" Classes="muted" VerticalAlignment="Center"/>
+                            <controls:HelpButton HelpTitle="Égaliseur de piste"
+                                                 HelpText="Égaliseur dédié à la piste sélectionnée (LED « EQ » allumée = actif).&#10;&#10;• + Bande : ajoute un filtre peaking éditable (fréquence, gain, Q).&#10;• Aplatir : toutes les bandes à 0 dB (elles restent).&#10;• Aucun EQ : supprime toutes les bandes.&#10;• Coupe-bas 80 Hz : filtre passe-haut pour enceintes avec caisson ou voix.&#10;• Présence 3 kHz / Aigus adoucis : corrections d'écoute rapides.&#10;• X : supprime la bande concernée."/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- ═══ Statut local ═══ -->
+        <Border Grid.Row="2" Background="#1A1D26" CornerRadius="4" Padding="8,4" Margin="0,6,0,0">
+            <TextBlock Text="{Binding StatusText}" Foreground="#8B93A7" FontSize="11"
+                       TextWrapping="Wrap"/>
+        </Border>
+    </Grid>
+</UserControl>

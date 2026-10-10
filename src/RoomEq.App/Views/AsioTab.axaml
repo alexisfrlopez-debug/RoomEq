@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:RoomEq.App.Controls"
+             x:Class="RoomEq.App.Views.AsioTab">
+
+    <ScrollViewer>
+        <StackPanel Spacing="10" MaxWidth="680" HorizontalAlignment="Left" Margin="4,0,0,0">
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Gestion des pilotes ASIO" Classes="h2" VerticalAlignment="Center"/>
+                <controls:HelpButton HelpTitle="Pilotes ASIO"
+                                     HelpText="Liste les pilotes ASIO installés, leur taux supporté, et ouvre leur panneau de contrôle (taille de mémoire tampon, latence…).&#10;&#10;Un pilote ASIO peut être choisi comme sortie master de la console (onglet Mixage) pour une latence minimale.&#10;RoomEq n'installe pas de pilote : installez celui du fabricant ou ASIO4ALL."/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <ComboBox ItemsSource="{Binding Drivers}" SelectedItem="{Binding SelectedDriver}"
+                          Width="300" MinHeight="30"/>
+                <Button Content="Rafraîchir" Command="{Binding RefreshCommand}"/>
+            </StackPanel>
+
+            <Button Content="Ouvrir le panneau de contrôle du pilote"
+                    Command="{Binding OpenControlPanelCommand}" Classes="accent"/>
+
+            <TextBlock Text="Taux d'échantillonnage supportés" Classes="h3"/>
+            <ItemsControl ItemsSource="{Binding SupportedRates}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="6"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="#20242E" CornerRadius="4" Padding="8,3"
+                                BorderBrush="#2A2F3A" BorderThickness="1">
+                            <TextBlock Text="{Binding StringFormat={}{0} Hz}" FontSize="11"/>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBox Text="{Binding Info, Mode=OneWay}" IsReadOnly="True"
+                     AcceptsReturn="True" Height="170" FontSize="12"
+                     Background="#141720" BorderThickness="1" BorderBrush="#2A2F3A"/>
+
+            <TextBlock Classes="muted"
+                       Text="Qu'est-ce que l'ASIO ?&#10;&#10;L'ASIO (Audio Stream Input/Output) est un protocole de pilote qui donne à l'application un accès direct à votre interface audio : latence minimale et contournement du mixeur Windows. RoomEq ne fournit pas de pilote ASIO : installez celui du fabricant de votre interface (RME, Focusrite, MOTU, Behringer…), ou ASIO4ALL pour transformer n'importe quelle sortie classique (y compris USB et cartes-mères) en périphérique ASIO.&#10;&#10;En mode ASIO, RoomEq lit en exclusif : pendant la lecture, les autres applications ne peuvent plus utiliser cette sortie. La calibration acoustique fonctionne aussi bien en WASAPI qu'en ASIO."/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

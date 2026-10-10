@@ -1,0 +1,136 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RoomEq.App.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <SolidColorBrush x:Key="BgBrush">#12141A</SolidColorBrush>
+        <SolidColorBrush x:Key="PanelBrush">#1A1D26</SolidColorBrush>
+        <SolidColorBrush x:Key="CardBrush">#20242E</SolidColorBrush>
+        <SolidColorBrush x:Key="BorderBrush">#2A2F3A</SolidColorBrush>
+        <SolidColorBrush x:Key="TextBrush">#E8EAF0</SolidColorBrush>
+        <SolidColorBrush x:Key="MutedBrush">#8B93A7</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentBrush">#FF9F1C</SolidColorBrush>
+        <SolidColorBrush x:Key="CyanBrush">#22D3EE</SolidColorBrush>
+        <SolidColorBrush x:Key="GridBrush">#262B36</SolidColorBrush>
+        <SolidColorBrush x:Key="GreenBrush">#4ADE80</SolidColorBrush>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <!-- Fenêtres et typographie -->
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{StaticResource BgBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style Selector="TextBlock.h2">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.h3">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Boutons -->
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#262B36" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="MinHeight" Value="30" />
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#313847" />
+        </Style>
+        <Style Selector="Button.accent">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="#12141A" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFB347" />
+        </Style>
+
+        <!-- Bouton d'aide contextuelle « ? » (contrôle HelpButton) -->
+        <Style Selector="Button.help">
+            <Setter Property="Background" Value="#20242E" />
+            <Setter Property="BorderBrush" Value="#3A4254" />
+            <Setter Property="Foreground" Value="#8B93A7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.help:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FF9F1C" />
+            <Setter Property="BorderBrush" Value="#FF9F1C" />
+        </Style>
+        <Style Selector="Button.help:pointerover">
+            <Setter Property="Foreground" Value="#12141A" />
+        </Style>
+
+        <!-- ComboBox / champs -->
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#20242E" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="MinHeight" Value="30" />
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#20242E" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <Style Selector="NumericUpDown">
+            <Setter Property="Background" Value="#20242E" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="ButtonSpinnerLocation" Value="Right" />
+        </Style>
+
+        <!-- Onglets -->
+        <Style Selector="TabControl">
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="14,0" />
+        </Style>
+        <Style Selector="TabItem:selected /template/ ContentPresenter#PART_SelectedPipe">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <!-- Sliders -->
+        <Style Selector="Slider">
+            <Setter Property="MinHeight" Value="24" />
+        </Style>
+
+        <!-- Listes -->
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="#20242E" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <Style Selector="ProgressBar">
+            <Setter Property="Height" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+        </Style>
+    </Application.Styles>
+</Application>
