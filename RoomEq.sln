@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1B9D0186-9DF9-41F1-91F5-B4C0376C4AB4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomEq.Core", "src\RoomEq.Core\RoomEq.Core.csproj", "{E111D8A6-EC7B-411D-B15D-13761CD470CB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomEq.Audio", "src\RoomEq.Audio\RoomEq.Audio.csproj", "{35E5E595-4349-469F-9566-358DC74607DB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomEq.App", "src\RoomEq.App\RoomEq.App.csproj", "{33C95F9A-35EE-47F7-946B-2BAA034BB530}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{AE01D897-0EAD-4D07-A525-ABD9AAB64C58}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomEq.Core.Tests", "tests\RoomEq.Core.Tests\RoomEq.Core.Tests.csproj", "{8307710F-6797-43DA-A058-93E441F94D83}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomEq.Audio.Tests", "tests\RoomEq.Audio.Tests\RoomEq.Audio.Tests.csproj", "{C03E76D5-9472-4EFA-8059-BDFFA02F0507}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E111D8A6-EC7B-411D-B15D-13761CD470CB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E111D8A6-EC7B-411D-B15D-13761CD470CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E111D8A6-EC7B-411D-B15D-13761CD470CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E111D8A6-EC7B-411D-B15D-13761CD470CB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35E5E595-4349-469F-9566-358DC74607DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35E5E595-4349-469F-9566-358DC74607DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35E5E595-4349-469F-9566-358DC74607DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35E5E595-4349-469F-9566-358DC74607DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33C95F9A-35EE-47F7-946B-2BAA034BB530}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33C95F9A-35EE-47F7-946B-2BAA034BB530}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33C95F9A-35EE-47F7-946B-2BAA034BB530}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33C95F9A-35EE-47F7-946B-2BAA034BB530}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8307710F-6797-43DA-A058-93E441F94D83}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8307710F-6797-43DA-A058-93E441F94D83}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8307710F-6797-43DA-A058-93E441F94D83}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8307710F-6797-43DA-A058-93E441F94D83}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C03E76D5-9472-4EFA-8059-BDFFA02F0507}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C03E76D5-9472-4EFA-8059-BDFFA02F0507}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C03E76D5-9472-4EFA-8059-BDFFA02F0507}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C03E76D5-9472-4EFA-8059-BDFFA02F0507}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E111D8A6-EC7B-411D-B15D-13761CD470CB} = {1B9D0186-9DF9-41F1-91F5-B4C0376C4AB4}
+		{35E5E595-4349-469F-9566-358DC74607DB} = {1B9D0186-9DF9-41F1-91F5-B4C0376C4AB4}
+		{33C95F9A-35EE-47F7-946B-2BAA034BB530} = {1B9D0186-9DF9-41F1-91F5-B4C0376C4AB4}
+		{8307710F-6797-43DA-A058-93E441F94D83} = {AE01D897-0EAD-4D07-A525-ABD9AAB64C58}
+		{C03E76D5-9472-4EFA-8059-BDFFA02F0507} = {AE01D897-0EAD-4D07-A525-ABD9AAB64C58}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,22 @@
+# Normalisation des fins de ligne
+* text=auto
+
+# Scripts shell / python : LF obligatoire
+*.sh text eol=lf
+*.py text eol=lf
+
+# Sources .NET
+*.cs text
+*.axaml text
+*.csproj text
+*.sln text
+*.props text
+*.json text
+*.md text
+*.txt text
+
+# Binaires
+*.png binary
+*.ico binary
+*.dll binary
+*.exe binary

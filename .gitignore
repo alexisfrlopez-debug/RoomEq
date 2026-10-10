@@ -1,0 +1,50 @@
+# ============================================================
+# RoomEq — .gitignore renforcé
+# Build .NET + protection anti-fuite de secrets
+# ============================================================
+
+# ---- Build .NET ----
+[Bb]in/
+[Oo]bj/
+publish/
+artifacts/
+*.user
+*.suo
+*.cache
+TestResults/
+.avalonia-build-tasks/
+
+# ---- IDE ----
+.vs/
+.idea/
+.vscode/
+*.swp
+
+# ---- Secrets & identifiants (NE JAMAIS COMMITER) ----
+# Configuration de télémétrie réelle (utiliser telemetrie.json.example)
+telemetrie.json
+telemetrie.*.json
+!telemetrie.json.example
+# Identifiants OAuth Google (Drive)
+client_secret*.json
+oauth_token*.json
+*service_account*.json
+access_token.json
+token_git.txt
+secrets/
+# Clés / certificats
+*.pem
+*.key
+*.pfx
+*.p12
+
+# ---- Journaux & données locales ----
+logs/
+*.log
+mixer.json
+presets/*.json
+micprofiles/*.json
+
+# ---- Système ----
+.DS_Store
+Thumbs.db
