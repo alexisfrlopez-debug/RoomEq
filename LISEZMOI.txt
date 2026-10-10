@@ -1,18 +1,50 @@
-RoomEq 1.8.1 — Défilement horizontal de l'interface · deux versions TEST/PUBLIC
-================================================================================
+RoomEq 1.9.0 — Menu des signaux de test téléchargeables · volume audible sur la sortie
+======================================================================================
 
-DÉFILEMENT HORIZONTAL PARTOUT (NOUVEAU 1.8.1)
----------------------------------------------
-Quand la fenêtre est étroite, les barres horizontales défilent désormais
-sur la LARGEUR au lieu de couper les boutons de droite :
-  • Barre supérieure (sortie, transport, volume, bypass, SIGNAUX DE TEST :
-    Bruit blanc / Bruit rose / Sinus 1k) : faites défiler horizontalement
-    (molette + Maj, pavé tactile, ou la barre sous la barre) pour atteindre
-    tous les boutons — ils ne disparaissent plus.
-  • Onglet Analyseur : barre de contrôle (source, micro, FFT) défilable.
-  • Onglet Mixage : barre de routage défilable.
-  • La barre supérieure a aussi été allégée (listes et curseurs un peu plus
-    courts) : sur un écran 1920 px, tout tient SANS défilement.
+MENU DES SIGNAUX DE TEST (NOUVEAU 1.9.0)
+----------------------------------------
+La barre du haut remplace les trois boutons « Bruit blanc / Bruit rose /
+Sinus 1k » par un MENU DÉROULANT :
+  • Bruits : blanc, rose (défaut), brun, violet.
+  • Sinus : 50, 100, 250, 440, 1 000, 2 000, 4 000, 8 000, 12 500 et 15 000 Hz.
+  • Balayages : 20 Hz → 20 kHz (12 s) et médium 200 Hz → 2 kHz (8 s).
+  • Section « Téléchargés » : les fichiers installés depuis le catalogue.
+Choisissez un signal puis « Jouer » pour l'écouter sur la sortie sélectionnée.
+
+TÉLÉCHARGER D'AUTRES SIGNAUX (NOUVEAU 1.9.0)
+--------------------------------------------
+Le bouton « Télécharger d'autres… » ouvre le catalogue officiel du projet
+(dépôt GitHub de RoomEq, dossier signaux/) :
+  • Impulsion (Dirac ×5) — latence, réflexions, écho.
+  • Bruit gris (10 s) — égale sonie : toutes les bandes paraissent de même
+    niveau (pondération A inversée).
+  • Multi-tones SMPTE (10 s) — 15 sinus simultanés, intermodulation.
+  • Balayage lent 20 Hz → 20 kHz (30 s) — analyse fine des modes de pièce.
+Chaque fichier est vérifié (taille + empreinte SHA-256 du manifeste) puis
+enregistré dans %APPDATA%\RoomEq\signaux ; il apparaît ensuite dans le menu
+déroulant (section « Téléchargés ») et se lit EN BOUCLE. Sans connexion
+Internet, le catalogue n'est pas accessible mais tous les signaux générés
+par l'application restent disponibles.
+
+LE CURSEUR VOLUME AGIT SUR LA SORTIE (NOUVEAU 1.9.0)
+----------------------------------------------------
+Le son ROUTÉ (Windows → carte virtuelle → EQ → carte physique) ne passe PAS
+par le lecteur interne de la barre du haut : le curseur Volume paraissait
+sans effet en usage routé. Il pilote désormais DEUX chemins à la fois :
+  • de 0 à 100 % : le volume WINDOWS de la carte physique routée (sortie
+    master de l'onglet Mixage) — effet immédiat et audible sur le son routé ;
+  • en continu : le gain du lecteur interne (fichiers, signaux de test),
+    après l'égaliseur (100 % = 0 dB, 150 % = +3,5 dB).
+Au-delà de 100 %, la carte reste au maximum et seul le gain du lecteur monte.
+Les raccourcis Ctrl+Alt+↑ / ↓ / M règlent toujours la carte physique seule.
+
+DÉFILEMENT HORIZONTAL (1.8.1)
+-----------------------------
+Quand la fenêtre est étroite, les barres horizontales défilent sur la
+LARGEUR au lieu de couper les contrôles de droite : barre supérieure (dont
+le menu des signaux et « Télécharger d'autres… »), barre de contrôle de
+l'Analyseur, barre de routage du Mixage. Sur un écran 1920 px, tout tient
+sans défilement.
 
 LES DEUX VERSIONS
 -----------------
@@ -95,6 +127,8 @@ périphérique PHYSIQUE qui rend le son (sortie master de l'onglet Mixage) :
     avec un bandeau OSD éphémère indiquant l'état.
   • CURSEUR « Vol. carte physique » dans la tranche MASTER de l'onglet
     Mixage, avec boutons − / + / M.
+  • Depuis la 1.9.0 : le curseur Volume de la barre du haut règle aussi la
+    carte physique (voir section dédiée en tête de ce fichier).
 Le fader MASTER règle toujours le niveau interne de RoomEq ; ce contrôle
 règle le niveau système de la vraie carte son.
 
@@ -131,25 +165,11 @@ RAPPELS 1.5 — BALAYAGE PROGRESSIF & ANTI-DOUBLONS
 
 PROCÉDURE DE CALIBRATION (RÉSUMÉ)
 ---------------------------------
-1. Barre du haut : choisissez la SORTIE, réglez le volume (Ctrl+Alt+↑ / ↓).
+1. Barre du haut : choisissez la SORTIE, réglez le volume (curseur Volume
+   ou Ctrl+Alt+↑ / ↓).
 2. Onglet Calibration : choisissez votre micro PHYSIQUE (et son canal si
    besoin), placez-le à la position d'écoute.
 3. « Démarrer la calibration » : bruits + balayage progressif, restez
    silencieux.
 4. La courbe s'affiche, la correction est appliquée à l'égaliseur
    automatiquement. « Enregistrer le preset » la met en bibliothèque.
-5. Onglet Égaliseur : « Importer la courbe de calibration » avec la
-   précision choisie pour régénérer les bandes.
-6. Le résultat s'écoute par le routage (onglet Mixage) : Windows → EQ →
-   enceintes ; volume final via Ctrl+Alt+↑ / ↓.
-
-FICHIERS UTILES
----------------
-  logs\roomeq-AAAA-MM-JJ.log   journal de diagnostic (version test uniquement,
-                               envoyé au Drive)
-  telemetrie.json              configuration de la télémétrie de test
-                               (absent de la version publique)
-  %APPDATA%\RoomEq\presets     bibliothèque de presets
-  %APPDATA%\RoomEq\micprofiles profils micro importés
-
-TESTS : 173 vérifications automatisées (108 DSP/Core + 65 Audio) — toutes vertes.

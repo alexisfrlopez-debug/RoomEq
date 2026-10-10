@@ -1,7 +1,7 @@
 # INSTRUCTIONS DE REPRISE — Projet RoomEq (à destination de l'agent IA)
 
 > **À lire en tout premier au début de chaque session.**
-> Dernière mise à jour : 2026-10-10 — État : RoomEq **v1.8.1** livré (défilement horizontal de l'interface ; base 1.8.0 : deux versions d'exe test télémétré + public silencieux), 173/173 tests verts.
+> Dernière mise à jour : 2026-10-10 — État : RoomEq **v1.9.0** livré (menu déroulant des signaux de test avec **catalogue téléchargeable** depuis le dépôt GitHub ; **curseur Volume de la barre du haut audible sur la sortie routée**), 228/228 tests verts.
 > Ce fichier est le point d'entrée unique : il explique l'état du projet, comment
 > restaurer l'environnement depuis ce Drive, comment travailler, et comment exécuter
 > la **sauvegarde incrémentielle obligatoire** en fin de session.
@@ -14,10 +14,10 @@
 |---|---|
 | **Projet** | RoomEq — égaliseur acoustique temps réel pour Windows (correction acoustique de pièce) |
 | **Stack** | .NET 8 · NAudio (WASAPI/ASIO) · Avalonia 11 (MVVM CommunityToolkit) · xUnit |
-| **Version actuelle** | 1.8.1 — **défilement horizontal de l'interface** (barre supérieure avec les boutons Bruit blanc/rose/Sinus, barre de contrôle Analyseur, barre de routage Mixage) ; base 1.8.0 : **deux versions d'exécutable du même binaire** : `RoomEq-test.exe` (télémétrie Drive) et `RoomEq-public.exe` (aucun journal, aucun envoi), **dialogue de bascule test → public au lancement**, **onglet Mixage défilable verticalement** ; base 1.7 : aide contextuelle « ? », canal micro mono, volume carte physique (Ctrl+Alt+↑/↓/M), audit du code ; base 1.6.1 : fiabilité calibration + journal ; base 1.1→1.6 : table de mixage, installation auto, multi-signaux, balayage progressif, import avec précision |
+| **Version actuelle** | 1.9.0 — **menu déroulant des signaux de test** (bruits blanc/rose/brun/violet, sinus 50 Hz→15 kHz, balayages, fichiers téléchargés) + **« Télécharger d'autres… »** (catalogue officiel hébergé sur le dépôt GitHub, SHA-256 vérifié) ; **le curseur Volume de la barre du haut pilote aussi le volume Windows de la carte physique routée (0–100 %)** — audible en usage routé ; base 1.8.1 : défilement horizontal ; base 1.8.0 : deux versions d'exe test télémétré + public silencieux ; base 1.7 : aide « ? », canal micro mono, volume carte physique (Ctrl+Alt+↑/↓/M), audit |
 | **Source locale** | `/home/z/my-project/workspace/roomq-source/RoomEq` |
 | **SDK .NET** | `/home/z/.dotnet` → `export PATH="$HOME/.dotnet:$PATH"` (8.0.425) |
-| **Tests** | 173/173 verts (108 Core + 65 Audio) |
+| **Tests** | 228/228 verts (150 Core + 78 Audio) |
 | **GitHub** | https://github.com/alexisfrlopez-debug/RoomEq — dépôt PUBLIC sanitisé (v1.8.1, tag `v1.8.1`) : docs internes et scripts avec placeholders `__ID_*__`, aucune donnée personnelle. Re-sanitiser via `scripts/assemble_github_repo.py (outil interne, non publié)` avant tout nouveau push. **Relève à chaque session** : issues/PR/commentaires (§7bis, `scripts/github_releve.py`). Licence MIT. |
 | **Drive** | Racine : https://drive.google.com/drive/folders/__ID_RACINE_DRIVE__ |
 | **Règle d'or** | Fin de session = append au `worklog.md` **puis** `python3 scripts/drive_backup.py` |
@@ -54,9 +54,73 @@
 
 ---
 
-## 2. État du projet au 2026-10-10 (v1.8.1)
+## 2. État du projet au 2026-10-10 (v1.9.0)
 
-### 2.0 Fonctionnalités livrées (v1.8.1 — défilement horizontal de l'interface)
+### 2.0 Fonctionnalités livrées (v1.9.0 — signaux de test en menu + volume audible sur la sortie)
+
+- **Menu déroulant des signaux de test** (demande : « pour la sélection de
+  bruits/types de sinus, je voudrais plutôt un menu déroulant avec possibilité
+  d'en télécharger d'autres. Enrichie cette liste ») :
+  - `RoomEq.Audio/Playback/TestSignalCatalog.cs` (NOUVEAU) : 16 signaux
+    intégrés — bruits blanc/rose/brun/violet (amplitudes calées pour un niveau
+    perçu comparable), sinus à 10 fréquences utiles (50 Hz → 15 kHz), 2
+    balayages logarithmiques (20 Hz → 20 kHz 12 s ; médium 200 Hz → 2 kHz 8 s) ;
+    `DefaultItemId = "bruit-rose"` (réglage de niveau d'écoute) ;
+  - `MainViewModel` : `SignalChoices` (intégrés + fichiers téléchargés,
+    section « Téléchargés »), `SelectedSignal`, commandes `PlaySelectedSignal`
+    (générateurs → `PlayTestSignal` ; fichiers WAV → `AudioFileReader` +
+    `LoopingSampleProvider` en boucle via `PlaySource`) et `OpenSignalCatalog`
+    (événement `SignalCatalogRequested` → fenêtre) ; anciennes commandes
+    TestWhiteNoise/TestPinkNoise/TestSine supprimées (code mort) ;
+  - `MainWindow.axaml` : les 3 boutons deviennent ComboBox (240 px) + « Jouer »
+    + « Télécharger d'autres… » ; aides « ? » refaites (Volume et Signaux).
+- **Catalogue téléchargeable hébergé sur le dépôt GitHub** (dossier `signaux/`,
+  publiés avec les sources — URLs stables en `raw.githubusercontent.com`) :
+  - `RoomEq.Core/Io/SignalPack.cs` (NOUVEAU) : `DownloadableSignalItem`,
+    `SignalManifest.TryParse` (validation COMPLÈTE avant usage : JSON, id slug,
+    fileName sûr anti-traversal + .wav, bytes 1..25 Mo, sha256 hex 64,
+    doublons interdits, ≤ 50 signaux) ; `SignalUrls` (BaseDir/ManifestUrl/
+    `FileUrl`, `IsAllowedFileUrl` : https + domaine exact raw.githubusercontent.com
+    + chemin exact `/alexisfrlopez-debug/RoomEq/main/signaux/`, pas de query ni
+    de `..`) ;
+  - `RoomEq.Core/Io/SignalStore.cs` (NOUVEAU) : bibliothèque locale
+    `%APPDATA%\RoomEq\signaux` (dossier injectable pour tests) ; `Save` refuse
+    tout nom non sûr, VÉRIFIE le SHA-256 avant écriture, tient un `index.json`
+    des noms conviviaux ; `List` résiste à un index corrompu (repli : nom de
+    fichier) ; `Contains` (présence + taille) ;
+  - `RoomEq.Core/Io/SignalCatalogClient.cs` (NOUVEAU) : téléchargement borné
+    (Content-Length contrôlé + coupure au fil de l'eau si dépassement),
+    progression, pas de redirection, erreurs en clair (jamais d'exception vers
+    l'UI) ;
+  - `RoomEq.App/Controls/SignalCatalogDialog.cs` (NOUVEAU) : fenêtre modale
+    thème sombre — liste des signaux publiés (cochés par défaut sauf déjà
+    téléchargés), taille + description, « Tout cocher/décocher », barre de
+    progression par fichier, statuts par élément (Téléchargé / Échec : raison /
+    Déjà téléchargé) ; à la fermeture → `RefreshSignalChoices()` ;
+  - **pack publié** (`scripts/gen_signal_pack.py`, numpy) : `impulsion-dirac.wav`
+    (5 Dirac −3 dBFS espacés 200 ms), `bruit-gris-10s.wav` (spectre blanc ÷
+    pondération A = égale sonie, écart mesuré 0,3 dB entre bandes),
+    `multi-tones-10s.wav` (15 sinus SMPTE −24 dBFS chacun),
+    `balayage-lent-30s.wav` (Farina-ready 20 Hz → 20 kHz) + `manifest.json`
+    (id/nom/description/taille/sha256) ; 4,5 Mo au total ; mono 44,1 kHz 16 bits.
+- **Curseur Volume audible sur la sortie** (demande : « le volume n'a aucun
+  effet sur la sortie sélectionnée ») — diagnostic : le son ROUTÉ (Windows →
+  carte virtuelle → mixeur → carte physique) ne passe PAS par `PlaybackEngine`,
+  le curseur ne touchait que le lecteur interne :
+  - `EndpointVolumeController.SliderToEndpoint` (statique pur, testé) :
+    `clamp(v, 0, 1)` — la plage 0–100 % règle la carte physique, au-delà seule
+    le gain du lecteur monte (150 % = +3,5 dB) ;
+  - `MixerViewModel.ApplyTopBarVolume` : si le volume Windows de la cible
+    routée est accessible, le curseur l'applique (seuil anti-spam 0,35 %) et
+    rafraîchit l'affichage RoutedVolume (OSD/MASTER restent en phase) ;
+  - `MainViewModel.OnVolumeChanged` : `Engine.Volume = value` (inchangé)
+    **+** `Mixer.ApplyTopBarVolume(value)` + statut explicite ;
+  - aucune écriture forcée au démarrage (seulement lors du déplacement).
+- **Tests** : +42 Core (manifeste 12 cas, URLs 9, bibliothèque 10, magasin
+  ordonné/index corrompu…), +13 Audio (catalogue : unicités, amplitudes,
+  fréquences audibles, balayages, défaut ; conversion curseur) — 228 total.
+
+### 2.1 Fonctionnalités livrées (v1.8.1 — défilement horizontal de l'interface)
 
 - **Diagnostic** (retour utilisateur : « les boutons de test de bruit n'apparaissent
   pas tous », après le défilement vertical du mixer en 1.8.0) : la barre supérieure
@@ -91,7 +155,7 @@
   LISEZMOI.txt réécrit (section « DÉFILEMENT HORIZONTAL PARTOUT »).
 - **Tests** : aucun changement de logique → 173/173 inchangés (re-vérifiés).
 
-### 2.1 Fonctionnalités livrées (v1.8.0 — deux versions d'exe)
+### 2.2 Fonctionnalités livrées (v1.8.0 — deux versions d'exe)
 
 - **Deux versions d'exécutable, un seul binaire** (demande : « une version test
   qui log et envoie les logs sur le drive, et une version public qui ne log rien
@@ -136,7 +200,7 @@
   DisplayName cohérent, chemin voisin), `DiagnosticsLog_EnabledFalse_WritesNothing`
   (interrupteur : ni mémoire ni fichier) ; 173 total.
 
-### 2.2 Fonctionnalités livrées (v1.7.0)
+### 2.3 Fonctionnalités livrées (v1.7.0)
 
 - **Télémétrie Drive (le cœur de la 1.7)** : l'EXE de test envoie son
   journal de diagnostic vers le dossier Drive `journaux-app`
@@ -213,7 +277,7 @@
   `ChannelMixerTests` (6 cas), `EqChainRateTests` (reconstruction au taux +
   continuité d'état) ; 158 total.
 
-### 2.3 Fonctionnalités livrées (v1.6.1)
+### 2.4 Fonctionnalités livrées (v1.6.1)
 
 - **Fiabilité de la calibration (v1.6.1)** — retour utilisateur « la courbe de
   calibration ne s'affiche pas », cause : la mesure pouvait échouer silencieusement
@@ -335,11 +399,11 @@
     de sécurité recalculé ;
   - Nouveau : `CorrectionResult.ResidualRmsDb()` (jumeau de `ResidualMaxDb()`).
 
-### 2.4 Architecture du code
+### 2.5 Architecture du code
 
 ```
 RoomEq/
-├── RoomEq.sln · Directory.Build.props (version 1.8.1)
+├── RoomEq.sln · Directory.Build.props (version 1.9.0)
 ├── src/
 │   ├── RoomEq.Core/    DSP pur : BiquadFilter, Fft, Windowing, SpectrumTools,
 │   │                   NoiseGenerator (blanc/rose/brun/violet), LogSweepGenerator,
@@ -347,31 +411,40 @@ RoomEq/
 │   │                   Calibration/{CorrectionDesigner (+ DesignFromCalibrationCurve),
 │   │                   CorrectionPrecision (4 niveaux), TargetCurve, MicProfile,
 │   │                   MicProfileLibrary (36 micros), MultiSignalAnalysis,
-│   │                   AutoBandPlanner (anti-doublons), SweepAnalyzer (Farina),
-│   │                   TestSignalCatalog}, Io/{PresetStore, MicProfileStore (+ Rename),
+│   │                   AutoBandPlanner (anti-doublons), SweepAnalyzer (Farina)},
+│   │                   Io/{PresetStore, MicProfileStore (+ Rename),
 │   │                   DiagnosticsLog (interrupteur global), AppFlavor (test/public
-│   │                   par nom d'exe), TelemetryConfig, DriveLogUploader}
+│   │                   par nom d'exe), TelemetryConfig, DriveLogUploader,
+│   │                   SignalPack (manifeste + URLs verrouillées), SignalStore
+│   │                   (bibliothèque signaux), SignalCatalogClient (téléchargement borné)}
 │   ├── RoomEq.Audio/   NAudio : WASAPI, ASIO (AsioOut), capture micro,
 │   │                   RoomMeasurementEngine (multi-signaux segmentés, balayage),
-│   │                   Routing/{RingBuffer (lock-free SPSC), AudioDeviceCatalog,
-│   │                   DefaultDeviceSetter (3 IIDs, sortie+entrée), ConsoleChannel,
+│   │                   Playback/{PlaybackEngine, SampleProviders, TestSignalCatalog
+│   │                   (16 signaux intégrés)}, Routing/{RingBuffer (lock-free SPSC),
+│   │                   AudioDeviceCatalog, DefaultDeviceSetter (3 IIDs, sortie+entrée),
+│   │                   EndpointVolumeController (volume carte physique), ConsoleChannel,
 │   │                   ConsoleMixer, MixerStore, VirtualAudioProviders,
 │   │                   VirtualAudioInstaller}
 │   └── RoomEq.App/     Avalonia 11 : MainWindow (6 onglets), PlotControl,
 │                       MicCurveEditor, EqControl (poignées), VuMeter,
 │                       ViewModels (Eq : import calibration + précision ;
-│                       Calibration : reset + multi-signaux ; Mixer, Mic, Analyzer,
-│                       Asio), HelpButton/HelpDialog (« ? »), FlavorDialog
-│                       (bascule test → public), thème studio sombre
+│                       Calibration : reset + multi-signaux ; Mixer : volume
+│                       carte physique + ApplyTopBarVolume ; Mic, Analyzer,
+│                       Asio ; Main : SignalChoices + lecture des signaux),
+│                       HelpButton/HelpDialog (« ? »), FlavorDialog
+│                       (bascule test → public), SignalCatalogDialog
+│                       (téléchargement des signaux), thème studio sombre
 └── tests/
-    ├── RoomEq.Core.Tests/   108 tests xUnit (DSP, précision d'import, balayage,
+    ├── RoomEq.Core.Tests/   150 tests xUnit (DSP, précision d'import, balayage,
     │                        croisement, planificateur + ANTI-DOUBLONS, micros, stores,
-    │                        AppFlavor, interrupteur du journal, télémétrie)
-    └── RoomEq.Audio.Tests/  65 tests xUnit (RingBuffer, pan law, synchro EQ, MixerStore,
-                             protocoles, sécurité installateur, découverte de version…)
+    │                        AppFlavor, interrupteur du journal, télémétrie, manifeste
+    │                        + URLs + bibliothèque des signaux téléchargeables)
+    └── RoomEq.Audio.Tests/  78 tests xUnit (RingBuffer, pan law, synchro EQ, MixerStore,
+                             protocoles, sécurité installateur, découverte de version,
+                             catalogue de signaux, curseur → volume Windows…)
 ```
 
-### 2.5 Limites connues (à ne pas « corriger » sans discussion)
+### 2.6 Limites connues (à ne pas « corriger » sans discussion)
 
 - `IPolicyConfig` est une API **non documentée** (standard du secteur) : 3 IIDs tentées en
   cascade avec confirmation par relecture ; repli prévu via panneau son Windows.
@@ -397,15 +470,15 @@ RoomEq/
 │   ├── scripts/drive_backup.py     (outil de sauvegarde — ID : __ID_OUTIL_BACKUP__)
 │   ├── scripts/drive_restore.py    (restauration complète : data/RoomEq + worklog + INSTRUCTIONS + livrables)
 │   ├── scripts/restore_scripts.py  (restauration ciblée de data/scripts)
-│   ├── scripts/…                   (bootstrap_session.sh, package_1.4 → package_1.8.1.sh, fetch_app_logs.py…)
+│   ├── scripts/…                   (bootstrap_session.sh, package_1.4 → package_1.9.0.sh, fetch_app_logs.py, gen_signal_pack.py…)
 │   ├── _manifest_backup.json       (manifeste SHA-256 — ID : __ID_MANIFESTE__)
 │   ├── snapshots/                  (instantanés datés --snapshot, 5 max)
 │   └── client_secret_*.json · oauth_token_relais.json · projet-gcp-prive-*.json
 │       ⚠ identifiants OAuth — NE PAS ré-uploader, NE PAS modifier (exclus du manifeste)
 └── 📁 livrables — __ID_DOSSIER_LIVRABLES__  [AJOUT seulement, jamais de suppression]
     ├── README.md
-    ├── RoomEq-1.8.1-win-x64-test.zip · RoomEq-1.8.1-win-x64-public.zip · RoomEq-1.8.1-source.zip
-    └── Archives/                   (1.0 → 1.8.0, déplacés automatiquement à chaque
+    ├── RoomEq-1.9.0-win-x64-test.zip · RoomEq-1.9.0-win-x64-public.zip · RoomEq-1.9.0-source.zip
+    └── Archives/                   (1.0 → 1.8.1, déplacés automatiquement à chaque
                                       nouvelle version — IDs Drive conservés)
 ```
 
@@ -617,6 +690,7 @@ Le tout est relevé **à chaque session** et traité selon le protocole ci-desso
 
 | Version | Date | Contenu | Livrables |
 |---|---|---|---|
+| 1.9.0 | 2026-10-10 | **Menu déroulant des signaux de test** : 16 signaux intégrés (bruits blanc/rose/brun/violet, sinus 50 Hz→15 kHz, 2 balayages log) via `TestSignalCatalog` ; les 3 boutons fixes deviennent ComboBox + « Jouer » + **« Télécharger d'autres… »** — catalogue officiel hébergé dans le dépôt GitHub (`signaux/` : impulsion Dirac, bruit gris d'égale sonie, multi-tones SMPTE, balayage lent 30 s + manifest.json SHA-256) ; chaîne sécurisée : `SignalManifest.TryParse` (anti-traversal, tailles, sha256, doublons) + `SignalUrls` (domaine/chemin verrouillés) + `SignalStore` (%APPDATA%\RoomEq\signaux, index convivial, SHA vérifié avant écriture) + `SignalCatalogClient` (téléchargement borné) + `SignalCatalogDialog` (progression, statuts) ; fichiers joués en boucle. **Le curseur Volume de la barre du haut pilote aussi le volume Windows de la carte physique routée** (`ApplyTopBarVolume` + `SliderToEndpoint` : 0–100 % = carte physique, au-delà = gain du lecteur seul) — corrige « le volume n'a aucun effet sur la sortie sélectionnée » (le son routé ne passe pas par le lecteur interne). +55 tests (228 total). | `RoomEq-1.9.0-win-x64-test.zip` (42 Mo, 2 exécutables + telemetrie.json), `RoomEq-1.9.0-win-x64-public.zip` (42 Mo, sans identifiants), `RoomEq-1.9.0-source.zip` (avec signaux/) |
 | 1.8.1 | 2026-10-10 | **Défilement horizontal de l'interface** (retour « les boutons de test de bruit n'apparaissent pas tous ») : barre supérieure de la fenêtre (Bruit blanc / Bruit rose / Sinus 1k), barre de contrôle de l'Analyseur et barre de routage du Mixage défilables sur la largeur ; barre supérieure allégée (combo 260 px, source 170 px, volume 120 px — tout tient sans défilement sur 1920 px). XAML uniquement, logique inchangée. | `RoomEq-1.8.1-win-x64-test.zip` (42 Mo, 2 exécutables + telemetrie.json), `RoomEq-1.8.1-win-x64-public.zip` (42 Mo, sans identifiants), `RoomEq-1.8.1-source.zip` (252 Ko) |
 | 1.0.0 | 2026-10-07 | Égaliseur temps réel, analyseur RTA, calibration (courbe cible + designer), profils micro, mesure de pièce, ASIO. 20 tests. | `RoomEq-1.0-win-x64-portable.zip` (42 Mo), `RoomEq-1.0-source.zip` |
 | 1.1.0 | 2026-10-09 | Onglet « Mixage & routage » : pistes = tous périphériques Windows, EQ par piste, fader/pan/mute/solo/VU, VB-CABLE + loopback de secours, anti-larsen, persistance mixer.json. +18 tests (38 total). | `RoomEq-1.1-win-x64-portable.zip` (43,4 Mo), `RoomEq-1.1-source.zip` |

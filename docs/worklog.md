@@ -324,3 +324,19 @@ Work Log:
 Stage Summary:
 - Repo sous licence MIT (badge/section GitHub OK) + THIRD_PARTY_NOTICES.md complet + docs/DISTRIBUTION.md (feuille de route Store/vente directe/winget/portages).
 - La monétisation MIT repose sur la commodité (Store, mises à jour auto, support) — documentée dans DISTRIBUTION.md ; prochaine étape concrète possible : Releases GitHub + winget, puis packaging MSIX.
+
+---
+Task ID: 15
+Agent: Super Z (principal)
+Task: Ajouter aux INSTRUCTIONS-REPRISE une routine de relève et traitement de tout ce qui est reçu sur GitHub (issues, PR, commentaires).
+
+Work Log:
+- Nouveau script scripts/github_releve.py (stdlib uniquement) : rapport de relève du dépôt public — issues ouvertes (hors PR), PR ouvertes, NOUVEAUX commentaires depuis la dernière relève (paramètre since), issues fermées récemment, étoiles/forks ; état persistant scripts/github_releve_state.json (synchronisé par la sauvegarde Drive → continuité inter-sessions) ; options --since/--all/--no-save ; token lu dans secrets/token_git.txt ou GITHUB_TOKEN. Correctif en cours de route : préfixe /repos/{REPO} manquant sur les appels issues/pulls (404).
+- INSTRUCTIONS-REPRISE.md : nouvelle section §7bis (quand : début + fin de session ; authentification : token_git.txt du dossier « connexions » → secrets/, API REST v3 en curl ; table de ce qui est relevé ; protocole de traitement en 8 points : classifier bug/amélioration/question/spam, cycle fix+test+commit « fixes #N », répondre AVANT de fermer, pas de délai ferme, pas de secret dans les réponses, traçabilité worklog ; hygiène du dépôt) ; checklist §1 : étape 5 « Relève GitHub » insérée (renumérotée) ; §0 : ligne GitHub étendue ; §4 bootstrap : étape 3bis (token_git.txt par lien public direct) ; bullet §7 Publication GitHub : le préfixe de secret Google OAuth reformulé en « secrets de télémétrie » (le détecteur anti-fuite avait correctement signalé ce préfixe dans le texte).
+- assemble_github_repo.py durci : MODE MISE À JOUR (si .git existe → régénération ciblée src/tests/docs/scripts, historique git préservé — plus de rmtree global) ; source des scripts = scripts/ canonique (data/scripts était figé à la restauration) ; SKIP_SCRIPTS étendu (telemetrie.json, github_releve_state.json, fix_restore_scripts.py, extract_drive_ids.py, assemble_github_repo.py — ce dernier contient les IDs réels dans sa table, il ne doit JAMAIS être publié) ; REPLACEMENTS : +5 IDs du dossier « connexions » (dossier, token_git, client_secret, oauth, service account) + annotation « (outil interne, non publié) » sur les mentions du script dans les copies publiques ; worklog courant préféré à data/worklog.md pour les copies.
+- Assemblage en mode mise à jour : zéro fuite ; commit 2bcc5d6 poussé (docs §7bis sanitisées + github_releve.py).
+
+Stage Summary:
+- Routine de relève GitHub formalisée : §7bis des INSTRUCTIONS (à chaque session) + outil scripts/github_releve.py opérationnel (testé : 0 issue/0 PR actuellement).
+- Chaîne de republication durcie : assemble en mode update sans destruction du .git, table de sanitisation étendue aux IDs « connexions », outils internes à secrets exclus du dépôt public.
+- Prochaine relève : au début de la prochaine session (python3 scripts/github_releve.py) ; protocole complet en §7bis.4.

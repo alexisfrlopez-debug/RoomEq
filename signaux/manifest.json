@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "signals": [
+    {
+      "id": "impulsion-dirac",
+      "displayName": "Impulsion (Dirac ×5)",
+      "description": "Cinq clics très brefs (1 échantillon, −3 dBFS) espacés de 200 ms : vérification de la latence, des réflexions et de l'écho de la pièce.",
+      "fileName": "impulsion-dirac.wav",
+      "bytes": 88244,
+      "sha256": "94564bcf5fc54375a71c2cc44767af46b55ccbc8deab52a30a491132d27e1e7f"
+    },
+    {
+      "id": "bruit-gris-10s",
+      "displayName": "Bruit gris (10 s)",
+      "description": "Bruit pondéré par la courbe d'égale sonie : toutes les bandes audibles paraissent de même niveau. Confortable pour régler le volume d'écoute final.",
+      "fileName": "bruit-gris-10s.wav",
+      "bytes": 882044,
+      "sha256": "4d5aa5b2ca2a33eef077f723eea9872bde780f45f99cbd75746998623432e221"
+    },
+    {
+      "id": "multi-tones-10s",
+      "displayName": "Multi-tones SMPTE (10 s)",
+      "description": "Quinze sinus simultanés (40 Hz → 12,5 kHz, −24 dBFS chacun) : test d'intermodulation et d'équilibre spectral rapide.",
+      "fileName": "multi-tones-10s.wav",
+      "bytes": 882044,
+      "sha256": "645d76405f30e3c64d1f66e71a3d0b7cb51a5aef0e5c429a63124519de9c5901"
+    },
+    {
+      "id": "balayage-lent-30s",
+      "displayName": "Balayage lent 20 Hz → 20 kHz (30 s)",
+      "description": "Balayage logarithmique de 30 secondes : analyse fine des modes de pièce et des résonances entre 20 Hz et 20 kHz.",
+      "fileName": "balayage-lent-30s.wav",
+      "bytes": 2646044,
+      "sha256": "d5d4f483b03d70fe379b838d475e58ac5e9cb5ad2b4ff9103bcfbe81eb78cefc"
+    }
+  ]
+}

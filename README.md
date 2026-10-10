@@ -30,10 +30,10 @@ RoomEq est une application de bureau Windows qui combine **égaliseur paramétri
 | **Calibration multi-signaux** | **Tous les signaux disponibles mesurés successivement** — bruit blanc, rose, **brun**, **violet**, puis **balayage sinusoïdal progressif (20 Hz → 20 kHz, déconvolution de Farina : tout le spectre étalonné en continu)** — puis **croisement médian robuste** des résultats (un signal pollué n'influence pas la courbe), dispersion inter-signaux utilisée pour doser prudemment les zones peu fiables, et **placement automatique des filtres sans aucun doublon** : nombre de bandes, fréquences centrales et largeurs (Q) choisis par l'application pour une courbe optimale, zones d'exclusion anti-doublon (mode « bruit blanc seul » conservé) ; bouton **« Réinitialiser la courbe »** pour vider le graphe et repartir de zéro avant un nouveau test ; **journal de diagnostic complet** (micro choisi, formats, niveaux, erreurs) dans `logs/` à côté de l'exe, **erreurs affichées en rouge dans l'onglet**, micros virtuels signalés, **sélecteur de canal mono** (canal 1/2 seul pour les micros multi-canaux dont une voie est muette ou parasite), capture démarrée avant la lecture (balayage jamais rogné), format de capture adaptatif, un signal en échec n'annule plus la mesure entière |
 | **Correction micro** | Import `.cal` REW / CSV (`;` ou `,`, décimales `.` ou `,`), **bibliothèque intégrée de 36 micros du marché** (mesure, studio, scène — électret, condensateur vrai, RF, dynamique, ruban, USB) avec recherche, **éditeur graphique de courbe** (points ajoutés/déplacés/supprimés à la souris, champs numériques, lissage), **création de profils spécialisés**, renommage, profil appliqué avant l'analyse de la pièce |
 | **ASIO** | Énumération des pilotes installés, lecture exclusive via ASIO (taux et canaux négociés automatiquement), informations de capacité (canaux, buffer, latence, taux supportés), ouverture du panneau de contrôle du pilote |
-| **Mixage & routage système** | Onglet « Mixage & routage » : table de mixage complète dont les pistes correspondent à **toutes les entrées et toutes les sorties de Windows** (plus lecteur de fichiers et générateur internes), **égaliseur propre à chaque piste**, fader/pan/mute/solo et VU-mètres stéréo à crêtes, bus master avec l'EQ principal synchronisé en temps réel, carte son virtuelle multi-protocoles (VB-CABLE, VoiceMeeter, VAC ou boucle WASAPI) avec **installation automatique du pilote depuis les sites officiels** et **bascule automatique des périphériques par défaut de Windows** (sortie et entrée, restaurée à l'arrêt) pour que **tout le son de Windows passe par l'égaliseur** ; **volume de la carte physique routée** (le volume Windows de la carte virtuelle est sans effet) piloté par raccourcis clavier **Ctrl+Alt+↑ / ↓ (±5 %)** et **Ctrl+Alt+M (sourdine)** avec affichage OSD, ou depuis la tranche MASTER ; **tranches défilables verticalement** (chaque tranche entièrement visible en descendant la page) |
-| **Lecteur intégré** | Lecture de fichiers wav / mp3 / flac / aiff / wma / m4a avec EQ en temps réel, signaux de test (bruits blanc / rose / **brun** / **violet**, sinus 1 kHz), boucle, volume, bypass |
+| **Mixage & routage système** | Onglet « Mixage & routage » : table de mixage complète dont les pistes correspondent à **toutes les entrées et toutes les sorties de Windows** (plus lecteur de fichiers et générateur internes), **égaliseur propre à chaque piste**, fader/pan/mute/solo et VU-mètres stéréo à crêtes, bus master avec l'EQ principal synchronisé en temps réel, carte son virtuelle multi-protocoles (VB-CABLE, VoiceMeeter, VAC ou boucle WASAPI) avec **installation automatique du pilote depuis les sites officiels** et **bascule automatique des périphériques par défaut de Windows** (sortie et entrée, restaurée à l'arrêt) pour que **tout le son de Windows passe par l'égaliseur** ; **volume de la carte physique routée** (le volume Windows de la carte virtuelle est sans effet) piloté par le **curseur Volume de la barre supérieure (0–100 %)**, par raccourcis clavier **Ctrl+Alt+↑ / ↓ (±5 %)** et **Ctrl+Alt+M (sourdine)** avec affichage OSD, ou depuis la tranche MASTER ; **tranches défilables verticalement** (chaque tranche entièrement visible en descendant la page) |
+| **Lecteur intégré** | Lecture de fichiers wav / mp3 / flac / aiff / wma / m4a avec EQ en temps réel, **menu déroulant des signaux de test** : bruits blanc / rose / **brun** / **violet**, **sinus de 50 Hz à 15 kHz (10 fréquences utiles)**, **balayages logarithmiques** (20 Hz → 20 kHz et médium 200 Hz → 2 kHz), **+ signaux supplémentaires téléchargeables depuis le dépôt officiel du projet** (impulsions Dirac, bruit gris d'égale sonie, multi-tones SMPTE, balayage lent 30 s — vérifiés par SHA-256, stockés dans `%APPDATA%\RoomEq\signaux`), boucle, volume, bypass |
 | **Aide contextuelle « ? »** | Chaque fonctionnalité des 6 onglets (et de la barre du haut) est accompagnée d'un bouton **« ? »** discret : infobulle complète au survol, boîte de dialogue détaillée au clic |
-| **Défilement de l'interface** | **Défilement horizontal** de la barre supérieure (les boutons **Bruit blanc / Bruit rose / Sinus 1k** restent accessibles sur fenêtre étroite), de la barre de contrôle de l'Analyseur et de la barre de routage du Mixage ; barre supérieure allégée (tout tient sans défilement sur écran 1920 px) ; tranches du Mixage défilables verticalement **et** horizontalement (1.8.0) |
+| **Défilement de l'interface** | **Défilement horizontal** de la barre supérieure (le **menu des signaux de test** et le bouton **Télécharger d'autres…** restent accessibles sur fenêtre étroite), de la barre de contrôle de l'Analyseur et de la barre de routage du Mixage ; barre supérieure allégée (tout tient sans défilement sur écran 1920 px) ; tranches du Mixage défilables verticalement **et** horizontalement (1.8.0) |
 | **Versions test / public** | Deux exécutables du même binaire : `RoomEq-test.exe` (journalisation complète + télémétrie Drive) et `RoomEq-public.exe` (aucun journal écrit, aucun envoi) ; version visible dans la barre de titre ; au lancement de la version test, une boîte de dialogue propose de lancer la version publique à la place |
 | **Télémétrie de test** | Version test uniquement : le journal de diagnostic part automatiquement vers le dossier Drive « journaux-app » du développement (fermeture / toutes les 5 min / bouton « Envoyer maintenant »), statut affiché dans l'onglet Calibration ; piloté par `telemetrie.json` à côté des exécutables — ignoré par la version publique |
 
@@ -42,8 +42,8 @@ RoomEq est une application de bureau Windows qui combine **égaliseur paramétri
 ### Build portable (recommandé)
 
 1. Décompressez le zip choisi où vous voulez (le dossier doit rester inscriptible : les presets vont dans `%APPDATA%`, le journal de calibration dans `logs\` à côté de l'exe) :
-   - `RoomEq-1.8.1-win-x64-test.zip` → contient **`RoomEq-test.exe` ET `RoomEq-public.exe`** + `telemetrie.json` ;
-   - `RoomEq-1.8.1-win-x64-public.zip` → contient **`RoomEq-public.exe` seul**, sans `telemetrie.json`.
+   - `RoomEq-1.9.0-win-x64-test.zip` → contient **`RoomEq-test.exe` ET `RoomEq-public.exe`** + `telemetrie.json` ;
+   - `RoomEq-1.9.0-win-x64-public.zip` → contient **`RoomEq-public.exe` seul**, sans `telemetrie.json`.
 2. Double-cliquez sur **`RoomEq-test.exe`** (test) ou **`RoomEq-public.exe`** (public).
 3. Aucun prérequis : le runtime .NET 8 est embarqué (build auto-contenu).
 
@@ -66,8 +66,8 @@ Sans pilote ASIO, tout fonctionne en **WASAPI partagé** (par défaut) : la cali
 
 - **ComboBox de sortie** : liste les périphériques WASAPI actifs et les pilotes ASIO installés (préfixés « ASIO · »). Le changement de sortie redémarre proprement la lecture en cours.
 - **Ouvrir un fichier…** : lecture d'un fichier audio à travers l'égaliseur.
-- **Bruit blanc / Bruit rose / Sinus 1k** : signaux de test pratiques pour vérifier la chaîne.
-- **Volume** : gain maître appliqué après l'EQ.
+- **Menu des signaux de test** : choisissez un signal (bruits blanc/rose/brun/violet, sinus de 50 Hz à 15 kHz, balayages, fichiers téléchargés) puis **« Jouer »** pour l'écouter sur la sortie de lecture ; **« Télécharger d'autres… »** ouvre le catalogue officiel (impulsions, bruit gris, multi-tones, balayage lent) et installe les fichiers choisis localement.
+- **Volume** : gain maître du lecteur interne appliqué après l'EQ (100 % = 0 dB, 150 % = +3,5 dB) **et** volume Windows de la carte physique routée de 0 à 100 % — le son routé ne passe pas par le lecteur interne, c'est ce qui rend le curseur audible en usage routé.
 - **Bypass EQ** : compare instantanément avant/après correction.
 
 ### Onglet Égaliseur
@@ -249,8 +249,9 @@ RoomEq.sln
 │                           (poignées interactives), VuMeter (crêtes stéréo),
 │                           6 onglets, MVVM (CommunityToolkit.Mvvm),
 │                           HelpButton/HelpDialog (aide « ? »),
-│                           FlavorDialog (bascule test → public au lancement)
-└── tests/RoomEq.Core.Tests/  108 tests xUnit : filtres (réponses exactes RBJ),
+│                           FlavorDialog (bascule test → public au lancement),
+│                           SignalCatalogDialog (signaux de test téléchargeables)
+└── tests/RoomEq.Core.Tests/  150 tests xUnit : filtres (réponses exactes RBJ),
                                FFT (amplitude normalisée, inverse), plat du bruit blanc,
                                bandes d'octave, parseur .cal/CSV FR, designer de
                                correction (résonance +7 dB aplatie, bornes, préampli),
@@ -270,15 +271,20 @@ RoomEq.sln
                                seuil, confiance, ANTI-DOUBLONS : boost borné réparti,
                                pics étroits proches, largeurs de bande), bibliothèque
                                micros (36 profils, technologies, recherche),
-                               renommage presets/profils
-    tests/RoomEq.Audio.Tests/  65 tests xUnit : RingBuffer (continuité, saturation,
+                               renommage presets/profils, signaux téléchargeables
+                               (manifeste : JSON invalide, traversal, tailles,
+                               SHA-256, doublons ; verrouillage d'URL ; bibliothèque
+                               locale : SHA vérifié, noms refusés, index corrompu)
+    tests/RoomEq.Audio.Tests/  78 tests xUnit : RingBuffer (continuité, saturation,
                                silence), loi de pan, fader, EQ de piste (passe-haut),
                                synchro EQ principal → bus master, persistance mixer.json,
                                protocoles virtuels (motifs de détection VB-CABLE/
                                VoiceMeeter/VAC, sécurité installateur : URL et pages
                                officielles, ZipSlip, PE, recherche d'installateur,
                                découverte de version, seuils de taille, IIDs PolicyConfig),
-                               guides
+                               guides, catalogue de signaux (unicités, amplitudes,
+                               fréquences audibles, balayages, item par défaut,
+                               conversion curseur → volume Windows)
 ```
 
 Chaîne de traitement : `source → resample → canaux → boucle → EQ → (volume × préampli) → tap RTA → sortie`.
@@ -292,10 +298,12 @@ Mode « bruit blanc seul » : Welch → lissage 1/6 oct → correction micro →
 ## Dépannage et questions fréquentes
 
 **La courbe de calibration ne s'affiche pas.**
-**Des boutons sont coupés à droite (Bruit blanc, Bruit rose, Sinus 1k…).** Quand la fenêtre est étroite, la barre supérieure, la barre de contrôle de l'Analyseur et la barre de routage du Mixage **défilent horizontalement** : molette + Maj, geste deux doigts du pavé tactile, ou la barre de défilement sous la barre concernée. Sur un écran 1920 px tout tient sans défilement.
+**Des contrôles sont coupés à droite (menu des signaux…).** Quand la fenêtre est étroite, la barre supérieure, la barre de contrôle de l'Analyseur et la barre de routage du Mixage **défilent horizontalement** : molette + Maj, geste deux doigts du pavé tactile, ou la barre de défilement sous la barre concernée. Sur un écran 1920 px tout tient sans défilement.
 **Quelle différence entre les versions test et public ?** Le même binaire, seul le nom de l'exécutable change le comportement : `RoomEq-test.exe` journalise tout et envoie vers le Drive (pour le diagnostic à distance) ; `RoomEq-public.exe` ne journalise rien et n'envoie rien. Au lancement de la version test, une boîte de dialogue propose de basculer vers la version publique si elle est à côté. La version en cours est affichée dans la barre de titre.
 
-**Le volume Windows de la carte virtuelle ne change rien — normal ?** Oui : « CABLE Input » est un tuyau logiciel, son fader est purement décoratif. Réglez le volume de la carte physique qui rend le son : **Ctrl+Alt+↑ / ↓** (±5 %), **Ctrl+Alt+M** (sourdine), ou le curseur « Vol. carte physique » de la tranche MASTER.
+**Le volume Windows de la carte virtuelle ne change rien — normal ?** Oui : « CABLE Input » est un tuyau logiciel, son fader est purement décoratif. Réglez le volume de la carte physique qui rend le son : le **curseur Volume de la barre du haut** (de 0 à 100 % il règle directement la carte physique routée), **Ctrl+Alt+↑ / ↓** (±5 %), **Ctrl+Alt+M** (sourdine), ou le curseur « Vol. carte physique » de la tranche MASTER.
+
+**D'où viennent les signaux du menu « Téléchargés » ?** Du dépôt GitHub officiel du projet (dossier `signaux/`, fichiers WAV publiés avec les sources). Le catalogue est téléchargé à l'ouverture de la fenêtre « Télécharger d'autres… », chaque fichier est vérifié (taille + SHA-256 du manifeste) puis enregistré dans `%APPDATA%\RoomEq\signaux` ; les fichiers apparaissent ensuite dans le menu déroulant, section « Téléchargés ». Sans connexion Internet, seuls les signaux générés par l'application restent disponibles.
 
 **Mon micro est stéréo mais une voie est muette/parasite ?** Dans l'onglet Calibration, un sélecteur « Canal du micro » apparaît pour les micros multi-canaux : choisissez « Canal 1 seul (mono) » (ou 2) — le mixage stéréo diluerait le signal utile.
 
