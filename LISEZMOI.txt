@@ -1,0 +1,155 @@
+RoomEq 1.8.1 — Défilement horizontal de l'interface · deux versions TEST/PUBLIC
+================================================================================
+
+DÉFILEMENT HORIZONTAL PARTOUT (NOUVEAU 1.8.1)
+---------------------------------------------
+Quand la fenêtre est étroite, les barres horizontales défilent désormais
+sur la LARGEUR au lieu de couper les boutons de droite :
+  • Barre supérieure (sortie, transport, volume, bypass, SIGNAUX DE TEST :
+    Bruit blanc / Bruit rose / Sinus 1k) : faites défiler horizontalement
+    (molette + Maj, pavé tactile, ou la barre sous la barre) pour atteindre
+    tous les boutons — ils ne disparaissent plus.
+  • Onglet Analyseur : barre de contrôle (source, micro, FFT) défilable.
+  • Onglet Mixage : barre de routage défilable.
+  • La barre supérieure a aussi été allégée (listes et curseurs un peu plus
+    courts) : sur un écran 1920 px, tout tient SANS défilement.
+
+LES DEUX VERSIONS
+-----------------
+Les exécutables des deux versions sont fournis et se distinguent par leur nom :
+  • RoomEq-test.exe     → version de TEST : journalisation complète, envoi du
+                          journal vers le Drive de développement (voir TÉLÉMÉTRIE).
+  • RoomEq-public.exe   → version PUBLIQUE : NE journalise RIEN (aucun fichier
+                          logs\), N'envoie RIEN (aucune connexion Drive), même si
+                          un fichier telemetrie.json était présent. Aucune trace,
+                          usage quotidien serein.
+Les deux exécutables partagent les mêmes DLL dans ce dossier : ils sont
+rigoureusement identiques en fonctionnalités, seule la journalisation change.
+La version en cours est toujours visible dans la barre de titre de la fenêtre.
+
+Au LANCEMENT de la version test : une boîte de dialogue propose de lancer la
+version publique à la place (si elle est à côté) — « Lancer la version publique »
+ouvre RoomEq-public.exe et referme la version test ; « Continuer en version test »
+poursuit normalement.
+
+LANCEMENT
+---------
+1. Décompressez ce dossier où vous voulez (le dossier doit rester inscriptible).
+2. Double-cliquez sur RoomEq-test.exe (test) ou RoomEq-public.exe (public).
+3. Aucun prérequis : le runtime .NET 8 est embarqué (build auto-contenu).
+   Configuration : Windows 10 ou 11, x64.
+
+TÉLÉMÉTRIE — VERSION DE TEST UNIQUEMENT
+---------------------------------------
+La version test envoie automatiquement son journal de diagnostic vers le dossier
+Google Drive « journaux-app » du projet de développement, afin que tout
+problème (« la courbe ne s'affiche pas », blocage, erreur…) puisse être
+diagnostiqué et corrigé à distance :
+
+  • QUOI : uniquement le TEXTE du journal (roomeq-AAAA-MM-JJ.log) — jamais
+    de contenu audio, jamais de données personnelles au-delà du nom de machine.
+  • QUAND : à la fermeture de l'application, puis toutes les 5 minutes, et
+    via le bouton « Envoyer maintenant » (onglet Calibration → Journal).
+  • NOMmage : un fichier par machine et par jour
+    (<machine>-roomeq-AAAA-MM-JJ.log).
+  • Le statut d'envoi est affiché sous « Journal de diagnostic ».
+  • La télémétrie est pilotée par le fichier « telemetrie.json » à côté des
+    exécutables : renommez-le (ou videz « enabled ») pour la désactiver.
+  • La version PUBLIQUE ignore ce fichier et n'envoie jamais rien.
+
+DÉFILEMENT VERTICAL DE L'ONGLET MIXAGE (1.8)
+--------------------------------------------
+Les tranches de l'onglet Mixage (et le MASTER) sont plus hautes que la fenêtre :
+la zone défile VERTICALEMENT — descendez la page pour voir chaque tranche
+entièrement (fader, M/S/EQ, lecteur, générateur). Le défilement horizontal
+(tranches supplémentaires) reste disponible.
+
+AIDE CONTEXTUELLE « ? » (1.7)
+-----------------------------
+Chaque fonctionnalité de l'interface est accompagnée d'un petit bouton « ? »
+discret :
+  • SURVOL : une infobulle affiche l'explication complète.
+  • CLIC : une boîte de dialogue dédiée ouvre la même explication, en grand.
+Présents sur les 6 onglets : barre du haut, égaliseur, mixage, analyseur,
+calibration, micro et ASIO.
+
+CANAL MICRO MONO (1.7)
+----------------------
+Quand le micro choisi expose plusieurs canaux, un sélecteur « Canal du micro »
+apparaît :
+  • Mixage stéréo (L+R) — comportement historique (défaut).
+  • Canal 1 seul (mono), Canal 2 seul (mono)… — indispensable pour les micros
+    multi-canaux dont un canal est muet ou parasite : le mixage diluerait le
+    signal utile et fausserait l'analyse.
+Le choix est journalisé et suivi par toute la mesure (bruits + balayage).
+
+VOLUME DE LA CARTE PHYSIQUE ROUTÉE (1.7)
+----------------------------------------
+Le volume Windows de la carte VIRTUELLE (CABLE Input, VoiceMeeter…) n'a
+AUCUN effet sur le niveau perçu. RoomEq pilote directement le volume du
+périphérique PHYSIQUE qui rend le son (sortie master de l'onglet Mixage) :
+  • RACCOURCIS CLAVIER (partout dans l'application) :
+      Ctrl+Alt+↑   volume +5 %
+      Ctrl+Alt+↓   volume −5 %
+      Ctrl+Alt+M   sourdine
+    avec un bandeau OSD éphémère indiquant l'état.
+  • CURSEUR « Vol. carte physique » dans la tranche MASTER de l'onglet
+    Mixage, avec boutons − / + / M.
+Le fader MASTER règle toujours le niveau interne de RoomEq ; ce contrôle
+règle le niveau système de la vraie carte son.
+
+AUDIT ET OPTIMISATIONS (1.7)
+----------------------------
+  • BUG RÉEL CORRIGÉ : dans l'onglet Mixage, le bouton « X » de l'éditeur
+    d'EQ de piste ne supprimait JAMAIS la bande.
+  • Changement de taux d'échantillonnage : les filtres de l'égaliseur sont
+    reconstruits ; fuites corrigées (lecteurs, objets COM, tranche en cours
+    de lecture) ; code mort supprimé ; temps réel optimisé.
+
+RAPPELS 1.6.1 — FIABILITÉ CALIBRATION
+-------------------------------------
+  • Le balayage joué = le balayage analysé (durée du curseur honorée).
+  • Capture démarrée avant la lecture : le balayage n'est jamais rogné.
+  • Format de capture adaptatif, micros virtuels signalés, capture muette
+    détectée avec erreur actionnable, un signal en échec n'annule pas la
+    mesure, erreurs en rouge.
+
+RAPPELS 1.6 — RESET & IMPORT AVEC PRÉCISION
+-------------------------------------------
+  • Onglet Calibration : « Réinitialiser la courbe » (graphe vidé, mesure
+    en cours annulée).
+  • Onglet Égaliseur : « Importer la courbe de calibration » avec PRÉCISION
+    au choix (Douce 8 bandes / Standard 14 / Fine 20 / Ultra 30) — la
+    précision détermine le nombre de bandes, leur espacement et leurs
+    largeurs (Q), sans aucun doublon.
+
+RAPPELS 1.5 — BALAYAGE PROGRESSIF & ANTI-DOUBLONS
+-------------------------------------------------
+  • Le test sur sinus est un balayage sinusoïdal progressif 20 Hz → 20 kHz
+    (déconvolution de Farina) : tout le spectre est étalonné en une passe.
+  • La courbe de correction ne comporte AUCUN doublon de bandes.
+
+PROCÉDURE DE CALIBRATION (RÉSUMÉ)
+---------------------------------
+1. Barre du haut : choisissez la SORTIE, réglez le volume (Ctrl+Alt+↑ / ↓).
+2. Onglet Calibration : choisissez votre micro PHYSIQUE (et son canal si
+   besoin), placez-le à la position d'écoute.
+3. « Démarrer la calibration » : bruits + balayage progressif, restez
+   silencieux.
+4. La courbe s'affiche, la correction est appliquée à l'égaliseur
+   automatiquement. « Enregistrer le preset » la met en bibliothèque.
+5. Onglet Égaliseur : « Importer la courbe de calibration » avec la
+   précision choisie pour régénérer les bandes.
+6. Le résultat s'écoute par le routage (onglet Mixage) : Windows → EQ →
+   enceintes ; volume final via Ctrl+Alt+↑ / ↓.
+
+FICHIERS UTILES
+---------------
+  logs\roomeq-AAAA-MM-JJ.log   journal de diagnostic (version test uniquement,
+                               envoyé au Drive)
+  telemetrie.json              configuration de la télémétrie de test
+                               (absent de la version publique)
+  %APPDATA%\RoomEq\presets     bibliothèque de presets
+  %APPDATA%\RoomEq\micprofiles profils micro importés
+
+TESTS : 173 vérifications automatisées (108 DSP/Core + 65 Audio) — toutes vertes.
