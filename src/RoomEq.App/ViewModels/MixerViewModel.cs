@@ -29,6 +29,13 @@ public partial class MixerViewModel : ObservableObject
     private readonly EndpointVolumeController _endpointVolume = new();
     private DispatcherTimer? _eqSyncDebounce;
 
+    // synchro des deux curseurs de volume (barre du haut + Mixage) : une seule
+    // source de vérité (le volume Windows de la carte), tous les affichages suivent
+    private readonly Action<double>? _syncTopBarVolume; // recale le curseur de la barre du haut
+    private bool _syncingRoutedVolume;                  // écriture PROGRAMMATIQUE de RoutedVolume en cours
+    private bool _routedVolumeReady;                    // premier état réel reçu (le binding initial ne doit rien écrire)
+    private double _lastEndpointSeen = -1;              // détection des changements faits hors de l'application
+
     /// <summary>Moteur audio de la console.</summary>
     public ConsoleMixer Mixer { get; } = new();
 
@@ -88,9 +95,10 @@ public partial class MixerViewModel : ObservableObject
     private string? _savedRenderId;
     private string? _savedCaptureId;
 
-    public MixerViewModel(PlaybackEngine engine)
+    public MixerViewModel(PlaybackEngine engine, Action<double>? syncTopBarVolume = null)
     {
         _engine = engine;
+        _syncTopBarVolume = syncTopBarVolume;
 
         Mixer.ErrorOccurred += msg => Dispatcher.UIThread.Post(() =>
         {
@@ -333,6 +341,7 @@ public partial class MixerViewModel : ObservableObject
         bool ok = _endpointVolume.SetTarget(value.Id);
         DiagnosticsLog.Info("Volume physique ciblé : " + value.DisplayName + (ok ? "" : " (non accessible)"));
         RefreshRoutedVolumeDisplay();
+        SyncTopBarFromEndpoint(); // la nouvelle carte peut avoir un volume différent : les deux curseurs suivent
         OnPropertyChanged(nameof(RoutedVolumeTarget));
         OnPropertyChanged(nameof(HasRoutedVolume));
         SaveConfig();
@@ -343,11 +352,47 @@ public partial class MixerViewModel : ObservableObject
     private void RefreshRoutedVolumeDisplay()
     {
         double v = _endpointVolume.VolumeScalar;
-        RoutedVolume = v;
-        RoutedMute = _endpointVolume.Muted;
-        RoutedVolumeText = v < 0
-            ? "—"
-            : (RoutedMute ? "Muet" : $"{Math.Round(v * 100)} %");
+        _syncingRoutedVolume = true; // le binding TwoWay renverrait sinon la valeur dans OnRoutedVolumeChanged
+        try
+        {
+            RoutedVolume = v;
+            RoutedMute = _endpointVolume.Muted;
+            RoutedVolumeText = v < 0
+                ? "—"
+                : (RoutedMute ? "Muet" : $"{Math.Round(v * 100)} %");
+        }
+        finally { _syncingRoutedVolume = false; }
+        if (VolumeSyncPolicy.IsUsable(v)) _routedVolumeReady = true;
+        _lastEndpointSeen = v;
+    }
+
+    /// <summary>
+    /// Le curseur « Volume carte physique » du Mixage a bougé (binding TwoWay) :
+    /// la valeur devient la consigne de la carte, PUIS la barre du haut est recalée
+    /// — les deux curseurs restent identiques quel que soit celui que l'on déplace.
+    /// </summary>
+    partial void OnRoutedVolumeChanged(double value)
+    {
+        // écriture programmatique (RefreshRoutedVolumeDisplay) : rien à propager ;
+        // premier peuplement du binding : RoutedVolume démarre à −1 et le Slider
+        // le contraint à 0 dès l'affichage — ne PAS écrire 0 dans la carte !
+        if (_syncingRoutedVolume || !_routedVolumeReady) return;
+        if (!VolumeSyncPolicy.IsUsable(value)) return;
+        if (!_endpointVolume.Available) return;
+
+        double target = VolumeSyncPolicy.ClampToEndpointRange(value);
+        if (VolumeSyncPolicy.ShouldWriteToEndpoint(_endpointVolume.VolumeScalar, target))
+            _endpointVolume.SetVolumeScalar(target);
+        RefreshRoutedVolumeDisplay();
+        SyncTopBarFromEndpoint();
+    }
+
+    /// <summary>Recale le curseur de la barre supérieure sur le volume réel de la carte
+    /// (la décision finale — déjà synchronisé ou non — appartient au ViewModel principal).</summary>
+    private void SyncTopBarFromEndpoint()
+    {
+        double v = _endpointVolume.VolumeScalar;
+        if (VolumeSyncPolicy.IsUsable(v)) _syncTopBarVolume?.Invoke(v);
     }
 
     private void NudgeRoutedVolume(int direction)
@@ -361,6 +406,7 @@ public partial class MixerViewModel : ObservableObject
         if (v < 0) return;
         _endpointVolume.SetVolumeScalar(v + direction * 0.05);
         RefreshRoutedVolumeDisplay();
+        SyncTopBarFromEndpoint(); // le curseur de la barre du haut suit les raccourcis clavier
         FeedbackRoutedVolume();
     }
 
@@ -373,14 +419,15 @@ public partial class MixerViewModel : ObservableObject
     /// ne passe PAS par le lecteur interne, d'où ce pont) ; au-delà de 100 % le
     /// volume Windows reste au maximum et seul le gain du lecteur interne monte.
     /// Sans effet si la sortie n'expose pas de volume Windows (ASIO).
+    /// Le curseur du Mixage suit via RefreshRoutedVolumeDisplay (pas d'appel
+    /// réciproque : la barre du haut est la SOURCE du changement ici).
     /// </summary>
     public void ApplyTopBarVolume(double value)
     {
         if (!_endpointVolume.Available) return;
         double target = EndpointVolumeController.SliderToEndpoint(value);
-        double current = _endpointVolume.VolumeScalar;
-        if (current < 0 || Math.Abs(current - target) > 0.0035)
-            _endpointVolume.SetVolumeScalar(target);
+        if (VolumeSyncPolicy.ShouldWriteToEndpoint(_endpointVolume.VolumeScalar, target))
+            _endpointVolume.SetVolumeScalar(VolumeSyncPolicy.ClampToEndpointRange(target));
         RefreshRoutedVolumeDisplay();
     }
 
@@ -663,6 +710,26 @@ public partial class MixerViewModel : ObservableObject
             vm.UpdateMeter();
         UpdateMasterMeter();
         CheckCaptureHealth();
+        PollExternalEndpointVolume();
+    }
+
+    /// <summary>
+    /// Le volume de la carte peut changer HORS de l'application (mixeur Windows,
+    /// touches du casque, autre logiciel) : en le sondant à chaque battement, les
+    /// deux curseurs restent fidèles au réglage réel, quel que soit l'ordre et
+    /// l'origine des modifications.
+    /// </summary>
+    private void PollExternalEndpointVolume()
+    {
+        if (!_endpointVolume.Available)
+        {
+            _lastEndpointSeen = -1;
+            return;
+        }
+        double v = _endpointVolume.VolumeScalar;
+        if (!VolumeSyncPolicy.HasChangedSinceLastSeen(_lastEndpointSeen, v)) return;
+        RefreshRoutedVolumeDisplay();
+        SyncTopBarFromEndpoint();
     }
 
     private void UpdateMasterMeter()

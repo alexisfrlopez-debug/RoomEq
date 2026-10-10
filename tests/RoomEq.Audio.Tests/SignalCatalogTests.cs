@@ -93,4 +93,69 @@ public class SignalCatalogTests
     {
         Assert.Equal(expected, EndpointVolumeController.SliderToEndpoint(slider), 6);
     }
+
+    // ------------------------------------------------------- synchro des deux curseurs
+
+    [Theory]
+    [InlineData(0.0, true)]
+    [InlineData(0.5, true)]
+    [InlineData(1.0, true)]
+    [InlineData(-1.0, false)]   // sentinelle « carte indisponible »
+    [InlineData(-0.001, false)]
+    [InlineData(double.NaN, false)]
+    [InlineData(1.0001, false)] // hors plage Windows : pas affichable comme volume carte
+    public void IsUsable_RejectsSentinelAndOutOfRange(double value, bool expected)
+    {
+        Assert.Equal(expected, VolumeSyncPolicy.IsUsable(value));
+    }
+
+    [Fact]
+    public void HasChangedSinceLastSeen_IgnoresStartupSentinel()
+    {
+        // au démarrage aucune valeur valide n'a été vue : le premier sondage
+        // ne doit PAS écraser les affichages
+        Assert.False(VolumeSyncPolicy.HasChangedSinceLastSeen(-1, 0.42));
+        // un vrai changement externe est détecté
+        Assert.True(VolumeSyncPolicy.HasChangedSinceLastSeen(0.50, 0.55));
+        // le bruit d'arrondi du pilote (float) n'est pas un changement
+        Assert.False(VolumeSyncPolicy.HasChangedSinceLastSeen(0.50000, 0.50002));
+    }
+
+    [Fact]
+    public void ShouldWriteToEndpoint_SkipsRoundOffAndRejectsBadTargets()
+    {
+        // écart infime : pas d'écriture (anti-spam pendant un glissement)
+        Assert.False(VolumeSyncPolicy.ShouldWriteToEndpoint(0.5000, 0.5010));
+        // vrai écart : écriture
+        Assert.True(VolumeSyncPolicy.ShouldWriteToEndpoint(0.50, 0.60));
+        // carte illisible (sentinelle −1) : on tente quand même l'écriture
+        Assert.True(VolumeSyncPolicy.ShouldWriteToEndpoint(-1, 0.60));
+        // consignes invalides : jamais écrites
+        Assert.False(VolumeSyncPolicy.ShouldWriteToEndpoint(0.5, -1));
+        Assert.False(VolumeSyncPolicy.ShouldWriteToEndpoint(0.5, double.NaN));
+    }
+
+    [Fact]
+    public void ShouldSyncTopBar_AvoidsNotificationLoops()
+    {
+        // la barre du haut est déjà à la position de la carte : rien à faire
+        Assert.False(VolumeSyncPolicy.ShouldSyncTopBar(0.42, 0.4200001));
+        // la carte a bougé (curseur du Mixage, clavier, Windows) : recaler
+        Assert.True(VolumeSyncPolicy.ShouldSyncTopBar(1.0, 0.42));
+        // carte illisible : rien à recaler
+        Assert.False(VolumeSyncPolicy.ShouldSyncTopBar(1.0, -1));
+    }
+
+    [Theory]
+    [InlineData(-1.0, 0.0)]      // sentinelle → silence (jamais propagée à la carte)
+    [InlineData(double.NaN, 0.0)]
+    [InlineData(0.0, 0.0)]
+    [InlineData(0.37, 0.37)]
+    [InlineData(1.0, 1.0)]
+    [InlineData(1.5, 1.0)]       // boost logiciel : la carte reste à 100 %
+    [InlineData(-0.4, 0.0)]
+    public void ClampToEndpointRange_BringsAnySliderValueIntoWindowsRange(double value, double expected)
+    {
+        Assert.Equal(expected, VolumeSyncPolicy.ClampToEndpointRange(value), 6);
+    }
 }

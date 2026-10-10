@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using RoomEq.Audio.Capture;
 using RoomEq.Audio.Measurement;
 using RoomEq.Audio.Playback;
+using RoomEq.Audio.Routing;
 using RoomEq.Core.Calibration;
 using RoomEq.Core.Eq;
 using RoomEq.Core.Io;
@@ -42,6 +43,7 @@ public partial class MainViewModel : ObservableObject
     public MixerViewModel Mixer { get; }
 
     private readonly Avalonia.Threading.DispatcherTimer _telemetryTimer;
+    private bool _syncingVolumeFromMixer; // recadrage du curseur depuis le Mixage : ne pas réécrire la carte
 
     [ObservableProperty] private ObservableCollection<OutputDeviceInfo> outputs = new();
     [ObservableProperty] private OutputDeviceInfo? selectedOutput;
@@ -69,7 +71,7 @@ public partial class MainViewModel : ObservableObject
         Analyzer = new AnalyzerViewModel(Engine, AnalyzerCapture);
         Calibration = new CalibrationViewModel(Engine, Measurement, Mic);
         Asio = new AsioViewModel(() => Engine.Stop());
-        Mixer = new MixerViewModel(Engine);
+        Mixer = new MixerViewModel(Engine, SyncVolumeFromRouted);
 
         // initialisations croisées
         Eq.Init(Engine);
@@ -181,10 +183,33 @@ public partial class MainViewModel : ObservableObject
         //    cible que Ctrl+Alt+↑ / ↓). Sans lui, le curseur paraîtrait « sans
         //    effet » sur la sortie sélectionnée dans l'usage principal.
         Engine.Volume = value;
-        Mixer.ApplyTopBarVolume(value);
+
+        // recadrage venant du Mixage / des raccourcis clavier / de Windows : la
+        // carte est DÉJÀ à la bonne valeur (c'est elle qui a provoqué le recadrage)
+        // — ne pas la réécrire, seule la position du curseur doit suivre.
+        if (!_syncingVolumeFromMixer)
+            Mixer.ApplyTopBarVolume(value);
+
         StatusText = value <= 0.001
             ? "Volume coupé (lecteur interne + carte physique routée)."
-            : $"Volume : {value:0%} — lecteur interne + volume Windows de la carte physique routée.";
+            : $"Volume : {Math.Min(value, 1.0):0%} — lecteur interne + carte physique routée" + (value > 1.0 ? " (carte au maximum, gain lecteur augmenté)" : "");
+    }
+
+    /// <summary>
+    /// Recadre le curseur de la barre supérieure sur le volume RÉEL de la carte
+    /// physique, après un changement venu d'ailleurs : curseur de l'onglet Mixage,
+    /// raccourcis Ctrl+Alt+↑ / ↓, changement de sortie master, ou réglage fait
+    /// hors de l'application (mixeur Windows). C'est ce qui garde les deux
+    /// curseurs identiques quel que soit celui que l'on déplace, et dans quel
+    /// ordre. Le drapeau évite la boucle : sans lui, OnVolumeChanged réécrirait
+    /// la carte (déjà à la bonne valeur) et déclencherait un aller-retour.
+    /// </summary>
+    internal void SyncVolumeFromRouted(double endpointScalar)
+    {
+        if (!VolumeSyncPolicy.ShouldSyncTopBar(Volume, endpointScalar)) return;
+        _syncingVolumeFromMixer = true;
+        try { Volume = endpointScalar; }
+        finally { _syncingVolumeFromMixer = false; }
     }
 
     partial void OnBypassChanged(bool value)

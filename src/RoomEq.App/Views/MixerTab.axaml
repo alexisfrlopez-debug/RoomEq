@@ -280,9 +280,9 @@
                                                    Foreground="#FF9F1C" FontWeight="Bold"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         <controls:HelpButton HelpTitle="Volume carte physique"
-                                                             HelpText="Règle le volume WINDOWS de la sortie sélectionnée ci-dessus (enceintes, casque…) — pas celui de la carte virtuelle, qui n'a AUCUN effet sur le niveau perçu.&#10;&#10;Raccourcis clavier (fonctionnent partout) :&#10;• Ctrl+Alt+↑ : +5 %&#10;• Ctrl+Alt+↓ : −5 %&#10;• Ctrl+Alt+M : sourdine&#10;&#10;Le fader MASTER ci-contre règle le niveau interne de RoomEq ; ce curseur règle le niveau système de la carte physique."/>
+                                                             HelpText="Règle le volume WINDOWS de la sortie sélectionnée ci-dessus (enceintes, casque…) — pas celui de la carte virtuelle, qui n'a AUCUN effet sur le niveau perçu.&#10;&#10;Il est SYNCHRONISÉ avec le curseur « Volume » de la barre du haut : déplacer l'un met l'autre à la même position, quel que soit l'ordre (et un réglage fait dans le mixeur Windows est suivi aussi).&#10;&#10;Raccourcis clavier (fonctionnent partout) :&#10;• Ctrl+Alt+↑ : +5 %&#10;• Ctrl+Alt+↓ : −5 %&#10;• Ctrl+Alt+M : sourdine&#10;&#10;Le fader MASTER ci-contre règle le niveau interne de RoomEq ; ce curseur règle le niveau système de la carte physique."/>
                                     </StackPanel>
-                                    <Slider Minimum="0" Maximum="1" Value="{Binding RoutedVolume}"
+                                    <Slider Minimum="0" Maximum="1" Value="{Binding RoutedVolume, Mode=TwoWay}"
                                             IsEnabled="{Binding HasRoutedVolume}"
                                             ToolTip.Tip="Volume système du périphérique de sortie physique"/>
                                     <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">

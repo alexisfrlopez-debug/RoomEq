@@ -1,8 +1,23 @@
-RoomEq 1.9.0 — Menu des signaux de test téléchargeables · volume audible sur la sortie
-======================================================================================
+RoomEq 1.9.1 — Curseurs de volume toujours synchronisés · signaux téléchargeables
+==================================================================================
 
-MENU DES SIGNAUX DE TEST (NOUVEAU 1.9.0)
-----------------------------------------
+LES DEUX CURSEURS DE VOLUME RESTENT SYNCHRONISÉS (1.9.1)
+--------------------------------------------------------
+Le curseur « Volume » de la barre du haut et le curseur « Vol. carte
+physique » de la tranche MASTER (onglet Mixage) règlent le MÊME volume :
+celui de la carte physique qui rend le son.
+  • Déplacer l'un met IMMÉDIATEMENT l'autre à la même position, quel que
+    soit l'ordre — avant, le curseur du Mixage ne suivait pas et pouvait
+    être écrasé par le moindre mouvement de la barre du haut.
+  • Les raccourcis Ctrl+Alt+↑ / ↓ / M et le changement de sortie master
+    mettent aussi les deux curseurs à jour.
+  • Un réglage fait HORS de l'application (mixeur Windows, touches de
+    volume du casque, autre logiciel) est suivi à l'écran.
+Technique : une seule source de vérité (le volume Windows de la carte) —
+chaque commande y écrit, puis tous les affichages relisent la carte.
+
+MENU DES SIGNAUX DE TEST (1.9.0)
+--------------------------------
 La barre du haut remplace les trois boutons « Bruit blanc / Bruit rose /
 Sinus 1k » par un MENU DÉROULANT :
   • Bruits : blanc, rose (défaut), brun, violet.
@@ -11,8 +26,8 @@ Sinus 1k » par un MENU DÉROULANT :
   • Section « Téléchargés » : les fichiers installés depuis le catalogue.
 Choisissez un signal puis « Jouer » pour l'écouter sur la sortie sélectionnée.
 
-TÉLÉCHARGER D'AUTRES SIGNAUX (NOUVEAU 1.9.0)
---------------------------------------------
+TÉLÉCHARGER D'AUTRES SIGNAUX (1.9.0)
+------------------------------------
 Le bouton « Télécharger d'autres… » ouvre le catalogue officiel du projet
 (dépôt GitHub de RoomEq, dossier signaux/) :
   • Impulsion (Dirac ×5) — latence, réflexions, écho.
@@ -26,8 +41,8 @@ déroulant (section « Téléchargés ») et se lit EN BOUCLE. Sans connexion
 Internet, le catalogue n'est pas accessible mais tous les signaux générés
 par l'application restent disponibles.
 
-LE CURSEUR VOLUME AGIT SUR LA SORTIE (NOUVEAU 1.9.0)
-----------------------------------------------------
+LE CURSEUR VOLUME AGIT SUR LA SORTIE (1.9.0, enrichi en 1.9.1)
+--------------------------------------------------------------
 Le son ROUTÉ (Windows → carte virtuelle → EQ → carte physique) ne passe PAS
 par le lecteur interne de la barre du haut : le curseur Volume paraissait
 sans effet en usage routé. Il pilote désormais DEUX chemins à la fois :
@@ -35,8 +50,10 @@ sans effet en usage routé. Il pilote désormais DEUX chemins à la fois :
     master de l'onglet Mixage) — effet immédiat et audible sur le son routé ;
   • en continu : le gain du lecteur interne (fichiers, signaux de test),
     après l'égaliseur (100 % = 0 dB, 150 % = +3,5 dB).
-Au-delà de 100 %, la carte reste au maximum et seul le gain du lecteur monte.
-Les raccourcis Ctrl+Alt+↑ / ↓ / M règlent toujours la carte physique seule.
+Au-delà de 100 %, la carte reste au maximum et seul le gain du lecteur monte
+(le curseur du Mixage reste alors à 100 %).
+Les raccourcis Ctrl+Alt+↑ / ↓ / M règlent toujours la carte physique seule —
+et depuis 1.9.1, les deux curseurs se recalent l'un l'autre (voir ci-dessus).
 
 DÉFILEMENT HORIZONTAL (1.8.1)
 -----------------------------
@@ -129,6 +146,8 @@ périphérique PHYSIQUE qui rend le son (sortie master de l'onglet Mixage) :
     Mixage, avec boutons − / + / M.
   • Depuis la 1.9.0 : le curseur Volume de la barre du haut règle aussi la
     carte physique (voir section dédiée en tête de ce fichier).
+  • Depuis la 1.9.1 : ce curseur est SYNCHRONISÉ avec celui de la barre du
+    haut (voir section dédiée en tête de ce fichier).
 Le fader MASTER règle toujours le niveau interne de RoomEq ; ce contrôle
 règle le niveau système de la vraie carte son.
 

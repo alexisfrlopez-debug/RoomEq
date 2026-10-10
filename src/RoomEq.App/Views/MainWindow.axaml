@@ -59,10 +59,10 @@
                     <Separator Width="1" Height="26" Background="#2A2F3A" Margin="6,0"/>
 
                     <TextBlock Text="Volume" VerticalAlignment="Center" Foreground="#8B93A7" FontSize="11"/>
-                    <Slider Minimum="0" Maximum="1.5" Value="{Binding Volume}" Width="120" VerticalAlignment="Center"/>
+                    <Slider Minimum="0" Maximum="1.5" Value="{Binding Volume, Mode=TwoWay}" Width="120" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding Volume, StringFormat={}{0:0%}}" VerticalAlignment="Center" Width="44" FontSize="11"/>
                     <controls:HelpButton HelpTitle="Volume et transport"
-                                         HelpText="« Lecture / Arrêt » contrôlent le lecteur interne (fichier ouvert ou signal de test).&#10;&#10;Le curseur Volume agit sur DEUX chemins :&#10;• le lecteur interne : gain après l'égaliseur — 100 % = 0 dB, 150 % = +3,5 dB ;&#10;• le volume Windows de la carte physique routée (sortie master de l'onglet Mixage) : de 0 à 100 %, le curseur règle directement la carte — c'est ce qui rend le curseur audible sur le son routé, dont le chemin ne passe pas par ce lecteur.&#10;&#10;Au-delà de 100 %, la carte reste au maximum et seul le gain du lecteur monte. Ctrl+Alt+↑ / ↓ / M règlent toujours la carte physique seule."/>
+                                         HelpText="« Lecture / Arrêt » contrôlent le lecteur interne (fichier ouvert ou signal de test).&#10;&#10;Le curseur Volume agit sur DEUX chemins :&#10;• le lecteur interne : gain après l'égaliseur — 100 % = 0 dB, 150 % = +3,5 dB ;&#10;• le volume Windows de la carte physique routée (sortie master de l'onglet Mixage) : de 0 à 100 %, le curseur règle directement la carte — c'est ce qui rend le curseur audible sur le son routé, dont le chemin ne passe pas par ce lecteur.&#10;&#10;SYNCHRONISATION : ce curseur, le curseur « Volume carte physique » de l'onglet Mixage et les raccourcis Ctrl+Alt+↑ / ↓ règlent le MÊME volume — déplacer l'un met immédiatement les autres à la même position, quel que soit l'ordre. Un réglage fait hors de l'application (mixeur Windows, touches du casque) est aussi suivi.&#10;&#10;Au-delà de 100 %, la carte reste au maximum et seul le gain du lecteur monte (le curseur du Mixage reste alors à 100 %). Ctrl+Alt+↑ / ↓ / M règlent toujours la carte physique seule."/>
 
                     <ToggleButton IsChecked="{Binding Bypass}" Content="Bypass EQ" VerticalAlignment="Center"/>
                     <controls:HelpButton HelpTitle="Bypass EQ"

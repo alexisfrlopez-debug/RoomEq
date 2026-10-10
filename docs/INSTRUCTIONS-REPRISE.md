@@ -1,7 +1,7 @@
 # INSTRUCTIONS DE REPRISE — Projet RoomEq (à destination de l'agent IA)
 
 > **À lire en tout premier au début de chaque session.**
-> Dernière mise à jour : 2026-10-10 — État : RoomEq **v1.9.0** livré (menu déroulant des signaux de test avec **catalogue téléchargeable** depuis le dépôt GitHub ; **curseur Volume de la barre du haut audible sur la sortie routée**), 228/228 tests verts.
+> Dernière mise à jour : 2026-10-11 — État : RoomEq **v1.9.1** livré (**les deux curseurs de volume — barre du haut et Mixage — restent synchronisés** quel que soit l'ordre de manipulation), base 1.9.0 (menu des signaux + catalogue téléchargeable + volume audible sur la sortie), 245/245 tests verts.
 > Ce fichier est le point d'entrée unique : il explique l'état du projet, comment
 > restaurer l'environnement depuis ce Drive, comment travailler, et comment exécuter
 > la **sauvegarde incrémentielle obligatoire** en fin de session.
@@ -14,11 +14,11 @@
 |---|---|
 | **Projet** | RoomEq — égaliseur acoustique temps réel pour Windows (correction acoustique de pièce) |
 | **Stack** | .NET 8 · NAudio (WASAPI/ASIO) · Avalonia 11 (MVVM CommunityToolkit) · xUnit |
-| **Version actuelle** | 1.9.0 — **menu déroulant des signaux de test** (bruits blanc/rose/brun/violet, sinus 50 Hz→15 kHz, balayages, fichiers téléchargés) + **« Télécharger d'autres… »** (catalogue officiel hébergé sur le dépôt GitHub, SHA-256 vérifié) ; **le curseur Volume de la barre du haut pilote aussi le volume Windows de la carte physique routée (0–100 %)** — audible en usage routé ; base 1.8.1 : défilement horizontal ; base 1.8.0 : deux versions d'exe test télémétré + public silencieux ; base 1.7 : aide « ? », canal micro mono, volume carte physique (Ctrl+Alt+↑/↓/M), audit |
+| **Version actuelle** | 1.9.1 — **les deux curseurs de volume (barre du haut + Vol. carte physique du Mixage) synchronisés en permanence** (une seule source de vérité : le volume Windows de la carte) ; base 1.9.0 : **menu déroulant des signaux de test** (bruits blanc/rose/brun/violet, sinus 50 Hz→15 kHz, balayages, fichiers téléchargés) + **« Télécharger d'autres… »** (catalogue officiel hébergé sur le dépôt GitHub, SHA-256 vérifié) ; **le curseur Volume de la barre du haut pilote aussi le volume Windows de la carte physique routée (0–100 %)** — audible en usage routé ; base 1.8.1 : défilement horizontal ; base 1.8.0 : deux versions d'exe test télémétré + public silencieux ; base 1.7 : aide « ? », canal micro mono, volume carte physique (Ctrl+Alt+↑/↓/M), audit |
 | **Source locale** | `/home/z/my-project/workspace/roomq-source/RoomEq` |
 | **SDK .NET** | `/home/z/.dotnet` → `export PATH="$HOME/.dotnet:$PATH"` (8.0.425) |
-| **Tests** | 228/228 verts (150 Core + 78 Audio) |
-| **GitHub** | https://github.com/alexisfrlopez-debug/RoomEq — dépôt PUBLIC sanitisé (v1.8.1, tag `v1.8.1`) : docs internes et scripts avec placeholders `__ID_*__`, aucune donnée personnelle. Re-sanitiser via `scripts/assemble_github_repo.py (outil interne, non publié)` avant tout nouveau push. **Relève à chaque session** : issues/PR/commentaires (§7bis, `scripts/github_releve.py`). Licence MIT. |
+| **Tests** | 245/245 verts (150 Core + 95 Audio) |
+| **GitHub** | https://github.com/alexisfrlopez-debug/RoomEq — dépôt PUBLIC sanitisé (v1.9.1, tag `v1.9.1`) : docs internes et scripts avec placeholders `__ID_*__`, aucune donnée personnelle. Re-sanitiser via `scripts/assemble_github_repo.py (outil interne, non publié)` avant tout nouveau push. **Relève à chaque session** : issues/PR/commentaires (§7bis, `scripts/github_releve.py`). Licence MIT. |
 | **Drive** | Racine : https://drive.google.com/drive/folders/__ID_RACINE_DRIVE__ |
 | **Règle d'or** | Fin de session = append au `worklog.md` **puis** `python3 scripts/drive_backup.py` |
 
@@ -54,9 +54,49 @@
 
 ---
 
-## 2. État du projet au 2026-10-10 (v1.9.0)
+## 2. État du projet au 2026-10-11 (v1.9.1)
 
-### 2.0 Fonctionnalités livrées (v1.9.0 — signaux de test en menu + volume audible sur la sortie)
+### 2.0 Fonctionnalités livrées (v1.9.1 — les deux curseurs de volume toujours synchronisés)
+
+- **Retour utilisateur** : « les 2 curseurs de volume ont des problèmes de
+  synchro selon dans quel ordre ils sont modifiés ».
+- **Diagnostic** (la 1.9.0 avait unidirectionnalisé la synchro) : le curseur
+  « Volume » de la barre du haut poussait bien vers le curseur « Vol. carte
+  physique » du Mixage, mais le binding TwoWay de ce dernier écrivait
+  `RoutedVolume` **sans aucun handler** : le déplacer ne changeait NI la carte
+  NI la barre du haut — puis le moindre mouvement de la barre du haut écrasait
+  la valeur affichée. Mêmes trous pour Ctrl+Alt+↑/↓, pour le changement de
+  sortie master et pour un réglage fait hors de l'application (mixeur
+  Windows). D'où une synchro dépendante de l'ordre.
+- **Correctif — une seule source de vérité (le volume Windows de la carte),
+  tous les affichages relisent la carte après chaque écriture** :
+  - `RoomEq.Audio/Routing/VolumeSyncPolicy.cs` (NOUVEAU, pur et testé) :
+    sentinelle −1 (« indisponible ») jamais interprétée comme un volume,
+    epsilon de changement (0,05 %) vs epsilon d'écriture anti-spam (0,35 %),
+    décision de recadrage de la barre du haut, bornage 0..1 ;
+  - `MixerViewModel.OnRoutedVolumeChanged` (NOUVEAU) : le curseur du Mixage
+    écrit la carte PUIS recale la barre du haut ; garde `_syncingRoutedVolume`
+    contre la boucle du binding TwoWay et garde `_routedVolumeReady` contre
+    le piège du premier peuplement (RoutedVolume démarre à −1, le Slider le
+    contraint à 0 dès l'affichage — ne PAS écrire 0 dans la carte au
+    démarrage !) ;
+  - `MixerViewModel` : nudges clavier et changement de sortie master recalent
+    aussi la barre du haut ; `PollExternalEndpointVolume` dans `Tick()` (80 ms)
+    suit les réglages faits hors de l'application ;
+  - `MainViewModel.SyncVolumeFromRouted` (NOUVEAU, câblé via le constructeur
+    du Mixer — le callback doit vivre dès le chargement de la config au
+    démarrage) : recadre `Volume` sous drapeau `_syncingVolumeFromMixer` pour
+    que `OnVolumeChanged` ne réécrive pas la carte (elle y est déjà) ;
+  - `ApplyTopBarVolume` refactoré sur `VolumeSyncPolicy` (comportement inchangé) ;
+  - XAML : `Mode=TwoWay` explicite sur les deux curseurs ; aides « ? » mises à
+    jour (synchro documentée dans la barre du haut et la tranche MASTER).
+- **Zone d'asymétrie documentée (inchangée)** : au-delà de 100 %, la carte est
+  au maximum (le curseur du Mixage reste à 100 %) et seul le gain du lecteur
+  interne monte — ce point est écrit dans les deux aides et le LISEZMOI.
+- **Tests** : +17 Audio (`VolumeSyncPolicy` : sentinelles, epsilons, bornage,
+  décision de recadrage) — 245 total (150 Core + 95 Audio).
+
+### 2.1 Fonctionnalités livrées (v1.9.0 — signaux de test en menu + volume audible sur la sortie)
 
 - **Menu déroulant des signaux de test** (demande : « pour la sélection de
   bruits/types de sinus, je voudrais plutôt un menu déroulant avec possibilité
@@ -120,7 +160,7 @@
   ordonné/index corrompu…), +13 Audio (catalogue : unicités, amplitudes,
   fréquences audibles, balayages, défaut ; conversion curseur) — 228 total.
 
-### 2.1 Fonctionnalités livrées (v1.8.1 — défilement horizontal de l'interface)
+### 2.3 Fonctionnalités livrées (v1.8.1 — défilement horizontal de l'interface)
 
 - **Diagnostic** (retour utilisateur : « les boutons de test de bruit n'apparaissent
   pas tous », après le défilement vertical du mixer en 1.8.0) : la barre supérieure
@@ -155,7 +195,7 @@
   LISEZMOI.txt réécrit (section « DÉFILEMENT HORIZONTAL PARTOUT »).
 - **Tests** : aucun changement de logique → 173/173 inchangés (re-vérifiés).
 
-### 2.2 Fonctionnalités livrées (v1.8.0 — deux versions d'exe)
+### 2.4 Fonctionnalités livrées (v1.8.0 — deux versions d'exe)
 
 - **Deux versions d'exécutable, un seul binaire** (demande : « une version test
   qui log et envoie les logs sur le drive, et une version public qui ne log rien
@@ -200,7 +240,7 @@
   DisplayName cohérent, chemin voisin), `DiagnosticsLog_EnabledFalse_WritesNothing`
   (interrupteur : ni mémoire ni fichier) ; 173 total.
 
-### 2.3 Fonctionnalités livrées (v1.7.0)
+### 2.5 Fonctionnalités livrées (v1.7.0)
 
 - **Télémétrie Drive (le cœur de la 1.7)** : l'EXE de test envoie son
   journal de diagnostic vers le dossier Drive `journaux-app`
@@ -277,7 +317,7 @@
   `ChannelMixerTests` (6 cas), `EqChainRateTests` (reconstruction au taux +
   continuité d'état) ; 158 total.
 
-### 2.4 Fonctionnalités livrées (v1.6.1)
+### 2.6 Fonctionnalités livrées (v1.6.1)
 
 - **Fiabilité de la calibration (v1.6.1)** — retour utilisateur « la courbe de
   calibration ne s'affiche pas », cause : la mesure pouvait échouer silencieusement
@@ -399,11 +439,11 @@
     de sécurité recalculé ;
   - Nouveau : `CorrectionResult.ResidualRmsDb()` (jumeau de `ResidualMaxDb()`).
 
-### 2.5 Architecture du code
+### 2.7 Architecture du code
 
 ```
 RoomEq/
-├── RoomEq.sln · Directory.Build.props (version 1.9.0)
+├── RoomEq.sln · Directory.Build.props (version 1.9.1)
 ├── src/
 │   ├── RoomEq.Core/    DSP pur : BiquadFilter, Fft, Windowing, SpectrumTools,
 │   │                   NoiseGenerator (blanc/rose/brun/violet), LogSweepGenerator,
@@ -444,7 +484,7 @@ RoomEq/
                              catalogue de signaux, curseur → volume Windows…)
 ```
 
-### 2.6 Limites connues (à ne pas « corriger » sans discussion)
+### 2.8 Limites connues (à ne pas « corriger » sans discussion)
 
 - `IPolicyConfig` est une API **non documentée** (standard du secteur) : 3 IIDs tentées en
   cascade avec confirmation par relecture ; repli prévu via panneau son Windows.
