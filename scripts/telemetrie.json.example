@@ -1,0 +1,8 @@
+{
+  "client_id": "__VOTRE_CLIENT_ID__.apps.googleusercontent.com",
+  "client_secret": "__VOTRE_CLIENT_SECRET__",
+  "refresh_token": "__VOTRE_REFRESH_TOKEN__",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "folder_id": "__VOTRE_ID_DOSSIER_JOURNAUX__",
+  "enabled": true
+}
