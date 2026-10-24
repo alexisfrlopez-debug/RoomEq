@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  RoomEq — manifeste de paquet MSIX (cible Microsoft Store).
+
+  STATUT : scaffolding v2.1.0 (chantier Store, cf. docs/SIGNATURE-ET-STORE.md).
+  Ce paquet valide la chaîne de build ; l'IDENTITÉ est un placeholder à
+  remplacer au moment de la soumission Partner Center :
+
+    Identity/@Publisher  → « CN=<hash de l'identité Partner Center> »
+                            (Partner Center → Gestion des applications →
+                             Détails de l'identité du paquet)
+    Identity/@Name        → le nom réservé « RoomEq » dans Partner Center
+    Identity/@Version     → <version>.0 à chaque soumission
+
+  Jusqu'à la phase « attestation Microsoft » du pilote (INSTALLATION-PILOTE.md,
+  voie B), le paquet embarque le pilote en simple donnée (dossier driver/)
+  pour l'activation au premier lancement ; il N'EST PAS installé par MSIX
+  (un paquet ne peut pas installer de pilote noyau).
+
+  L'enregistrement COM du pilote ASIO (CLSID
+  {8F5E3A91-4B2C-4D6E-9A1F-2E7C5B8D9A03}, InprocServer32, ThreadingModel
+  Apartment — cf. installer/RoomEq.wxs) se fera soit par l'extension
+  com:ComServer du manifeste, soit par l'utilitaire d'activation du
+  premier lancement : décision documentée dans docs/SIGNATURE-ET-STORE.md
+  (§ ASIO). Il est volontairement absent de ce scaffolding.
+
+  Tests locaux (hors Store) : paquet signé avec un certificat de test
+  auto-signé — signtool sign /fd SHA256 /f cert.pfx roomeq.msix puis
+  Add-AppxPackage. La soumission Store est re-signée par Microsoft.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+
+  <!-- PLACEHOLDER — voir commentaire d'en-tête -->
+  <Identity Name="RoomEq"
+            Publisher="CN=RoomEq Project"
+            Version="2.1.0.0"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>RoomEq</DisplayName>
+    <PublisherDisplayName>RoomEq Project</PublisherDisplayName>
+    <Description>Égaliseur acoustique autonome : mesure de pièce, correction automatique, carte son virtuelle et pilote ASIO intégrés.</Description>
+    <Logo>assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Resources>
+    <Resource Language="fr-FR" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop"
+                        MinVersion="10.0.17763.0"
+                        MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <!-- App de bureau Win32 pleine confiance (WASAPI/COM audio) — standard
+         pour les applications audio ; à justifier dans la soumission. -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+  <Applications>
+    <Application Id="RoomEq"
+                 Executable="RoomEq.exe"
+                 EntryPoint="Windows.FullTrustProcess">
+      <uap:VisualElements
+        DisplayName="RoomEq"
+        Description="Égaliseur acoustique autonome : mesure de pièce, correction automatique, carte son virtuelle et pilote ASIO."
+        BackgroundColor="#1A1A2E"
+        Square150x150Logo="assets\Square150x150Logo.png"
+        Square44x44Logo="assets\Square44x44Logo.png" />
+    </Application>
+  </Applications>
+</Package>

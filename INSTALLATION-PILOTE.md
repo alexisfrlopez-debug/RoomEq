@@ -132,6 +132,11 @@ powershell -ExecutionPolicy Bypass -File driver\roomeqvad\build\build_driver.ps1
 
 ## Voie B — Attestation Microsoft (distribution officielle)
 
+> La voie B est aussi **le préalable au Microsoft Store** et à l'objectif
+> « Windows ne bloque rien d'office » (plus de mode test, certificat,
+> redémarrage ni Secure Boot) : feuille de route complète des 3 phases
+> (attestation → MSI signé → Store MSIX) dans **`docs/SIGNATURE-ET-STORE.md`**.
+
 L'attestation (« attestation signing ») fait signer le pilote **par Microsoft**
 après contrôle automatique : les utilisateurs n'ont ni mode test, ni
 certificat à installer. Étapes :

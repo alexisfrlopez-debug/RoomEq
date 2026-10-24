@@ -78,6 +78,8 @@ de l'utilisateur (antivirus, avis), mises à jour automatiques, visibilité.
 
 | Sujet | Situation actuelle | Action avant soumission |
 |---|---|---|
+| **Pilote noyau** (carte virtuelle) | Signé-test : mode test + redémarrage + Secure Boot off — et un paquet MSIX **ne peut pas** installer de pilote | **Phase A (préalable absolu) : attestation Microsoft** du pilote, puis activation au premier lancement (1 UAC, recette déjà dans `InstallActions.cs`) — feuille de route complète : **`docs/SIGNATURE-ET-STORE.md`** |
+| ASIO (COM `InprocServer32`) | Enregistré par le MSI dans HKLM | Extension `com:ComServer` du manifeste MSIX ou helper d'activation — décision à trancher en soumission test (voir `SIGNATURE-ET-STORE.md` § 3) |
 | `IPolicyConfig` (API non documentée) | Utilisée pour basculer les périphériques par défaut | Risque de rejet/évolution de Windows : documenter le repli (panneau son) déjà prévu dans le code ; l'écrire explicitement dans la revue |
 | Installation VB-CABLE/VoiceMeeter | Téléchargement depuis `download.vb-audio.com` + UAC | Fonctionne en full trust ; mais le Store n'aime pas les téléchargements externes — prévoir un mode « sans pilote externe » (loopback WASAPI, déjà implémenté) comme parcours par défaut dans la fiche |
 | Télémétrie | La version publique n'envoie **rien** (garde-fou `AppFlavor`) | Argument conformité fort ; fournir une politique de confidentialité simple (« aucune donnée collectée, aucun envoi réseau ») |
@@ -94,12 +96,14 @@ de l'utilisateur (antivirus, avis), mises à jour automatiques, visibilité.
 
 ### 2.4 Étapes concrètes
 
-1. Créer le compte Partner Center (individuel) et payer les 19 $.
-2. Réserver le nom d'application (« RoomEq »).
-3. Ajouter le projet de packaging MSIX + icônes + politique de confidentialité.
-4. Adapter l'écriture des fichiers vers `%LOCALAPPDATA%` (§ 2.2).
-5. Soumettre une version de test (flight) → revue Microsoft (quelques jours).
-6. Publier en achat unique à prix d'entrée, surveiller les avis, itérer.
+1. **Pilote attesté Microsoft** (phase A de `docs/SIGNATURE-ET-STORE.md` — certificat EV ~300–500 €/an) : sans ça, le Store est impossible pour l'expérience complète.
+2. Créer le compte Partner Center (individuel) et payer les 19 $.
+3. Réserver le nom d'application (« RoomEq »).
+4. Remplacer l'identité placeholder de `installer/msix/Package.appxmanifest`, compléter le job CI `msix` (scaffolding déjà fusionné).
+5. Porter l'activation pilote au premier lancement (`DriverSetupManager.cs` + recette devcon d'`InstallActions.cs`), trancher ASIO (com:ComServer vs helper).
+6. Adapter l'écriture des fichiers vers `%LOCALAPPDATA%` (§ 2.2).
+7. Soumettre une version de test (flight) → revue Microsoft (quelques jours).
+8. Publier en achat unique à prix d'entrée, surveiller les avis, itérer.
 
 ---
 

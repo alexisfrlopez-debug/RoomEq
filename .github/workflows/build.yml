@@ -208,3 +208,46 @@ jobs:
           gh release upload "$tag" "$($msi.FullName)" --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 4. MSIX Store : scaffolding v2.1.0 (docs/SIGNATURE-ET-STORE.md).
+  #    Paquet NON signé (la soumission Store est re-signée par Microsoft) ;
+  #    pilote embarqué en donnée pour l'activation au premier lancement.
+  # ─────────────────────────────────────────────────────────────────────
+  msix:
+    name: Paquet MSIX (Store)
+    runs-on: windows-latest
+    needs: [tests, driver]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Récupérer l'artefact pilote + ASIO
+        uses: actions/download-artifact@v4
+        with:
+          name: roomeq-driver-${{ github.sha }}
+          path: ci-driver
+
+      - name: Assembler le MSIX
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File installer\msix\build_msix.ps1 `
+            -DriverDir ci-driver\driver `
+            -AsioDll ci-driver\RoomEqAsio64.dll
+
+      - name: Vérifier le MSIX
+        shell: pwsh
+        run: |
+          $msix = Get-Item 'installer\msix\build\RoomEq-*.msix' | Select-Object -First 1
+          if (-not $msix) { throw 'MSIX introuvable' }
+          Get-Item $msix.FullName | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roomeq-msix-${{ github.sha }}
+          path: installer/msix/build/RoomEq-*.msix
+          if-no-files-found: error
