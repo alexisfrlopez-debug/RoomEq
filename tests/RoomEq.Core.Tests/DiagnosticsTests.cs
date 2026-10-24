@@ -138,7 +138,9 @@ public class DiagnosticsTests
             new ArgumentException("cause interne")));
 
         Assert.NotNull(DiagnosticsLog.LogPath);
-        string content = File.ReadAllText(DiagnosticsLog.LogPath!);
+        // le journal est potentiellement encore OUVERT par le logger (partage
+        // Windows) : lire avec FileShare.ReadWrite, comme un vrai lecteur de log
+        string content = ReadLogShared(DiagnosticsLog.LogPath!);
         Assert.Contains(marker + " info", content);
         Assert.Contains(marker + " warn", content);
         Assert.Contains(marker + " erreur", content);
@@ -149,7 +151,7 @@ public class DiagnosticsTests
         Assert.Contains("cause interne", content);
 
         // chaque entrée tient sur une ligne (les sauts de ligne sont aplatis)
-        var lines = File.ReadAllLines(DiagnosticsLog.LogPath!);
+        var lines = content.Split('\n');
         Assert.All(lines, l => Assert.DoesNotContain("\n", l));
     }
 
@@ -187,7 +189,7 @@ public class DiagnosticsTests
             // …et rien dans le fichier de journal (s'il en existe un des tests précédents)
             if (DiagnosticsLog.LogPath is { } path)
             {
-                string content = File.ReadAllText(path);
+                string content = ReadLogShared(path);
                 Assert.DoesNotContain("ne-doit-jamais-apparaitre-42", content);
                 Assert.DoesNotContain("ni-cette-erreur-42", content);
             }
@@ -196,5 +198,19 @@ public class DiagnosticsTests
         {
             DiagnosticsLog.Enabled = previous;
         }
+    }
+
+    /// <summary>
+    /// Lecture d'un fichier de journal POSSIBLEMENT encore ouvert par le logger
+    /// (les collections de tests tournent en parallèle : TelemetryTests écrit
+    /// pendant que ce test lit). File.ReadAllText exige FileShare.Read et échoue
+    /// avec « being used by another process » si un writer détient le fichier —
+    /// FileShare.ReadWrite est la lecture tolérante standard d'un log vivant.
+    /// </summary>
+    private static string ReadLogShared(string path)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var sr = new StreamReader(fs);
+        return sr.ReadToEnd();
     }
 }

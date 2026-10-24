@@ -388,3 +388,36 @@ Work Log:
 Stage Summary:
 - RoomEq v1.9.1 : les deux curseurs de volume (barre du haut + Vol. carte physique du Mixage) affichent et pilotent le MÊME volume Windows de la carte physique — déplacer l'un recale l'autre, dans n'importe quel ordre ; Ctrl+Alt+↑/↓, changement de sortie master et réglages Windows externes suivis aussi.
 - 245/245 tests verts ; dépôt public à jour (commit e6067d6 + tag v1.9.1, zéro fuite) ; livrables download/RoomEq-1.9.1-{win-x64-test,win-x64-public,source}.zip.
+
+---
+Task ID: 12
+Agent: Super Z (principal)
+Task: Session du 2026-10-24 — (1) reprise après crash sandbox de la v2.0.0 ; (2) bibliothèque intégrée de corrections casques/écouteurs « toutes gammes » (demande utilisateur) ; (3) portage macOS complet avec drivers adaptés (demande utilisateur) ; (4) publication v2.0.0 (push + tag + CI + livrables).
+
+Work Log:
+- Reprise : lecture worklog, vérification git (sandbox neuf : dépôt GitHub local sans .git → re-clone), build + 237 tests verts d'emblée.
+- PRESETS CASQUES :
+  - scripts/fetch_headphone_presets.py : liste curatoriale de 255 modèles (39 marques, toutes gammes budget→premium, toutes familles circum/intra-aural/earbud/gaming/sans fil) ; arbre GitHub AutoEq (6 033 ParametricEQ.txt) indexé, priorité oratory1990 > Super Review > crinacle > Rtings ; téléchargement parallèle + parsing (Preamp + 10 filtres PK/LSC/HSC) ; 255/255 récupérés, 0 erreur ; sortie : src/RoomEq.Core/Headphones/headphone_presets.json (262 Ko, EmbeddedResource).
+  - RoomEq.Core/Headphones/HeadphonePresetLibrary.cs : modèles HeadphoneModel/HeadphoneFilter, Brands/ByBrand/Find/Search (recherche normalisée multi-mots), ToEqPreset (mapping EqBand Peaking/LowShelf/HighShelf + préampli clampé), libellés FR type/gamme.
+  - UI : EqViewModel (marque, modèles filtrés par recherche, ApplyHeadphonePreset) + section « Casques & écouteurs » dans EqTab.axaml (recherche instantanée « hd 650 », « xm5 »…, sous-libellé type·gamme·source, HelpButton).
+  - Tests : HeadphonePresetLibraryTests (8) — catalogue ≥200/≥30 marques, unicité ids, plages moteurs (±24 dB suite aux corrections fidèles AutoEq >15 dB), ToEqPreset→EqChain réel, recherche, libellés.
+- MACOS (application) :
+  - src/RoomEq.Audio/Mac/ : CoreAudioApi.cs (P/Invoke HAL+AudioUnit+CF, codes 4CC vérifiés contre les en-têtes SDK 11.3 réels — 'stdv'/'lnam'/'stm#'/'virt'/'astr' etc., NonInterleaved corrigé 1<<5), CoreAudioCatalog.cs (énumération entrées/sorties par flux, défauts, résolution UID), CoreAudioOutput.cs (AUHAL 48 k/2 c/float entrelacé, rappel de rendu), CoreAudioCapture.cs (AUHAL entrée mono 48 k, TCC), MacAudioBridge.cs (sondage VirtualCardStatus + DeviceBridge).
+  - PlaybackEngine/CaptureEngine/ConsoleMixer/ConsoleChannel multi-OS (préfixe coreaudio|, TrackSourceKind.MacVirtualDevice, garde anti-boucle macOS, EnumerateOutputs par OS).
+  - AsioBridgeTransport.FallbackPath → chemin POSIX DÉTERMINISTE /tmp/roomeq.<nom>.mmf + chmod 0666 (coreaudiod écrit) ; AsioBridgeHost.CreateDeviceBridge() (section dédiée RoomEq.Device.Bridge.v1, libellés d'état paramétrés) ; DeviceBridgeTests (3).
+  - ViewModels/UI macOS : MixerViewModel (IsMacOS, sondage greffon, pistes par défaut macOS, textes, install masqué), MixerTab.axaml adapté (ShowDriverInstallUi), RoomEqVirtualProvider OS-aware (guides macOS, motifs par OS), CaptureEngine StartMac, énumérations micro macOS.
+- MACOS (driver) :
+  - macos/RoomEqHAL/roomeq_hal.cpp (NOUVEAU, ~1 000 lignes) : greffon AudioServerPlugIn complet d'après l'en-tête public Apple — vtable COM 23 entrées, fabrique RoomEqHALCreate (CFPlugIn statique, UUID type 443ABAB8-…), périphérique « RoomEq Virtual » (objets 1 greffon/2 device/3 flux sortie/4 flux entrée), propriétés HAL complètes (classes, identité, UID RoomEqVirtual, transport 'virt', horloge unclocked, buffers 16–4096, formats 48 k/2 c/float), IO WriteMix→roomeq_asio_write (anneau du pont, drop-oldest) + ReadInput (curseur privé synchronisé), session incrémentée à l'attachement.
+  - RoomEqHAL.driver/Contents/Info.plist + build_plugin.sh (universel arm64+x86_64, signature ad-hoc) ; réutilise asio/bridge_core tel quel.
+  - Vérification locale : harnais scripts/macos_syntax_check/ (en-têtes Apple réels + shims CF) → g++ -fsyntax-only -Wall -Wextra : ZÉRO erreur/avertissement de mon code.
+- PACKAGING macOS : installer/macos/ (build_pkg.sh : publish arm64/x64 → bundle RoomEq.app + Info.plist NSMicrophoneUsageDescription → pkgbuild 2 composants + postinstall killall coreaudiod ; roomeq.icns généré depuis le logo ; scripts/postinstall).
+- CI : build.yml — matrice tests ubuntu+windows+MACOS ; job macos (build+tests+greffon+2 .pkg, artefact + release sur tag) ; csproj App : manifest/icône Windows conditionnés aux RIDs non-osx.
+- Docs : README (titre multiplateforme, ligne « Corrections casques », section macOS), INSTALLATION-MACOS.md (NOUVEAU), macos/RoomEqHAL/README.md (NOUVEAU), THIRD_PARTY_NOTICES.md (section AutoEq + attribution mesures), garde NoThirdPartyReferencesTests étendue à macos/ (+.sh/.plist/.mm), INSTRUCTIONS-REPRISE.md (§2 v2.0.0 complet, §0 résumé, historique 1.9.1+2.0.0).
+- Packaging : package_2.0.0.sh étendu (15 vérifications ✓, presets embarqués dans RoomEq.Core.dll vérifiés, greffon/pkg dans le zip source) → download/ zips test 42 M / public 42 M / source 4,9 M ; 239/239 tests finaux.
+- GitHub : assemble_github_repo.py adapté (driver/ asio/ installer/ macos/ .github/ + guides, mode mise à jour, anti-fuite vert) ; re-clone du dépôt (sandbox neuf), commit 0cf86e6, push main + TAG v2.0.0 → CI « Build RoomEq » lancée (runs main + tag).
+
+Stage Summary:
+- RoomEq 2.0.0 complet : 255 presets casques AutoEq intégrés + portage macOS (app CoreAudio, greffon RoomEqHAL, .pkg) en plus de l'autonomie Windows (pilote+ASIO+MSI).
+- 239/239 tests verts (160 Core + 79 Audio) ; garde anti-tierce étendue à macos/ ; zéro fuite dépôt public.
+- Livrables download/ : RoomEq-2.0.0-win-x64-{test,public,source}.zip (mis à jour avec presets+macOS) ; MSI + 2 .pkg attendus des artefacts CI du tag v2.0.0.
+- Dettes : greffon macOS compilé mais non testé sur matériel réel (premier Mac → INSTALLATION-MACOS.md §7) ; pas de volume matériel dans le greffon (v1 volontaire).

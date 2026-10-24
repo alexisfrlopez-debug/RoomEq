@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Build the RoomEq Virtual Audio driver (roomeqvad) for Windows 10/11 x64.
 
@@ -29,7 +29,8 @@ Write-Host '==> RoomEq Virtual Audio driver build' -ForegroundColor Cyan
 
 # ── WDK/SDK via NuGet (voie officielle, aucune extension VS requise) ──
 $pkgDir = Join-Path $root 'packages'
-if (-not (Test-Path (Join-Path $pkgDir 'Microsoft.Windows.WDK.x64.10.0.26100.6584'))) {
+$wdkInstalled = Get-ChildItem -Path $pkgDir -Directory -Filter 'Microsoft.Windows.WDK.x64.*' -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $wdkInstalled) {
     Write-Host '==> Restauration du WDK (NuGet, ~500 Mo une seule fois)...' -ForegroundColor Cyan
     $nuget = Join-Path $env:TEMP 'nuget.exe'
     if (-not (Test-Path $nuget)) {
