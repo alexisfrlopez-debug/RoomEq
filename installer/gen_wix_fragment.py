@@ -32,6 +32,11 @@ def xml_id(rel: Path) -> str:
 
 
 def main() -> int:
+    # stdout Windows = cp1252 par défaut : « ✓ » et accents français ne
+    # passent pas (UnicodeEncodeError après génération du fichier).
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) != 6:
         print(__doc__)
         return 2
