@@ -442,3 +442,18 @@ Stage Summary:
 - Environnement 100 % récupéré depuis /tmp/my-project ; v2.0.0 était déjà poussée (0cf86e6, f935c9d, tag v2.0.0) mais CI rouge sur 2 jobs Windows.
 - Correctifs CI appliqués (drapeaux WDK officiels + chemins d'outils forcés + 2 tests Audio cross-plateforme) ; 239/239 tests verts localement.
 - CI relancée sur le tag v2.0.0 → résultats attendus : MSI + 2 .pkg en artefacts.
+
+---
+Task ID: 14
+Agent: Super Z (principal)
+Task: Rounds CI v2.0.0 — run 1c39e2a : tests verts sur les 3 OS (correctifs Audio pris), mais WDK échoue encore (StampInf « not a rooted path ») et le job macOS tourne pour la première fois et révèle 3 erreurs C++ du greffon.
+
+Work Log:
+- Run 1c39e2a : Tests ubuntu/windows/macos = SUCCÈS (les 2 correctifs Audio fonctionnent). Pilote WDK : la chaîne versionnée c\build\10.0.28000.0 charge désormais (_NT_TARGET_VERSION a fait son office) mais StampInf reçoit « stampinf.exe » sans chemin racine → ma ceinture InfToolPath était restée INERTE : $wdkInstalled était relue AVANT la restauration NuGet du premier passage CI (null), jamais ré-inspectée après. Correctif : ré-inspection du paquet à la fin du bloc de restauration dans build_driver.ps1.
+- Job macOS (auparavant toujours SKIPPÉ car needs:tests bloqué par les échecs Windows) : première compilation réelle du greffon sous clang. 3 erreurs dans RoomEq_QueryInterface : REFIID est CFUUIDBytes (structure) sur macOS réel — « inUUID == nullptr » et CFEqual(inUUID, …) ne compilent pas. Correctif : RoomEq_UuidEquals(REFIID, CFUUIDRef) par memcmp sur les octets (CFUUIDGetUUIDBytes), suppression du test null impossible sur une structure ; kIUnknownUUID inchangé (CFUUIDRef).
+- Harnais local macos_syntax_check : son shim était la cause de l'oubli (typedef const void* REFIID) — corrigé pour refléter l'en-tête réel (CFUUIDBytes + CFUUIDGetUUIDBytes déclarée) ; g++ -fsyntax-only -Wall -Wextra : ZÉRO erreur/avertissement de notre code.
+- Republication : assemble → commit → push main → tag v2.0.0 déplacé.
+
+Stage Summary:
+- WDK : la ceinture InfToolPath/Inf2CatToolPath s'appliquera désormais réellement (ré-inspection post-restauration) ; stampinf.x64 et inf2cat.x86 seront résolus depuis le paquet.
+- macOS : comparaison d'UUID corrigée dans le greffon (le seul écart réel macOS/Intel du shim) ; vérification syntaxique locale réalignée sur la vérité du SDK.

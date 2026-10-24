@@ -324,13 +324,23 @@ namespace {
 
 // ==================================================================== IUnknown
 
+// REFIID est CFUUIDBytes (structure, passée par valeur) alors que les
+// constantes Apple sont des CFUUIDRef : comparaison octet à octet, sans
+// allocation CoreFoundation (le vrai en-tête AudioServerPlugIn.h fait de
+// REFIID un CFUUIDBytes — CFEqual/== nullptr ne compilent pas).
+static bool RoomEq_UuidEquals(REFIID inUUID, CFUUIDRef inConstant)
+{
+    CFUUIDBytes bytes = CFUUIDGetUUIDBytes(inConstant);
+    return memcmp(&inUUID, &bytes, sizeof(CFUUIDBytes)) == 0;
+}
+
 HRESULT RoomEq_QueryInterface(void* /*inDriver*/, REFIID inUUID, LPVOID* outInterface)
 {
-    if (inUUID == nullptr || outInterface == nullptr)
+    if (outInterface == nullptr)
         return static_cast<HRESULT>(0x80004003L);  // E_POINTER
 
-    if (CFEqual(inUUID, kIUnknownUUID) ||
-        CFEqual(inUUID, kAudioServerPlugInDriverInterfaceUUID))
+    if (RoomEq_UuidEquals(inUUID, kIUnknownUUID) ||
+        RoomEq_UuidEquals(inUUID, kAudioServerPlugInDriverInterfaceUUID))
     {
         *outInterface = gInstance;  // même instance, +1 référence
         g.refCount.fetch_add(1, std::memory_order_relaxed);

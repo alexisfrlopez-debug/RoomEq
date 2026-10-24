@@ -38,6 +38,10 @@ if (-not $wdkInstalled) {
     }
     & $nuget restore (Join-Path $root 'packages.config') -PackagesDirectory $pkgDir
     if ($LASTEXITCODE -ne 0) { throw 'nuget restore a echoue.' }
+    # ré-inspection : le paquet vient d'être extrait, la variable de tout à
+    # l'heure pointait encore sur rien (sinon la ceinture ci-dessous est muette)
+    $wdkInstalled = Get-ChildItem -Path $pkgDir -Directory -Filter 'Microsoft.Windows.WDK.x64.*' |
+        Select-Object -First 1
 }
 
 # 1) Locate msbuild (VS installation).
