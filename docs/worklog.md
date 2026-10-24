@@ -457,3 +457,18 @@ Work Log:
 Stage Summary:
 - WDK : la ceinture InfToolPath/Inf2CatToolPath s'appliquera désormais réellement (ré-inspection post-restauration) ; stampinf.x64 et inf2cat.x86 seront résolus depuis le paquet.
 - macOS : comparaison d'UUID corrigée dans le greffon (le seul écart réel macOS/Intel du shim) ; vérification syntaxique locale réalignée sur la vérité du SDK.
+
+---
+Task ID: 15
+Agent: Super Z (principal)
+Task: Round 3 CI v2.0.0 — run 96dfe10 : pilote compilé+signé ✓ StampInf ✓, restent InfVerif (DLL x86 introuvable) + ApiValidator (exit 1 = exe x86 inexistant) → cause racine unique : MSBuild 32 bits ; macOS : greffon compilé ✓ mais codesign usage error (argument vide).
+
+Work Log:
+- Run 96dfe10 : tests verts 3 OS ; pilote : roomeqvad.sys compilé ET auto-signé, INF estampillé (la ceinture InfToolPath fonctionne) ; échecs : DPVerifierTask « Unable to load DLL 'x86\InfVerif.dll' » et ApiValidator.exe (x86) exit 1. Diagnostic par examen du nupkg : InfVerif.dll n'existe qu'en x64/arm64 (bin et build\bin), x86\ApiValidator.exe n'existe pas — les tâches WDK choisissent le sous-dossier d'architecture PAR LA BITNESS DU PROCESSUS MSBuild. vswhere -find « MSBuild\**\Bin\MSBuild.exe | Select -First 1 » sélectionne le MSBuild 32 bits (Current\Bin) ; le 64 bits vit en Current\Bin\amd64.
+- Correctif build_driver.ps1 : sélection MSBuild avec garde de bitness réelle (lecture de l'en-tête PE, machine 0x8664) — candidats : PATH > vswhere amd64 > vswhere générique ; affichage du choix et de la bitness.
+- macOS : « SIGN_ARGS=("${@:-}") » produisait UN argument vide sans paramètre → codesign usage error (exit 2). Correctif : SIGN_ARGS=("$@") (zéro élément sans argument). Les 239 tests macOS passaient déjà, le greffon compile (correctif REFIID du round précédent confirmé sur clang réel).
+- Republication round 3.
+
+Stage Summary:
+- Cause racine WDK identifiée et corrigée (bitness du processus MSBuild) — toutes les erreurs précédentes (TRK0005, « not a rooted path », x86\InfVerif.dll, ApiValidator exit 1) proviennent de la même source.
+- macOS : unique bug restant (codesign args) corrigé ; étapes pkgbuild jamais encore exécutées — à surveiller.

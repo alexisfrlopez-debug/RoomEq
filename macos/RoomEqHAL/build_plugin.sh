@@ -19,7 +19,7 @@ INC=../../asio/bridge_core
 DRIVER=RoomEqHAL.driver
 OUT="$DRIVER/Contents/MacOS/RoomEqHAL"
 
-SIGN_ARGS=("${@:-}")   # tous les arguments passés tels quels à codesign
+SIGN_ARGS=("$@")   # « ${@:-} » produirait UN argument vide → codesign usage error
 
 mkdir -p "$DRIVER/Contents/MacOS" "$DRIVER/Contents/Resources"
 

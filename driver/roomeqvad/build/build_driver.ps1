@@ -44,12 +44,35 @@ if (-not $wdkInstalled) {
         Select-Object -First 1
 }
 
-# 1) Locate msbuild (VS installation).
+# 1) Locate msbuild — IMPÉRATIVEMENT 64 bits : les tâches WDK (InfVerif/
+#    DPVerifierTask, ApiValidator) chargent leurs DLL natives DANS le procédé
+#    et choisissent le sous-dossier par la bitness — un MSBuild 32 bits cherche
+#    « x86\InfVerif.dll » / « x86\ApiValidator.exe » qui n'existent plus dans le
+#    WDK 28000 (seulement x64/arm64) → DllNotFoundException / exit 1.
+function Test-IsX64Pe([string]$exe) {
+    if (-not (Test-Path $exe)) { return $false }
+    $b = [IO.File]::ReadAllBytes($exe)
+    $peOff = [BitConverter]::ToInt32($b, 0x3C)
+    return ([BitConverter]::ToUInt16($b, $peOff + 4) -eq 0x8664)
+}
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-if (-not (Test-Path $vswhere)) { throw 'vswhere.exe introuvable - installez Visual Studio 2022.' }
-$msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild `
-    -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-if (-not $msbuild) { throw 'MSBuild introuvable - installez VS 2022 avec la charge "Developpement C++".' }
+$candidates = @()
+$fromPath = (Get-Command msbuild -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+if ($fromPath) { $candidates += $fromPath }
+if (Test-Path $vswhere) {
+    $candidates += & $vswhere -latest -products * -requires Microsoft.Component.MSBuild `
+        -find MSBuild\**\Bin\amd64\MSBuild.exe
+    $candidates += & $vswhere -latest -products * -requires Microsoft.Component.MSBuild `
+        -find MSBuild\**\Bin\MSBuild.exe
+}
+$msbuild = $candidates | Where-Object { $_ -and (Test-IsX64Pe $_) } | Select-Object -First 1
+if (-not $msbuild) {
+    # dernier recours : le premier trouvé (avertira si 32 bits)
+    $msbuild = $candidates | Where-Object { $_ } | Select-Object -First 1
+}
+if (-not $msbuild) { throw 'MSBuild introuvable - installez Visual Studio 2022+ avec la charge "Developpement C++".' }
+$bitness = if (Test-IsX64Pe $msbuild) { '64 bits OK' } else { 'ATTENTION 32 bits - taches WDK natives en echec probable' }
+Write-Host "    MSBuild : $msbuild ($bitness)"
 
 # 2) Build (x64).
 # _NT_TARGET_VERSION + TargetVersion : indispensables avec le WDK NuGet (cf.
