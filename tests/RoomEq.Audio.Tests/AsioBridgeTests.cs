@@ -82,11 +82,16 @@ public class AsioBridgeTests : IDisposable
         host.Start();
         host.Start();   // ne lève pas, ne recrée pas
 
+        // ouvrir la vue AVANT l'arrêt : sous Windows, la destruction du dernier
+        // handle supprime la section nommée (OpenExisting échouerait après Stop) ;
+        // la vue déjà mappée lit l'en-tête écrit par Stop (HostActive = 0)
+        using var mmf = AsioBridgeTransport.OpenExisting(_uniqueMap);
+        using var view = mmf.CreateViewAccessor(0, AsioBridgeInterop.MappingBytes);
+        Assert.Equal(1u, view.ReadUInt32(AsioBridgeHeader.Offsets.HostActive));
+
         host.Stop();
         Assert.False(host.IsHosting);
 
-        using var mmf = AsioBridgeTransport.OpenExisting(_uniqueMap);
-        using var view = mmf.CreateViewAccessor(0, AsioBridgeInterop.MappingBytes);
         Assert.Equal(0u, view.ReadUInt32(AsioBridgeHeader.Offsets.HostActive));
     }
 

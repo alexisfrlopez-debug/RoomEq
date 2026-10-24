@@ -48,7 +48,37 @@ $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild 
 if (-not $msbuild) { throw 'MSBuild introuvable - installez VS 2022 avec la charge "Developpement C++".' }
 
 # 2) Build (x64).
-& $msbuild $sln /t:Build /p:"Configuration=$Configuration" /p:Platform=x64 /m /v:m
+# _NT_TARGET_VERSION + TargetVersion : indispensables avec le WDK NuGet (cf.
+# CI officielle de microsoft/Windows-driver-samples) — sans _NT_TARGET_VERSION,
+# WDKBuildFolder reste vide et stampinf.exe est introuvable (TRK0005).
+# 0xA000010 = Windows 10.0.26100 (bibliothèques Win11 24H2, compat Win10/11).
+#
+# Ceinture de sécurité (TRK0005) : le WDK NuGet n'enregistre PAS les macros
+# WDKBuildFolder/InfToolPath dans Visual Studio ; si l'extension WDK installée
+# sur la machine est d'une autre version que le paquet, la cible StampInf
+# retombe sur un chemin de tâches vide ou x86 (stampinf.exe n'y vit plus en
+# 28000+) et tracker échoue. On force donc, depuis le paquet réellement
+# restauré : le dossier de build WDK, les répertoires x64 (stampinf) et x86
+# (inf2cat), et la désactivation du tracker (inutile en CI fraîche).
+$wdkProps = @('/p:TrackFileAccess=false')
+if ($wdkInstalled) {
+    $wdkBuildDir = Get-ChildItem -Path (Join-Path $wdkInstalled.FullName 'c\build') -Directory |
+        Sort-Object Name -Descending | Select-Object -First 1
+    if ($wdkBuildDir) {
+        $wdkProps += "/p:WDKBuildFolder=$($wdkBuildDir.Name)"
+        $stampinfDir = Join-Path $wdkInstalled.FullName "c\bin\$($wdkBuildDir.Name)\x64"
+        $inf2catDir  = Join-Path $wdkInstalled.FullName "c\bin\$($wdkBuildDir.Name)\x86"
+        if (Test-Path (Join-Path $stampinfDir 'stampinf.exe')) {
+            $wdkProps += "/p:InfToolPath=$stampinfDir"
+        }
+        if (Test-Path (Join-Path $inf2catDir 'Inf2Cat.exe')) {
+            $wdkProps += "/p:Inf2CatToolPath=$inf2catDir"
+        }
+        Write-Host "    WDK forcé : dossier $($wdkBuildDir.Name), stampinf=$stampinfDir"
+    }
+}
+& $msbuild $sln /t:Build /p:"Configuration=$Configuration" /p:Platform=x64 `
+    /p:TargetVersion=Windows10 /p:_NT_TARGET_VERSION=0xA000010 @wdkProps /m /v:m
 if ($LASTEXITCODE -ne 0) { throw "Echec du build (code $LASTEXITCODE)." }
 
 # 3) Collect outputs.

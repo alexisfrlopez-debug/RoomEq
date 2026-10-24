@@ -51,7 +51,9 @@ public static class AsioBridgeTransport
     {
         int lastSlash = name.LastIndexOf('\\');
         string clean = (lastSlash >= 0 ? name[(lastSlash + 1)..] : name).ToLowerInvariant();
-        return Path.Combine("/tmp", clean + ".mmf");
+        // concaténation explicite : le chemin est CANONIQUE sur toutes les
+        // plateformes (Path.Combine produirait « /tmp\… » sous Windows)
+        return "/tmp/" + clean + ".mmf";
     }
 
     /// <summary>macOS/Linux : rend le fichier accessible en écriture à coreaudiod (autre utilisateur).</summary>

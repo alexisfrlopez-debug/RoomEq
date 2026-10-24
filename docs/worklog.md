@@ -421,3 +421,24 @@ Stage Summary:
 - 239/239 tests verts (160 Core + 79 Audio) ; garde anti-tierce étendue à macos/ ; zéro fuite dépôt public.
 - Livrables download/ : RoomEq-2.0.0-win-x64-{test,public,source}.zip (mis à jour avec presets+macOS) ; MSI + 2 .pkg attendus des artefacts CI du tag v2.0.0.
 - Dettes : greffon macOS compilé mais non testé sur matériel réel (premier Mac → INSTALLATION-MACOS.md §7) ; pas de volume matériel dans le greffon (v1 volontaire).
+
+---
+Task ID: 13
+Agent: Super Z (principal)
+Task: Session du 2026-10-24 (suite) — reprise après 2e crash sandbox : récupération de l'état, diagnostic des 4 échecs CI v2.0.0, correctifs, republication.
+
+Work Log:
+- Crash du sandbox (08:25) : my-project entier perdu (arbre source, zips, tokens). Récupération TOTALE via le vestige /tmp/my-project (546 Mo, snapshot de 08:25) copié vers /home/z/my-project : arbre v2.0.0 complet (presets + macOS inclus), 3 zips, secrets (GitHub + Drive), worklog, scripts.
+- État GitHub relevé via API (check_github_v200.py) : le push avait bien eu lieu — commit 0cf86e6 « feat(2.0.0) » + correctif CI f935c9d (WDK NuGet 10.0.28000.2526 pour tâches MSBuild 18/VS2026 + lecture partagée DiagnosticsTests), tag v2.0.0 → f935c9d, mais 4 runs CI en échec. Logs récupérés (archive run 40076992707) : ubuntu ET macOS verts (tests app + greffon), échecs = (1) job Pilote WDK : TRACKER TRK0005 « stampinf.exe » introuvable ; (2) job Windows : 2 tests Audio (FallbackPath « /tmp\… » sous Windows, OpenExisting après Stop → section nommée détruite).
+- Analyse WDK (nupkg 28000.2526 téléchargé et disséqué) : stampinf.exe ne vit plus qu'en bin/10.0.28000.0/x64 (retiré de x86) ; WDKBuildFolder/InfToolPath ne sont définis NULLE PART dans le paquet → dépendent de l'environnement. Confrontation avec la CI officielle microsoft/Windows-Driver-Samples (verte aujourd'hui même, windows-2025-vs2026, mêmes paquets) : leur invocation msbuild passe exactement -p:TargetVersion=Windows10 -p:_NT_TARGET_VERSION=<code> — d'où le TRK0005 chez nous.
+- Correctifs (3 fichiers de la session perdue récupérés dans le snapshot + 1 renforcement) :
+  - build_driver.ps1 : /p:TargetVersion=Windows10 /p:_NT_TARGET_VERSION=0xA000010 (réplique CI officielle) + CEINTURE : /p:WDKBuildFolder, /p:InfToolPath (x64), /p:Inf2CatToolPath (x86), /p:TrackFileAccess=false — tous calculés depuis le paquet NuGet réellement restauré (Test-Path gardés).
+  - AsioBridgeHost.FallbackPath : concaténation explicite « /tmp/ » + nom (Path.Combine produisait « /tmp\… » sous Windows) — le chemin canonique est partagé avec roomeq_hal.c.
+  - AsioBridgeTests.Start_IsIdempotent_StopClearsHostActive : ouverture de la vue AVANT Stop() (sous Windows, la destruction du dernier handle supprime la section nommée) ; la vue déjà mappée lit HostActive=0 écrit par Stop.
+- Validation locale (SDK .NET 8.0.426 réinstallé) : build 0 erreur ; 160/160 Core + 79/79 Audio = 239/239 verts ; noyau C du pont vert (make test).
+- Publication : assemble_github_repo.py (mode mise à jour après re-clone) → commit + push main + tag v2.0.0 déplacé sur le nouveau commit.
+
+Stage Summary:
+- Environnement 100 % récupéré depuis /tmp/my-project ; v2.0.0 était déjà poussée (0cf86e6, f935c9d, tag v2.0.0) mais CI rouge sur 2 jobs Windows.
+- Correctifs CI appliqués (drapeaux WDK officiels + chemins d'outils forcés + 2 tests Audio cross-plateforme) ; 239/239 tests verts localement.
+- CI relancée sur le tag v2.0.0 → résultats attendus : MSI + 2 .pkg en artefacts.
