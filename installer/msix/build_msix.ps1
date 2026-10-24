@@ -75,11 +75,11 @@ if ($AsioDll -eq '' -or -not (Test-Path $AsioDll)) {
 }
 Copy-Item $AsioDll $layout -Force
 
-# icônes + manifeste
+# icônes + manifeste (makeappx exige le nom exact « AppxManifest.xml »)
 $assetsLayout = Join-Path $layout 'assets'
 New-Item -ItemType Directory -Force -Path $assetsLayout | Out-Null
 Copy-Item (Join-Path $inst 'assets\*.png') $assetsLayout -Force
-Copy-Item (Join-Path $inst 'Package.appxmanifest') $layout -Force
+Copy-Item (Join-Path $inst 'Package.appxmanifest') (Join-Path $layout 'AppxManifest.xml') -Force
 
 # ── 3) makeappx ───────────────────────────────────────────────────────────
 $makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse `
