@@ -166,7 +166,10 @@ jobs:
         shell: pwsh
         run: |
           dotnet tool install --global wix --version 6.0.2
-          wix extension add -g WixToolset.UI.wixext
+          # Version PINNÉE 6.0.2 : sans version, NuGet résout 7.0.0 —
+          # incompatible avec wix 6 (WIX6101 « expected package root folder
+          # wixext6 »).
+          wix extension add -g WixToolset.UI.wixext/6.0.2
 
       - name: Assembler le MSI
         shell: pwsh
