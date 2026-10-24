@@ -8,6 +8,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# « gh release » (macos + msi) exige contents:write — sans ce bloc, le
+# GITHUB_TOKEN par défaut est en lecture seule (HTTP 403 « Resource not
+# accessible by integration »).
+permissions:
+  contents: write
+
 jobs:
   # ─────────────────────────────────────────────────────────────────────
   # 1. Tests (rapide) : xUnit sur les 3 OS — le pont ASIO et le greffon
@@ -191,7 +197,11 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${env:GITHUB_REF_NAME}"
-          gh release create "$tag" --draft --title "RoomEq $tag" --notes "Installation : exécuter le MSI (administrateur). Le pilote est signé-test : voir INSTALLATION-PILOTE.md." "installer/build/RoomEq-*.msi" || `
-          gh release upload "$tag" "installer/build/RoomEq-*.msi" --clobber
+          # pwsh n'étend PAS les jokers entre guillemets et gh non plus :
+          # résoudre le chemin explicitement.
+          $msi = Get-Item 'installer\build\RoomEq-*.msi' | Select-Object -First 1
+          if (-not $msi) { throw "MSI introuvable pour la publication" }
+          gh release create "$tag" --draft --title "RoomEq $tag" --notes "Installation : exécuter le MSI (administrateur). Le pilote est signé-test : voir INSTALLATION-PILOTE.md." "$($msi.FullName)" || `
+          gh release upload "$tag" "$($msi.FullName)" --clobber
         env:
           GH_TOKEN: ${{ github.token }}

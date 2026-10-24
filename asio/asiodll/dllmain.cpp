@@ -4,6 +4,8 @@
 */
 #include <windows.h>
 #include <objbase.h>
+#include <olectl.h>   /* SELFREG_E_CLASS (DllRegisterServer) */
+#include <new>        /* std::nothrow */
 #include <stdio.h>
 #include <string.h>
 
