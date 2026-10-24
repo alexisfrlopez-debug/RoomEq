@@ -20,7 +20,7 @@ typedef double   ASIOSampleRate;
 typedef uint32_t ASIOUlong;
 
 /* ASIOError codes */
-enum
+enum ASIOError
 {
     ASE_OK = 0,               /* success */
     ASE_SUCCESS = 0x3f4847a0, /* rare success (64 bit return) */

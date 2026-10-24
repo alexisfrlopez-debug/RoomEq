@@ -487,3 +487,16 @@ Work Log:
 
 Stage Summary:
 - Tous les gros morceaux sont verts (tests 3 OS, pilote complet, macOS complet) ; ne restent que les finitions d'outillage propres à nos scripts (inf2cat/signtool → fournis par nos propres paquets NuGet).
+
+---
+Task ID: 17
+Agent: Super Z (principal)
+Task: Round 5 CI v2.0.0 — run 09ed18a : pilote+signature VERTS, macOS VERT, tests VERTS ; ne reste que la DLL ASIO (jamais compilée : enum ASIOError anonyme).
+
+Work Log:
+- Run 09ed18a : étape WDK complète (build + inf2cat du paquet + signtool du paquet SDK + certificat + signature + artefact) ; l'étape « Compiler la DLL ASIO » échoue dans asio_decl.h : l'enum des codes d'erreur était ANONYME — le type ASIOError utilisé dans toute la vtable n'existait pas (cascade C2065/C2275/C2096 ligne 151). La DLL n'avait jamais été compilée (l'étape était toujours sautée avant).
+- Correctif : « enum ASIOError { ASE_OK … } » (tag ajouté) ; header re-validé isolément (g++ -fsyntax-only -Wall -Wextra avec stubs GUID/IUnknown : OK).
+- Republication round 5.
+
+Stage Summary:
+- Dernier maillon : l'enum tag. Tout le reste de la chaîne CI est vert (tests 3 OS, pilote complet signé, macOS pkg + release).
