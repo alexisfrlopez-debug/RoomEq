@@ -19,6 +19,41 @@ Ce document couvre l'installation du pilote de la carte son virtuelle RoomEq
 
 ## 1. Installer le pilote sur une machine (application déjà installée)
 
+### Voie recommandée : le MSI fait tout (v2.0)
+
+L'installateur **`RoomEq-<version>-win-x64.msi`** installe **tout en un
+clic** — application, carte virtuelle, ASIO — sans aucune étape manuelle :
+
+1. Double-cliquez sur le MSI et acceptez l'invite administrateur.
+2. C'est tout. L'installateur enchaîne automatiquement :
+   - import du **certificat de test** dans les magasins `Root` et
+     `TrustedPublisher` (le paquet pilote est accepté sans confirmation) ;
+   - activation du **mode test** de Windows (`bcdedit /set testsigning on`)
+     — une invite propose le redémarrage à la fin de l'installation ;
+   - ajout du pilote au **magasin Windows** (`pnputil /add-driver /install`) ;
+   - **création du périphérique** `ROOT\ROOMEQVAD` (recette devcon/SetupAPI)
+     et liaison du pilote.
+3. Après le redémarrage (une seule fois, uniquement si le mode test vient
+   d'être activé), les périphériques **« RoomEq Input »** et
+   **« RoomEq Output »** apparaissent dans le panneau son.
+
+La désinstallation (Panneau de configuration → Applications) retire tout
+aussi proprement : périphérique, paquet de pilotes et certificat de test.
+
+> **Secure Boot** : si le BIOS/UEFI a le Secure Boot actif, l'activation du
+> mode test échoue — l'installateur s'arrête alors avec un message clair
+> (rien n'est cassé : l'installation est annulée). Désactivez le Secure
+> Boot pour utiliser un pilote signé-test, ou attendez la signature
+> Microsoft (voie B). L'intégrité de la mémoire (HVCI) peut également
+> bloquer les pilotes de test sur certaines machines : voyez le Gestionnaire
+> de périphériques si la carte n'apparaît pas après le redémarrage.
+>
+> Un build **signé Microsoft** (voie B) ne déclenche ni certificat, ni mode
+> test, ni redémarrage : l'installateur le détecte automatiquement
+> (absence de `.cer` dans le paquet pilote).
+
+### Depuis l'application (zip, sans MSI)
+
 1. Ouvrez RoomEq → onglet **Mixage & routage**.
 2. Vérifiez que le protocole « **Carte virtuelle RoomEq** » est sélectionné.
 3. Cliquez **« Installer le pilote RoomEq… »** et acceptez l'invite
@@ -34,6 +69,10 @@ ci-dessous. Le bouton « Supprimer le pilote » retire proprement le paquet.
 ---
 
 ## Voie A — Signature de test (gratuit, machines de test)
+
+> Le **MSI exécute déjà automatiquement** toutes les étapes ci-dessous :
+> elles ne sont utiles que pour une installation manuelle (zip, pilote seul)
+> ou pour comprendre ce que fait l'installateur.
 
 La CI produit déjà des pilotes signés-test avec un certificat dédié ; le
 fichier `RoomEq-TestSigning.cer` est fourni **à côté** du pilote dans les

@@ -16,4 +16,9 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- X509Store (import du certificat de test) vit dans System.Security.dll -->
+    <Reference Include="System.Security" />
+  </ItemGroup>
+
 </Project>

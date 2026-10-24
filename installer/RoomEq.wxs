@@ -6,8 +6,15 @@
     • Application auto-contenue (RoomEq.exe public, silencieux par défaut)
     • Pilote de la carte son virtuelle « RoomEq Virtual Audio » (roomeqvad) :
       fichiers posés dans [INSTALLDIR]driver puis installés par action
-      personnalisée différée (pnputil, SYSTEM, sans fenêtre)
+      personnalisée différée (SYSTEM, sans fenêtre) — TOUT-AUTOMATIQUE :
+      certificat de test (Root + TrustedPublisher), mode testsigning
+      (bcdedit) avec proposition de redémarrage, magasin PnP (pnputil),
+      création du périphérique root-énuméré ROOT\ROOMEQVAD (recette
+      devcon via SetupAPI) et liaison du pilote. Un build sans .cer
+      (signature Microsoft) saute certificat/mode test/redémarrage.
     • Pilote ASIO « RoomEq ASIO » (RoomEqAsio64.dll) + enregistrement registre
+
+  → Double-clic sur le MSI = application + carte virtuelle + ASIO installés.
 
   Les groupes de fichiers (AppFiles / DriverFiles) sont GÉNÉRÉS par
   gen_wix_fragment.py juste avant la compilation (équivalent multiplateforme
@@ -101,17 +108,24 @@
       </Component>
     </ComponentGroup>
 
-    <!-- ============ actions personnalisées pilote ============ -->
+    <!-- ============ actions personnalisées pilote (tout-en-un) ============ -->
     <Binary Id="RoomEqCA" SourceFile="$(var.CADll)" />
 
     <!-- découverte du nom oemNN.inf avant toute suppression (immédiat) -->
     <CustomAction Id="FindRoomEqDriver" BinaryRef="RoomEqCA" DllEntry="FindRoomEqDriver"
                   Return="check" />
 
-    <!-- installation (différé, SYSTEM) -->
+    <!-- installation (différé, SYSTEM) : certificat + mode test + magasin
+         PnP + périphérique ROOT\ROOMEQVAD + liaison du pilote -->
     <CustomAction Id="InstallRoomEqDriver" BinaryRef="RoomEqCA" DllEntry="InstallRoomEqDriver"
                   Execute="deferred" Impersonate="no" Return="check" />
     <CustomAction Id="SetInstallDriverData" Property="InstallRoomEqDriver"
+                  Value="INSTALLDIR=[INSTALLDIR]" />
+
+    <!-- annulation si l'installation échoue en aval (rollback, best effort) -->
+    <CustomAction Id="RollbackRoomEqDriver" BinaryRef="RoomEqCA" DllEntry="RollbackRoomEqDriver"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+    <CustomAction Id="SetRollbackDriverData" Property="RollbackRoomEqDriver"
                   Value="INSTALLDIR=[INSTALLDIR]" />
 
     <!-- désinstallation (différé, SYSTEM) : les échecs n'empêchent pas la sortie -->
@@ -120,10 +134,24 @@
     <CustomAction Id="SetUninstallDriverData" Property="UninstallRoomEqDriver"
                   Value="INSTALLDIR=[INSTALLDIR];DRIVERSTOREINF=[DRIVERSTOREINF]" />
 
+    <!-- drapeau « redémarrage requis » posé par la CA différée → propriété
+         consommée par ScheduleReboot (immédiat, côté client, après le script) -->
+    <CustomAction Id="CheckRoomEqReboot" BinaryRef="RoomEqCA" DllEntry="CheckRoomEqReboot"
+                  Return="check" />
+
     <InstallExecuteSequence>
-      <!-- installation : après la copie des fichiers, si la fonctionnalité pilote est active -->
-      <Custom Action="SetInstallDriverData" After="InstallFiles" Condition="&amp;Driver=3" />
-      <Custom Action="InstallRoomEqDriver" After="SetInstallDriverData" Condition="&amp;Driver=3" />
+      <!-- installation : données partagées, puis l'action de rollback AVANT
+           l'action différée (contrainte Windows Installer : le rollback
+           s'exécute en ordre inverse à partir de sa position) -->
+      <Custom Action="SetRollbackDriverData" After="InstallFiles" Condition="&amp;Driver=3" />
+      <Custom Action="SetInstallDriverData" After="SetRollbackDriverData" Condition="&amp;Driver=3" />
+      <Custom Action="RollbackRoomEqDriver" After="SetInstallDriverData" Condition="&amp;Driver=3" />
+      <Custom Action="InstallRoomEqDriver" After="RollbackRoomEqDriver" Condition="&amp;Driver=3" />
+
+      <!-- après l'exécution du script : proposer le redémarrage si le mode
+           test vient d'être activé (drapeau fichier → propriété → ScheduleReboot) -->
+      <Custom Action="CheckRoomEqReboot" After="InstallExecute" Condition="&amp;Driver=3" />
+      <ScheduleReboot After="CheckRoomEqReboot" Condition="ROOMEQ_DRIVER_REBOOT" />
 
       <!-- désinstallation : localiser puis retirer le pilote avant la suppression des fichiers -->
       <Custom Action="FindRoomEqDriver" Before="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot; AND ?Driver=3" />
@@ -136,8 +164,10 @@
     <Property Id="ARPNOREPAIR" Value="1" />
 
     <UI>
-      <ProgressText Action="InstallRoomEqDriver" Message="Installation du pilote de la carte son virtuelle RoomEq..." />
+      <ProgressText Action="InstallRoomEqDriver" Message="Installation du pilote de la carte son virtuelle RoomEq (certificat, mode test, périphérique)..." />
+      <ProgressText Action="RollbackRoomEqDriver" Message="Annulation de l'installation du pilote RoomEq..." />
       <ProgressText Action="UninstallRoomEqDriver" Message="Desinstallation du pilote de la carte son virtuelle..." />
+      <ProgressText Action="CheckRoomEqReboot" Message="Verification du besoin de redemarrage..." />
     </UI>
   </Package>
 </Wix>

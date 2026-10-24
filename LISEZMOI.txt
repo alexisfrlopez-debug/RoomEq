@@ -18,15 +18,20 @@ Plus AUCUNE application tierce (câble audio virtuel, console externe) :
 
 INSTALLATION
 ------------
-MSI (recommandé) : double-clic, acceptez l'invite administrateur.
-Zip portable     : décompressez puis lancez RoomEq.exe.
+MSI (recommandé) : double-clic, acceptez l'invite administrateur — TOUT est
+    automatique : certificat de test, mode test Windows (redémarrage proposé
+    si nécessaire), pilote, périphérique « RoomEq Virtual Audio » et ASIO.
+Zip portable     : décompressez puis lancez RoomEq.exe (pilote installable
+    depuis l'onglet Mixage, voir INSTALLATION-PILOTE.md).
 
 SIGNATURE DU PILOTE (à lire une fois)
 -------------------------------------
 Windows n'accepte que les pilotes signés. Tant que le projet n'a pas de
-certificat EV, le pilote est SIGNÉ-TEST : si les périphériques « RoomEq
-Input / RoomEq Output » n'apparaissent pas après l'installation, suivez le
-guide « Mode test » du fichier INSTALLATION-PILOTE.md (5 minutes, une fois).
+certificat EV, le pilote est SIGNÉ-TEST : le MSI active automatiquement le
+mode test et importe le certificat — après l'unique redémarrage proposé,
+les périphériques « RoomEq Input / RoomEq Output » apparaissent (filigrane
+« Mode de test » en bas à droite : normal). Si le Secure Boot est actif,
+voyez INSTALLATION-PILOTE.md.
 L'application fonctionne sans pilote via la boucle WASAPI.
 La voie officielle (attestation Microsoft, certificat EV) y est aussi décrite.
 

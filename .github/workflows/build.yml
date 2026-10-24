@@ -204,7 +204,7 @@ jobs:
           # résoudre le chemin explicitement.
           $msi = Get-Item 'installer\build\RoomEq-*.msi' | Select-Object -First 1
           if (-not $msi) { throw "MSI introuvable pour la publication" }
-          gh release create "$tag" --draft --title "RoomEq $tag" --notes "Installation : exécuter le MSI (administrateur). Le pilote est signé-test : voir INSTALLATION-PILOTE.md." "$($msi.FullName)" || `
+          gh release create "$tag" --draft --title "RoomEq $tag" --notes "Installation : double-cliquez sur le MSI et acceptez l'invite administrateur — tout est automatique (application, carte son virtuelle avec certificat + mode test + périphérique, pilote ASIO). Un redémarrage est proposé si le mode test vient d'être activé. Le pilote est signé-test : voir INSTALLATION-PILOTE.md." "$($msi.FullName)" || `
           gh release upload "$tag" "$($msi.FullName)" --clobber
         env:
           GH_TOKEN: ${{ github.token }}

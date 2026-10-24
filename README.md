@@ -45,12 +45,12 @@ RoomEq est une application de bureau qui combine **égaliseur paramétrique**, *
 ### Installateur MSI (recommandé)
 
 1. Téléchargez `RoomEq-2.0.0-win-x64.msi` (GitHub → Actions/Releases) et double-cliquez.
-2. Acceptez l'invite administrateur : l'installateur déploie l'application dans `Program Files\RoomEq`, installe la **carte son virtuelle RoomEq** (pilote `roomeqvad`) et enregistre le **pilote ASIO « RoomEq ASIO »** pour vos DAW.
-3. Rien d'autre à installer : le runtime .NET 8 est embarqué (build auto-contenu), aucun logiciel tiers.
+2. Acceptez l'invite administrateur — **c'est tout**. L'installateur déploie l'application dans `Program Files\RoomEq` (runtime .NET 8 embarqué, aucun logiciel tiers), puis installe la **carte son virtuelle RoomEq** de bout en bout : certificat de signature de test importé, mode test de Windows activé (redémarrage proposé si nécessaire), pilote `roomeqvad` ajouté au magasin Windows, périphérique virtuel créé, et **pilote ASIO « RoomEq ASIO »** enregistré pour vos DAW.
+3. Après l'éventuel redémarrage, les périphériques **« RoomEq Input » / « RoomEq Output »** apparaissent dans le panneau son (un filigrane « Mode de test » en bas à droite de l'écran est normal).
 
-La désinstallation (Paramètres → Applications) retire proprement le pilote et l'application. Le pilote peut aussi être retiré/reposé depuis l'onglet Mixage (« Supprimer le pilote » / « Installer le pilote RoomEq… »).
+La désinstallation (Paramètres → Applications) retire proprement périphérique, pilote, certificat et application. Le pilote peut aussi être retiré/reposé depuis l'onglet Mixage (« Supprimer le pilote » / « Installer le pilote RoomEq… »).
 
-> **Signature du pilote** : Windows n'accepte que des pilotes signés. Tant que le projet n'a pas de certificat EV (attestation Microsoft — voir `INSTALLATION-PILOTE.md`), les builds sont signés-test : suivez la procédure **« Mode test »** du même document (une fois, 5 minutes) avant d'installer le pilote. L'application elle-même fonctionne sans pilote via la boucle WASAPI.
+> **Signature du pilote** : Windows n'accepte que des pilotes signés. Tant que le projet n'a pas de certificat EV (attestation Microsoft — voir `INSTALLATION-PILOTE.md`), les builds sont signés-test et le MSI active le mode test automatiquement ; si le **Secure Boot** est actif dans le BIOS/UEFI, ce mode ne peut pas être activé et l'installateur s'arrête avec un message explicatif (voyez `INSTALLATION-PILOTE.md`). L'application elle-même fonctionne sans pilote via la boucle WASAPI.
 
 ### Build portable (alternative sans installation)
 
