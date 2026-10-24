@@ -76,14 +76,12 @@ if (-not $caDll) { throw 'RoomEq.Installer.CA.CA.dll introuvable (MakeSfxCA doit
 
 # ── 6) liaison MSI ────────────────────────────────────────────────────────
 $msi = Join-Path $build "RoomEq-$version-win-x64.msi"
-# Extension UI : version 6.x PINNÉE — sans version, NuGet résout la
-# dernière 7.0.0, incompatible avec wix 6 (WIX6101). L'ajout échoue
-# silencieusement si l'extension est déjà enregistrée (cas CI) ; on
-# vérifie donc sa présence via la liste des outils globaux.
-wix extension add -g WixToolset.UI.wixext/6.0.2 2>$null | Out-Null
-if (-not (dotnet tool list --global | Select-String 'wixtoolset.ui.wixext')) {
-    throw "Extension WiX UI 6.0.2 requise : wix extension add -g WixToolset.UI.wixext/6.0.2"
-}
+# Extension UI : version 6.x PINNÉE — sans version, NuGet résout 7.0.0,
+# incompatible avec wix 6 (WIX6101). L'ajout est silencieusement tolérant :
+# re-ajouter une extension déjà enregistrée n'est pas une erreur bloquante,
+# et ce projet n'utilise aucune UIRef (wix build n'en dépend donc pas —
+# il échouerait de lui-même avec un message clair si tel était le cas).
+$null = wix extension add -g WixToolset.UI.wixext/6.0.2 2>&1
 
 wix build -arch x64 -culture fr-FR `
     -d "PublishRoot=$publish" -d "DriverRoot=$DriverDir" `
