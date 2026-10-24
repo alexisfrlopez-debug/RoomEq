@@ -472,3 +472,18 @@ Work Log:
 Stage Summary:
 - Cause racine WDK identifiée et corrigée (bitness du processus MSBuild) — toutes les erreurs précédentes (TRK0005, « not a rooted path », x86\InfVerif.dll, ApiValidator exit 1) proviennent de la même source.
 - macOS : unique bug restant (codesign args) corrigé ; étapes pkgbuild jamais encore exécutées — à surveiller.
+
+---
+Task ID: 16
+Agent: Super Z (principal)
+Task: Round 4 CI v2.0.0 — run 7744625 : macOS VERT (greffon + 2 .pkg + release), pilote VERT jusqu'à la signature (build complet, InfVerif+ApiValidator passés), restent inf2cat/signtool système introuvables sur l'image VS2026.
+
+Work Log:
+- Run 7744625 : MSBuild 64 bits sélectionné et affiché (Current\Bin\amd64), WDK forcé, build pilote COMPLET (roomeqvad.sys + .inf collectés, DrvCat/InfVerif/ApiValidator passés). macOS : job VERT (app + greffon + 2 .pkg + artefacts + joint au brouillon Release v2.0.0).
+- Restait : notre étape inf2cat cherchait « C:\Program Files (x86)\Windows Kits\10\bin » (outillage absent de l'image VS2026) puis sign_driver_test.ps1 jetait « signtool.exe introuvable ».
+- Correctifs : Inf2Cat DU PAQUET WDK NuGet (c\bin\10.0.28000.0\x86\Inf2Cat.exe) en priorité ; signtool DU PAQUET SDK.CPP NuGet (c\bin\10.0.28000.0\x64\signtool.exe) transmis à sign_driver_test.ps1 via -SdkBin (repli Windows Kits conservé).
+- Workflow : DLL ASIO compilée avec /p:PlatformToolset=v142 (l'image VS2026 n'a pas v143 ; v142 + toolset par défaut présents — l'étape n'avait jamais été atteinte avant).
+- Republication round 4.
+
+Stage Summary:
+- Tous les gros morceaux sont verts (tests 3 OS, pilote complet, macOS complet) ; ne restent que les finitions d'outillage propres à nos scripts (inf2cat/signtool → fournis par nos propres paquets NuGet).

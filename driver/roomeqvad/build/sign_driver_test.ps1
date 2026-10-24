@@ -24,17 +24,27 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$DriverDir,
-    [string]$CertSubject = 'CN=RoomEq Test Signing'
+    [string]$CertSubject = 'CN=RoomEq Test Signing',
+    # répertoire bin/x64 du paquet SDK.CPP NuGet (signtool.exe y vit) —
+    # transmis par build_driver.ps1 ; vide → repli système Windows Kits
+    [string]$SdkBin = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
-# 1) signtool
-$kit = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Directory |
-    Sort-Object Name -Descending | Select-Object -First 1
-$signtool = Join-Path $kit.FullName 'x64\signtool.exe'
-if (-not (Test-Path $signtool)) { $signtool = Join-Path $kit.FullName 'x86\signtool.exe' }
-if (-not (Test-Path $signtool)) { throw 'signtool.exe introuvable (WDK absent ?).' }
+# 1) signtool : paquet SDK NuGet > Windows Kits système
+$signtool = ''
+if ($SdkBin -and (Test-Path (Join-Path $SdkBin 'signtool.exe'))) {
+    $signtool = Join-Path $SdkBin 'signtool.exe'
+} else {
+    $kit = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Directory -ErrorAction SilentlyContinue |
+        Sort-Object Name -Descending | Select-Object -First 1
+    if ($kit) {
+        $signtool = Join-Path $kit.FullName 'x64\signtool.exe'
+        if (-not (Test-Path $signtool)) { $signtool = Join-Path $kit.FullName 'x86\signtool.exe' }
+    }
+}
+if (-not $signtool -or -not (Test-Path $signtool)) { throw 'signtool.exe introuvable (paquet SDK NuGet ni Windows Kits systeme).' }
 
 # 2) certificat local (cree une seule fois dans CurrentUser\My)
 $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -eq $CertSubject } |

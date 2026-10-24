@@ -62,7 +62,8 @@ jobs:
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild `
                         -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-          & $msbuild asio\asiodll\RoomEqAsio.vcxproj /p:Configuration=Release /p:Platform=x64 /m /v:m
+          # v143 absent de l'image VS2026 (v142 + toolset par défaut présents)
+          & $msbuild asio\asiodll\RoomEqAsio.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142 /m /v:m
           if ($LASTEXITCODE -ne 0) { throw "build ASIO échoué ($LASTEXITCODE)" }
 
       - name: Rassembler l'artefact

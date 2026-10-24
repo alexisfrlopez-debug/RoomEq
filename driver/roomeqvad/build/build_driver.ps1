@@ -121,13 +121,24 @@ foreach ($f in $files) {
 }
 
 # 4) inf2cat -> roomeqvad.cat
-$wdk = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Directory |
-    Sort-Object Name -Descending | Select-Object -First 1
-$inf2cat = Join-Path $wdk.FullName 'x64\inf2cat.exe'
-if (-not (Test-Path $inf2cat)) { $inf2cat = Join-Path $wdk.FullName 'x86\inf2cat.exe' }
-if (Test-Path $inf2cat) {
+# Priorité au Inf2Cat DU PAQUET WDK NuGet (le dossier système Windows Kits\bin
+# n'existe pas toujours sur les runners VS2026 — l'outillage WDK n'y vit plus).
+$inf2cat = $null
+if ($wdkInstalled -and $wdkBuildDir) {
+    $pkgInf2Cat = Join-Path $wdkInstalled.FullName "c\bin\$($wdkBuildDir.Name)\x86\Inf2Cat.exe"
+    if (Test-Path $pkgInf2Cat) { $inf2cat = $pkgInf2Cat }
+}
+if (-not $inf2cat) {
+    $wdk = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Directory -ErrorAction SilentlyContinue |
+        Sort-Object Name -Descending | Select-Object -First 1
+    if ($wdk) {
+        $inf2cat = Join-Path $wdk.FullName 'x64\inf2cat.exe'
+        if (-not (Test-Path $inf2cat)) { $inf2cat = Join-Path $wdk.FullName 'x86\inf2cat.exe' }
+    }
+}
+if ($inf2cat) {
     & $inf2cat /driver:$out /os:10_x64 | Out-Null
-    Write-Host "    roomeqvad.cat genere (inf2cat)."
+    Write-Host "    roomeqvad.cat genere (inf2cat : $inf2cat)."
 } else {
     Write-Warning 'inf2cat.exe introuvable - le .cat sera genere par la CI.'
 }
@@ -135,5 +146,14 @@ if (Test-Path $inf2cat) {
 Write-Host "==> OK : sorties pilote dans $out" -ForegroundColor Green
 
 if ($TestSign) {
-    & (Join-Path $PSScriptRoot 'sign_driver_test.ps1') -DriverDir $out
+    # signtool : fourni par le paquet SDK.CPP NuGet (bin/<ver>/x64) — le
+    # dossier système Windows Kits\bin n'est pas fiable sur les runners VS2026.
+    $sdkBin = ''
+    $sdkPkg = Get-ChildItem -Path $pkgDir -Directory -Filter 'Microsoft.Windows.SDK.CPP.*' -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($sdkPkg -and $wdkBuildDir) {
+        $cand = Join-Path $sdkPkg.FullName "c\bin\$($wdkBuildDir.Name)\x64"
+        if (Test-Path (Join-Path $cand 'signtool.exe')) { $sdkBin = $cand }
+    }
+    & (Join-Path $PSScriptRoot 'sign_driver_test.ps1') -DriverDir $out -SdkBin $sdkBin
 }
