@@ -5,6 +5,8 @@ using System.Linq;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using RoomEq.Audio.Asio;
+using RoomEq.Audio.Mac;
 using RoomEq.Audio.Playback;
 using RoomEq.Audio.Routing;
 using RoomEq.Core.Dsp;
@@ -17,8 +19,8 @@ namespace RoomEq.App.ViewModels;
 /// ViewModel de la table de mixage (onglet Mixage) : pistes correspondant à toutes
 /// les entrées / sorties de Windows, chacune avec son égaliseur propre, fader, pan,
 /// mute, solo et VU ; bus master avec l'EQ principal synchronisé ; routage du son
-/// Windows via une carte son virtuelle (VB-CABLE, VoiceMeeter, VAC — installation
-/// automatique depuis les sites officiels) ou en boucle WASAPI native.
+/// Windows via la carte son virtuelle RoomEq (pilote intégré à l'application)
+/// ou en boucle WASAPI native ; piste dédiée pour les DAW via le pont ASIO.
 /// </summary>
 public partial class MixerViewModel : ObservableObject
 {
@@ -27,6 +29,7 @@ public partial class MixerViewModel : ObservableObject
     private readonly MixerStore _store = new();
     private readonly DispatcherTimer _timer;
     private readonly EndpointVolumeController _endpointVolume = new();
+    private readonly DriverSetupManager _driverSetup = new();
     private DispatcherTimer? _eqSyncDebounce;
 
     // synchro des deux curseurs de volume (barre du haut + Mixage) : une seule
@@ -64,6 +67,7 @@ public partial class MixerViewModel : ObservableObject
     [ObservableProperty] private double installPercent;
     [ObservableProperty] private bool installIndeterminate = true;
     [ObservableProperty] private string routingStatusText = "Routage à l'arrêt.";
+    [ObservableProperty] private string asioStatusText = "Pont ASIO à l'arrêt.";
     [ObservableProperty] private bool isRunning;
     [ObservableProperty] private bool autoStart;
     [ObservableProperty] private bool autoRouteOnInstall = true;
@@ -75,6 +79,9 @@ public partial class MixerViewModel : ObservableObject
     [ObservableProperty] private ChannelViewModel? selectedChannel;
     [ObservableProperty] private TrackEqViewModel trackEq = new();
     [ObservableProperty] private string statusText = "Onglet Mixage : ajoutez des pistes ou routez le son Windows vers l'égaliseur.";
+
+    /// <summary>Vrai sur macOS : pilote les adaptations d'interface (pas de pnputil, pont périphérique).</summary>
+    public bool IsMacOS => OperatingSystem.IsMacOS();
 
     // volume WINDOWS du périphérique physique qui rend le son (celui de la carte
     // virtuelle n'a aucun effet) — piloté aussi au clavier (Ctrl+Alt+↑ / ↓ / M)
@@ -99,6 +106,14 @@ public partial class MixerViewModel : ObservableObject
     {
         _engine = engine;
         _syncTopBarVolume = syncTopBarVolume;
+
+        if (IsMacOS)
+        {
+            // la boucle WASAPI est propre à Windows : un seul fournisseur sur macOS
+            VirtualProviders.Clear();
+            VirtualProviders.Add(VirtualAudioCatalog.Default);
+            SelectedProvider = VirtualAudioCatalog.Default;
+        }
 
         Mixer.ErrorOccurred += msg => Dispatcher.UIThread.Post(() =>
         {
@@ -140,6 +155,22 @@ public partial class MixerViewModel : ObservableObject
 
         RefreshDevices();
         _timer.Start();
+
+        // Pont du périphérique virtuel (macOS) ou ASIO (Windows) : la section
+        // partagée doit exister AVANT que le greffon / le DAW ne s'y connecte —
+        // démarrage systématique, aucune ressource n'est occupée tant que
+        // personne ne s'y attache.
+        try
+        {
+            if (IsMacOS)
+                MacAudioBridge.DeviceBridge.Start();
+            else
+                AsioBridgeHost.Instance.Start();
+        }
+        catch (Exception ex)
+        {
+            AsioStatusText = "Pont indisponible : " + ex.Message;
+        }
     }
 
     // ================================================================ EQ master
@@ -170,14 +201,19 @@ public partial class MixerViewModel : ObservableObject
             TryRestoreDefaults();
             RefreshTransportState();
             RefreshDevices();
-            StatusText = "Routage arrêté — périphériques par défaut de Windows restaurés.";
+            StatusText = IsMacOS
+                ? "Routage arrêté."
+                : "Routage arrêté — périphériques par défaut de Windows restaurés.";
             return;
         }
 
         if (StartRoutingChain())
-            StatusText = $"Routage actif : Windows → carte virtuelle → EQ → « {SelectedOutput?.DisplayName} » "
-                       + $"({Mixer.OutputLatencyMs + 20} ms approx.). Les périphériques par défaut d'origine "
-                       + "sont restaurés à l'arrêt.";
+            StatusText = IsMacOS
+                ? $"Routage actif : macOS → « RoomEq Virtual » → EQ → « {SelectedOutput?.DisplayName} » "
+                  + $"({Mixer.OutputLatencyMs + 20} ms approx.). Sélectionnez « RoomEq Virtual » comme sortie macOS si ce n'est pas déjà fait."
+                : $"Routage actif : Windows → carte virtuelle → EQ → « {SelectedOutput?.DisplayName} » "
+                  + $"({Mixer.OutputLatencyMs + 20} ms approx.). Les périphériques par défaut d'origine "
+                  + "sont restaurés à l'arrêt.";
     }
 
     /// <summary>
@@ -206,13 +242,21 @@ public partial class MixerViewModel : ObservableObject
 
     /// <summary>
     /// Bascule Windows vers la carte virtuelle : la sortie par défaut passe sur
-    /// l'entrée de la carte (« CABLE Input », « VoiceMeeter Input »…) et, si
+    /// l'entrée de la carte (« RoomEq Input ») et, si
     /// l'option est active, l'entrée par défaut passe sur la sortie de la carte
     /// (« micro virtuel »). Les défauts d'origine sont mémorisés une seule fois
     /// pour être restaurés à l'arrêt du routage.
     /// </summary>
     private void TrySwitchDefaultsForRouting()
     {
+        if (IsMacOS)
+        {
+            // macOS n'expose AUCUNE API publique pour changer la sortie par défaut :
+            // l'utilisateur choisit « RoomEq Virtual » dans Réglages Système (le
+            // sondage affiche en permanence si c'est déjà fait).
+            return;
+        }
+
         try
         {
             var st = _catalog.ProbeVirtualCard(SelectedProvider);
@@ -281,6 +325,12 @@ public partial class MixerViewModel : ObservableObject
     public void AutoStartIfConfigured()
     {
         if (!AutoStart || IsRunning) return;
+        if (IsMacOS)
+        {
+            if (MacAudioBridge.PluginInstalled)
+                Dispatcher.UIThread.Post(ToggleRouting);
+            return;
+        }
         var st = _catalog.ProbeVirtualCard(SelectedProvider);
         if (st.CableOutputFound || _catalog.EnumerateLoopbackSources().Count > 0)
         {
@@ -293,7 +343,23 @@ public partial class MixerViewModel : ObservableObject
     [RelayCommand]
     private void RefreshDevices()
     {
+        if (IsMacOS)
+        {
+            VirtualCard = MacAudioBridge.Probe();
+            OnPropertyChanged(nameof(DriverPackagePresent));
+            VirtualStatusText = !VirtualCard.PartiallyInstalled
+                ? "Greffon RoomEqHAL non détecté — réinstallez le paquet RoomEq (.pkg)."
+                : VirtualCard.FullyRouted
+                    ? "Périphérique virtuel actif : « RoomEq Virtual » est la sortie par défaut de macOS"
+                    : "Périphérique virtuel installé : choisissez « RoomEq Virtual » comme sortie macOS (Réglages Système › Son)";
+
+            RebuildOutputs();
+            RebuildAvailableSources();
+            return;
+        }
+
         VirtualCard = _catalog.ProbeVirtualCard(SelectedProvider);
+        OnPropertyChanged(nameof(DriverPackagePresent));
         VirtualStatusText = !VirtualCard.PartiallyInstalled
             ? SelectedProvider.IsPreinstalled
                 ? "Boucle WASAPI native : aucune installation nécessaire"
@@ -327,8 +393,17 @@ public partial class MixerViewModel : ObservableObject
     private void RebuildAvailableSources()
     {
         AvailableSources.Clear();
-        foreach (var s in _catalog.EnumerateCaptureSources()) AvailableSources.Add(s);
-        foreach (var s in _catalog.EnumerateLoopbackSources()) AvailableSources.Add(s);
+        if (IsMacOS)
+        {
+            if (MacAudioBridge.PluginInstalled)
+                AvailableSources.Add(TrackSource.MacVirtualSource());
+        }
+        else
+        {
+            foreach (var s in _catalog.EnumerateCaptureSources()) AvailableSources.Add(s);
+            foreach (var s in _catalog.EnumerateLoopbackSources()) AvailableSources.Add(s);
+            AvailableSources.Add(TrackSource.AsioBridgeSource());
+        }
         AvailableSources.Add(TrackSource.InternalPlayer());
         AvailableSources.Add(TrackSource.InternalGenerator());
     }
@@ -469,9 +544,9 @@ public partial class MixerViewModel : ObservableObject
     partial void OnSelectedProviderChanged(IVirtualAudioProvider value)
     {
         OnPropertyChanged(nameof(CanAutoInstall));
-        OnPropertyChanged(nameof(HasProductPage));
+        OnPropertyChanged(nameof(DriverPackagePresent));
+        OnPropertyChanged(nameof(HasInstallOption));
         OnPropertyChanged(nameof(ProviderIsPreinstalled));
-        OnPropertyChanged(nameof(ProviderLicenseNote));
         if (!_initializing)
         {
             RefreshDevices();
@@ -481,29 +556,36 @@ public partial class MixerViewModel : ObservableObject
 
     // ================================================================ carte virtuelle (protocoles)
 
-    /// <summary>Une installation automatique est-elle disponible pour ce protocole ?</summary>
-    public bool CanAutoInstall => SelectedProvider.Installer.Supported;
+    /// <summary>Le paquet pilote RoomEq est-il présent à côté de l'application ?</summary>
+    public bool DriverPackagePresent => DriverSetupManager.PackagePresent(
+        AppContext.BaseDirectory, SelectedProvider.Installer);
 
-    /// <summary>Un lien vers la page produit officielle est-il disponible ?</summary>
-    public bool HasProductPage => !SelectedProvider.IsPreinstalled
-                                  && SelectedProvider.Installer.ProductPageUrl.Length > 0;
+    /// <summary>Une installation est-elle nécessaire ? (fournisseurs préinstallés exclus)</summary>
+    public bool CanAutoInstall => !SelectedProvider.IsPreinstalled;
+
+    /// <summary>Option d'installation disponible (fournisseur non préinstallé, hors macOS).</summary>
+    public bool HasInstallOption => CanAutoInstall;
+
+    /// <summary>Boutons d'installation/désinstallation du pilote visibles (Windows uniquement : macOS installe le greffon par paquet .pkg).</summary>
+    public bool ShowDriverInstallUi => !IsMacOS && HasInstallOption;
 
     /// <summary>Ce protocole ne nécessite aucune installation ?</summary>
     public bool ProviderIsPreinstalled => SelectedProvider.IsPreinstalled;
-
-    /// <summary>Note de licence affichée près du bouton d'installation.</summary>
-    public string ProviderLicenseNote => SelectedProvider.Installer.LicenseNote;
-
-    /// <summary>Une note de licence doit-elle être affichée ?</summary>
-    public bool HasLicenseNote => ProviderLicenseNote.Length > 0;
 
     /// <summary>Définit le périphérique render du protocole choisi comme sortie par défaut de Windows (API PolicyConfig).</summary>
     [RelayCommand]
     private void SetVirtualDefault()
     {
+        if (IsMacOS)
+        {
+            StatusText = "macOS interdit la bascule automatique de la sortie par défaut — choisissez « RoomEq Virtual » dans Réglages Système › Son › Sortie.";
+            OpenSoundPanel();
+            return;
+        }
+
         if (VirtualCard.CableInputId == null)
         {
-            StatusText = SelectedProvider.DisplayName + " n'est pas détecté : installez-le d'abord « Installer automatiquement » ou via le guide.";
+            StatusText = SelectedProvider.DisplayName + " n'est pas détecté : installez-le d'abord via « Installer le pilote RoomEq ».";
             return;
         }
         bool ok = DefaultDeviceSetter.SetDefaultRender(VirtualCard.CableInputId);
@@ -515,29 +597,34 @@ public partial class MixerViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Télécharge et installe automatiquement le pilote du protocole sélectionné
-    /// (VB-CABLE, VoiceMeeter…) depuis le site officiel, avec suivi de progression,
-    /// puis attend l'apparition des périphériques.
+    /// Installe le pilote de la carte virtuelle RoomEq livré avec l'application
+    /// (aucun téléchargement), puis attend l'apparition des périphériques
+    /// « RoomEq Input / RoomEq Output ».
     /// </summary>
     [RelayCommand]
     private async Task InstallVirtualCardAsync(CancellationToken ct)
     {
+        if (IsMacOS)
+        {
+            StatusText = "Le greffon macOS s'installe avec le paquet RoomEq (.pkg) — relancez l'installateur si le périphérique « RoomEq Virtual » manque.";
+            return;
+        }
+
         var provider = SelectedProvider;
         if (provider.IsPreinstalled)
         {
             StatusText = "Aucune installation nécessaire pour ce protocole (boucle WASAPI native).";
             return;
         }
-        if (!provider.Installer.Supported)
+        if (!DriverPackagePresent)
         {
-            StatusText = "Installation manuelle : ouverture de la page du produit…";
-            OpenProductPage();
+            StatusText = "Paquet pilote introuvable : réinstallez RoomEq avec l'installateur (le dossier « driver » est copié à côté de l'application).";
             return;
         }
 
         IsInstalling = true;
         InstallIndeterminate = true;
-        InstallPhaseText = "Préparation du téléchargement…";
+        InstallPhaseText = "Préparation de l'installation…";
         try
         {
             var progress = new Progress<InstallProgress>(p =>
@@ -553,9 +640,9 @@ public partial class MixerViewModel : ObservableObject
                     InstallIndeterminate = true;
                 }
             });
-            var installer = new VirtualAudioInstaller(progress);
+            var setup = new DriverSetupManager(progress);
             var probe = new Func<bool>(() => _catalog.ProbeVirtualCard(provider).Installed);
-            var result = await installer.InstallAsync(provider, ct, probe);
+            var result = await setup.InstallAsync(provider.Installer, AppContext.BaseDirectory, probe, ct);
             StatusText = result.Message;
             if (result.Success)
             {
@@ -566,9 +653,6 @@ public partial class MixerViewModel : ObservableObject
 
                     if (AutoRouteOnInstall)
                     {
-                        // la sortie master de Windows bascule automatiquement vers la
-                        // carte virtuelle, la piste câble alimente l'EQ, et le bus
-                        // rend le son sur la sortie physique choisie
                         if (!IsRunning) StartRoutingChain();
                         else if (!string.IsNullOrEmpty(VirtualCard.CableInputId) && !VirtualCard.IsDefaultRender)
                             DefaultDeviceSetter.SetDefaultRender(VirtualCard.CableInputId);
@@ -592,19 +676,30 @@ public partial class MixerViewModel : ObservableObject
         }
     }
 
-    /// <summary>Ouvre la page produit officielle du protocole sélectionné.</summary>
+    /// <summary>Désinstalle le pilote de la carte virtuelle RoomEq (maintenance).</summary>
     [RelayCommand]
-    private void OpenProductPage()
+    private async Task UninstallDriverAsync(CancellationToken ct)
     {
-        string url = SelectedProvider.Installer.ProductPageUrl;
-        if (url.Length == 0) return;
+        if (IsMacOS)
+        {
+            StatusText = "Supprimez /Library/Audio/Plug-Ins/HAL/RoomEqHAL.driver puis redémarrez coreaudiod (le désinstalleur du paquet .pkg le fait).";
+            return;
+        }
+
+        if (SelectedProvider.IsPreinstalled) return;
+        IsInstalling = true;
+        InstallIndeterminate = true;
+        InstallPhaseText = "Désinstallation du pilote…";
         try
         {
-            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            var setup = new DriverSetupManager(new Progress<InstallProgress>(p => InstallPhaseText = p.Message));
+            var result = await setup.UninstallAsync(SelectedProvider.Installer, ct);
+            StatusText = result.Message;
+            RefreshDevices();
         }
-        catch (Exception ex)
+        finally
         {
-            StatusText = "Ouverture du navigateur impossible : " + ex.Message + " — " + url;
+            IsInstalling = false;
         }
     }
 
@@ -613,11 +708,21 @@ public partial class MixerViewModel : ObservableObject
     {
         try
         {
+            if (IsMacOS)
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "open",
+                    Arguments = "x-apple.systempreferences:com.apple.Sound-Settings.extension",
+                    UseShellExecute = false,
+                });
+                return;
+            }
             Process.Start(new ProcessStartInfo { FileName = "mmsys.cpl", UseShellExecute = true });
         }
         catch (Exception ex)
         {
-            StatusText = "Ouverture du panneau son impossible : " + ex.Message;
+            StatusText = "Ouverture des réglages son impossible : " + ex.Message;
         }
     }
 
@@ -654,10 +759,18 @@ public partial class MixerViewModel : ObservableObject
 
     /// <summary>
     /// Garantit la présence de la piste captant la sortie de la carte virtuelle
-    /// (CABLE Output, VoiceMeeter Output…) — c'est elle qui alimente l'égaliseur.
+    /// (« RoomEq Output ») — c'est elle qui alimente l'égaliseur.
     /// </summary>
     private void EnsureCableTrack()
     {
+        if (IsMacOS)
+        {
+            bool macTrackExists = Channels.Any(c => c.Channel.Source.Kind == TrackSourceKind.MacVirtualDevice);
+            if (!macTrackExists)
+                AddTrack(TrackSource.MacVirtualSource());
+            return;
+        }
+
         if (VirtualCard.CableOutputId == null) return;
         bool exists = Channels.Any(c => c.Channel.Source.Kind == TrackSourceKind.Capture
             && string.Equals(c.Channel.Source.DeviceId, VirtualCard.CableOutputId, StringComparison.OrdinalIgnoreCase));
@@ -674,9 +787,20 @@ public partial class MixerViewModel : ObservableObject
     /// <summary>Rafraîchit la LED « EQ actif » d'une tranche (appelé après édition).</summary>
     public void UpdateEqLedFor(ChannelViewModel vm) => vm.UpdateEqLed();
 
-    /// <summary>Ajoute les tranches par défaut d'une session : Windows, lecteur, micro, générateur.</summary>
+    /// <summary>Ajoute les tranches par défaut d'une session : Windows/macOS, lecteur, générateur.</summary>
     private void AddDefaultTracks()
     {
+        if (IsMacOS)
+        {
+            // Son macOS : via le périphérique virtuel (greffon), si installé
+            if (MacAudioBridge.PluginInstalled)
+                AddTrack(TrackSource.MacVirtualSource());
+
+            AddTrack(TrackSource.InternalPlayer());
+            AddTrack(TrackSource.InternalGenerator());
+            return;
+        }
+
         // Son Windows : via le câble virtuel du protocole choisi, sinon loopback de la sortie par défaut
         if (VirtualCard.CableOutputFound && VirtualCard.CableOutputId != null)
         {
@@ -711,6 +835,9 @@ public partial class MixerViewModel : ObservableObject
         UpdateMasterMeter();
         CheckCaptureHealth();
         PollExternalEndpointVolume();
+        AsioStatusText = IsMacOS
+            ? MacAudioBridge.DeviceBridge.StatusText
+            : AsioBridgeHost.Instance.StatusText;
     }
 
     /// <summary>
@@ -777,6 +904,8 @@ public partial class MixerViewModel : ObservableObject
     /// <summary>Libère les ressources à la fermeture de l'application.</summary>
     public void Shutdown()
     {
+        try { AsioBridgeHost.Instance.Stop(); } catch { /* fermeture */ }
+        try { MacAudioBridge.DeviceBridge.Stop(); } catch { /* fermeture */ }
         _endpointVolume.Dispose();
     }
 
@@ -805,6 +934,7 @@ public partial class MixerViewModel : ObservableObject
                         TrackSourceKind.Capture => "capture",
                         TrackSourceKind.Loopback => "loopback",
                         TrackSourceKind.Player => "player",
+                        TrackSourceKind.AsioBridge => "asio",
                         _ => "generator"
                     },
                     DeviceId = vm.Channel.Source.DeviceId,
@@ -852,12 +982,14 @@ public partial class MixerViewModel : ObservableObject
                     "capture" => TrackSource.CaptureDevice(sc.DeviceId, sc.Name),
                     "loopback" => TrackSource.LoopbackDevice(sc.DeviceId, sc.Name),
                     "player" => TrackSource.InternalPlayer(),
+                    "asio" => TrackSource.AsioBridgeSource(),
                     _ => TrackSource.InternalGenerator()
                 };
 
                 // un périphérique disparu depuis la dernière session est ignoré
                 if (src.Kind is TrackSourceKind.Capture or TrackSourceKind.Loopback
                     && _catalog.ResolveDevice(src) == null) continue;
+                // la piste DAW (ASIO) est restaurée telle quelle (source interne)
 
                 var ch = Mixer.AddChannel(src);
                 var vm = new ChannelViewModel(ch, () => SaveConfig())

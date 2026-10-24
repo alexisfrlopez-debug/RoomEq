@@ -1,0 +1,11 @@
+#include <windows.h>
+
+#define VER_FILETYPE                VFT_DLL
+#define VER_FILESUBTYPE             VFT2_UNKNOWN
+#define VER_FILEDESCRIPTION_STR     "RoomEq ASIO Bridge"
+#define VER_INTERNALNAME_STR        "RoomEqAsio64.dll"
+#define VER_ORIGINALFILENAME_STR    "RoomEqAsio64.dll"
+#define VER_LEGALCOPYRIGHT_YEARS    "2026"
+#define VER_LEGALCOPYRIGHT_STR      "Copyright (C) RoomEq Project. " VER_LEGALCOPYRIGHT_YEARS
+
+#include "common.ver"

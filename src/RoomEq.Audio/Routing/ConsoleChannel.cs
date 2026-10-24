@@ -9,7 +9,8 @@ namespace RoomEq.Audio.Routing;
 
 /// <summary>
 /// Une tranche de la table de mixage : une source (périphérique d'entrée Windows,
-/// sortie en loopback, lecteur de fichiers ou générateur de test) traversant sa
+/// sortie en loopback, pont ASIO d'un DAW, lecteur de fichiers ou générateur de
+/// test) traversant sa
 /// propre chaîne d'égalisation, un fader, un panoramique et les commutateurs
 /// Mute/Solo, avec mesure de crêtes par voie. Le traitement se fait sur le domaine
 /// stéréo du bus master (rééchantillonnage et adaptation de canaux inclus).
@@ -68,6 +69,8 @@ public sealed class ConsoleChannel : IDisposable
     {
         TrackSourceKind.Player => string.IsNullOrEmpty(PlayerFileName) ? "Lecteur" : "Lecteur · " + PlayerFileName,
         TrackSourceKind.Generator => "Générateur",
+        TrackSourceKind.AsioBridge => "DAW (ASIO)",
+        TrackSourceKind.MacVirtualDevice => "macOS · RoomEq Virtual",
         _ => Source.Name
     };
 
@@ -106,6 +109,8 @@ public sealed class ConsoleChannel : IDisposable
     {
         TrackSourceKind.Generator => GeneratorEnabled,
         TrackSourceKind.Player => _direct != null && !PlayerFinished,
+        TrackSourceKind.AsioBridge => Asio.AsioBridgeHost.Instance.IsHosting,
+        TrackSourceKind.MacVirtualDevice => Mac.MacAudioBridge.DeviceBridge.IsHosting,
         _ => _capture != null
     };
 
@@ -139,6 +144,14 @@ public sealed class ConsoleChannel : IDisposable
         else if (_direct != null)
         {
             s = _direct;
+        }
+        else if (Kind == TrackSourceKind.AsioBridge)
+        {
+            s = Asio.AsioBridgeHost.Instance.Provider;   // 48 kHz stéréo, resamplé vers le master
+        }
+        else if (Kind == TrackSourceKind.MacVirtualDevice)
+        {
+            s = Mac.MacAudioBridge.DeviceBridge.Provider; // 48 kHz stéréo, resamplé vers le master
         }
         else if (Kind == TrackSourceKind.Generator)
         {

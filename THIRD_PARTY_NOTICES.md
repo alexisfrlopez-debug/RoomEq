@@ -16,6 +16,38 @@ dépôts officiels indiqués.
 | [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) | 8.4.0 | MIT | Copyright (c) .NET Foundation and Contributors |
 | [NAudio](https://github.com/naudio/NAudio) | 2.2.1 | MIT | Copyright (c) 2020 Mark Heath & Contributors |
 
+## Composants embarqués dans le pilote de la carte virtuelle
+
+| Composant | Version | Licence | Auteurs / Copyright |
+|---|---|---|---|
+| [SYSVAD — Windows Driver Samples](https://github.com/microsoft/Windows-driver-samples/tree/main/audio/sysvad) | extrait 2025 (MIT) | MIT | Copyright (c) Microsoft Corporation |
+
+Le pilote `roomeqvad.sys` (dossier `driver/roomeqvad/`) est **dérivé de
+l'exemple SYSVAD** du Windows Driver Kit : mêmes fichiers d'origine
+(`adapter.cpp`, `common.cpp`, `hw.cpp`, `kshelper.cpp`, `savedata.cpp`,
+`ToneGenerator.cpp`, `basetopo.cpp`, `EndpointsCommon/`, topos micro),
+élagués (périphériques sideband Bluetooth/USB, HDMI, SPDIF, matrices de micro
+supprimés) et adaptés (pont interne render→capture `bridge.cpp`, formats
+48 kHz/float, noms et INF RoomEq). Les en-têtes d'origine, qui mentionnent
+Microsoft, sont conservés.
+
+## Données intégrées : corrections casques/écouteurs (AutoEq)
+
+| Composant | Version | Licence | Auteurs / Copyright |
+|---|---|---|---|
+| [AutoEq](https://github.com/jaakkopasanen/AutoEq) | résultats du master (MIT) | MIT | Copyright (c) 2018-2025 Jaakko Pasanen et contributeurs |
+
+La bibliothèque de corrections casques (`src/RoomEq.Core/Headphones/
+headphone_presets.json`, ressource intégrée) contient des corrections
+paramétriques **dérivées des résultats publics du projet AutoEq** (Jaakko
+Pasanen, licence MIT), eux-mêmes calculés à partir de mesures de têtes
+artificielles publiées par leurs auteurs respectifs — principalement
+**oratory1990**, **crinacle**, **Super Review**, **Rtings** et
+**HypetheSonics**. Chaque preset embarque la mention de sa source de mesure
+(champ `source`). Aucune dépendance d'exécution : les données sont figées à la
+compilation (génération par `scripts/fetch_headphone_presets.py`, côté
+environnement de développement).
+
 ## Composants de test (ne sont pas embarqués dans l'application)
 
 | Composant | Version | Licence | Auteurs / Copyright |

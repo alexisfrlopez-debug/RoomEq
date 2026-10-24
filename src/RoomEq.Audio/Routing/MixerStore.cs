@@ -27,7 +27,7 @@ public sealed class StoredMixer
     public double MasterFader { get; set; } = 1.0;
     public bool MasterMute { get; set; }
     public bool AutoStart { get; set; }
-    /// <summary>Protocole de carte son virtuelle sélectionné (vbcable, voicemeeter, vac, loopback).</summary>
+    /// <summary>Protocole de carte son virtuelle sélectionné (roomeq, loopback).</summary>
     public string? VirtualProviderId { get; set; }
     /// <summary>Après une installation réussie : Windows bascule vers la carte virtuelle et le routage démarre.</summary>
     public bool AutoRouteOnInstall { get; set; } = true;

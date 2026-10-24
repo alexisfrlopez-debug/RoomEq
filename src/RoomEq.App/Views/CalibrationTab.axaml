@@ -25,7 +25,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <TextBlock Text="2 · Micro de mesure" Classes="h3" VerticalAlignment="Center"/>
                     <controls:HelpButton HelpTitle="Micro de mesure"
-                                         HelpText="Choisissez votre micro PHYSIQUE : les cartes virtuelles (CABLE Output, VoiceMeeter…) ne captent pas la pièce, la mesure échouerait (détection de capture muette).&#10;&#10;Canal : si le micro expose plusieurs canaux et que l'un est muet ou parasite, forcez « Canal 1 seul (mono) » — le mixage stéréo diluerait alors le signal.&#10;&#10;Profil micro : si la réponse de votre micro est connue (onglet Micro), elle est retirée de la mesure — indispensable pour une correction juste dans les aigus."/>
+                                         HelpText="Choisissez votre micro PHYSIQUE : les cartes virtuelles (RoomEq Output…) ne captent pas la pièce, la mesure échouerait (détection de capture muette).&#10;&#10;Canal : si le micro expose plusieurs canaux et que l'un est muet ou parasite, forcez « Canal 1 seul (mono) » — le mixage stéréo diluerait alors le signal.&#10;&#10;Profil micro : si la réponse de votre micro est connue (onglet Micro), elle est retirée de la mesure — indispensable pour une correction juste dans les aigus."/>
                 </StackPanel>
                 <ComboBox ItemsSource="{Binding MicDevices}" SelectedItem="{Binding SelectedMicDevice}"
                           HorizontalAlignment="Stretch">
@@ -37,7 +37,7 @@
                 </ComboBox>
                 <Button Content="Rechercher les micros" Command="{Binding RefreshMicsCommand}" FontSize="11"/>
                 <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap"
-                           Text="Important : choisissez votre micro PHYSIQUE. Les cartes virtuelles (CABLE Output, VoiceMeeter…) ne captent pas la pièce — la mesure échouerait."/>
+                           Text="Important : choisissez votre micro PHYSIQUE. Les cartes virtuelles (RoomEq Output…) ne captent pas la pièce — la mesure échouerait."/>
 
                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasChannelChoice}">
                     <TextBlock Text="Canal du micro" Foreground="#8B93A7" FontSize="11" VerticalAlignment="Center"/>

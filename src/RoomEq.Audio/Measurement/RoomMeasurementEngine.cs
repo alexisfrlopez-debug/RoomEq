@@ -300,7 +300,7 @@ public sealed class RoomMeasurementEngine
 
     private static InvalidOperationException CreateSilenceError() => new(
         "Le micro sélectionné ne capte rien (niveau quasi nul). Vérifiez : " +
-        "1) le micro choisi dans la liste (évitez « CABLE Output » et les cartes virtuelles — " +
+        "1) le micro choisi dans la liste (évitez « RoomEq Output » et les cartes virtuelles — " +
         "choisissez votre micro physique) ; 2) le niveau du micro dans les réglages son de Windows " +
         "(pas en sourdine) ; 3) le niveau du signal de test.");
 

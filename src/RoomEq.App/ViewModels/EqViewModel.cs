@@ -7,9 +7,13 @@ using RoomEq.Audio.Playback;
 using RoomEq.Core.Calibration;
 using RoomEq.Core.Dsp;
 using RoomEq.Core.Eq;
+using RoomEq.Core.Headphones;
 using RoomEq.Core.Io;
 
 namespace RoomEq.App.ViewModels;
+
+/// <summary>Une entrée du sélecteur de modèles de casques (liste ou recherche).</summary>
+public sealed record HeadphoneOptionViewModel(string Id, string Label, string SubLabel);
 
 /// <summary>
 /// ViewModel de l'égaliseur : preset courant (bandes + préampli), presets sauvegardés,
@@ -29,6 +33,21 @@ public partial class EqViewModel : ObservableObject
     [ObservableProperty] private string curveInfo = "";
     [ObservableProperty] private string newPresetName = "";
     [ObservableProperty] private string presetStatus = "";
+
+    // ----- bibliothèque casques & écouteurs (corrections AutoEq intégrées) -----
+
+    [ObservableProperty] private ObservableCollection<string> headphoneBrands = new();
+    [ObservableProperty] private string? selectedHeadphoneBrand;
+    [ObservableProperty] private ObservableCollection<HeadphoneOptionViewModel> headphoneModels = new();
+    [ObservableProperty] private HeadphoneOptionViewModel? selectedHeadphoneModel;
+    [ObservableProperty] private string headphoneSearch = "";
+    [ObservableProperty] private string headphoneStatus = "";
+    [ObservableProperty] private bool canApplyHeadphone;
+
+    /// <summary>Texte descriptif affiché au-dessus du sélecteur (nombre de modèles).</summary>
+    public string HeadphoneCatalogText { get; } =
+        $"{HeadphonePresetLibrary.Count} modèles intégrés — la capture au micro n'étant pas " +
+        "applicable aux casques, les corrections sont précalculées (données AutoEq, cible Harman).";
 
     // ----- import de la courbe de calibration -----
 
@@ -53,6 +72,78 @@ public partial class EqViewModel : ObservableObject
         _engine = engine;
         LoadPreset(EqPreset.Flat());
         RefreshSaved();
+        InitHeadphones();
+    }
+
+    private void InitHeadphones()
+    {
+        HeadphoneBrands = new ObservableCollection<string>(HeadphonePresetLibrary.Brands());
+        SelectedHeadphoneBrand = HeadphoneBrands.FirstOrDefault(b =>
+            string.Equals(b, "Sennheiser", StringComparison.OrdinalIgnoreCase))
+            ?? HeadphoneBrands.FirstOrDefault();
+    }
+
+    partial void OnSelectedHeadphoneBrandChanged(string? value) => RefreshHeadphoneModels();
+
+    partial void OnHeadphoneSearchChanged(string value) => RefreshHeadphoneModels();
+
+    partial void OnSelectedHeadphoneModelChanged(HeadphoneOptionViewModel? value)
+        => CanApplyHeadphone = value != null;
+
+    /// <summary>
+    /// Reconstruit la liste des modèles : résultats de recherche si l'utilisateur
+    /// tape quelque chose, sinon les modèles de la marque sélectionnée.
+    /// </summary>
+    private void RefreshHeadphoneModels()
+    {
+        var previous = SelectedHeadphoneModel?.Id;
+        List<HeadphoneOptionViewModel> list;
+
+        if (!string.IsNullOrWhiteSpace(HeadphoneSearch))
+        {
+            list = HeadphonePresetLibrary.Search(HeadphoneSearch)
+                .Select(ToOption)
+                .ToList();
+        }
+        else
+        {
+            string? brand = SelectedHeadphoneBrand;
+            list = (brand == null ? HeadphonePresetLibrary.LoadAll()
+                                   : HeadphonePresetLibrary.ByBrand(brand))
+                .Select(ToOption)
+                .ToList();
+        }
+
+        HeadphoneModels = new ObservableCollection<HeadphoneOptionViewModel>(list);
+        SelectedHeadphoneModel = HeadphoneModels.FirstOrDefault(m => m.Id == previous)
+                                 ?? HeadphoneModels.FirstOrDefault();
+    }
+
+    private static HeadphoneOptionViewModel ToOption(HeadphoneModel m) =>
+        new(m.Id, m.DisplayName, $"{m.TypeLabel} · {m.GammeLabel} · {m.Source}");
+
+    /// <summary>Applique la correction du casque sélectionné à l'égaliseur.</summary>
+    [RelayCommand]
+    private void ApplyHeadphonePreset()
+    {
+        var option = SelectedHeadphoneModel;
+        if (option == null)
+        {
+            HeadphoneStatus = "Choisissez d'abord un modèle de casque.";
+            return;
+        }
+        var model = HeadphonePresetLibrary.Find(option.Id);
+        if (model == null)
+        {
+            HeadphoneStatus = "Modèle introuvable dans la bibliothèque intégrée.";
+            return;
+        }
+
+        var preset = HeadphonePresetLibrary.ToEqPreset(model);
+        LoadPreset(preset);
+        HeadphoneStatus = $"Correction « {model.DisplayName} » appliquée : " +
+            $"{preset.Bands.Count} bandes · préampli {preset.PreampDb:0.0} dB · source {model.Source}. " +
+            "Ajustez le niveau d'écoute avec le préampli si besoin.";
     }
 
     public void LoadPreset(EqPreset preset)

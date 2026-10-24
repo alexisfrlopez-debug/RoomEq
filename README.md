@@ -1,6 +1,8 @@
-# RoomEq — Égaliseur Windows avec calibration acoustique automatique
+# RoomEq — Égaliseur temps réel Windows & macOS avec calibration acoustique automatique
 
-RoomEq est une application de bureau Windows qui combine **égaliseur paramétrique**, **table de mixage avec routage du son Windows vers l'égaliseur** (carte son virtuelle), **analyseur de fréquences temps réel**, **gestion des pilotes ASIO** et **calibration acoustique automatique de la pièce** : l'application joue une série de signaux de test (bruits et balayage sinusoïdal progressif), capture le micro à la position d'écoute, **croise les résultats de tous les signaux**, analyse la réponse en fréquences et **génère un preset de correction au nombre de bandes, fréquences et largeurs optimisés, appliqué automatiquement à l'égaliseur** — ré-importable à tout moment depuis la courbe affichée, avec une précision au choix. Une bibliothèque intégrée de profils de correction pour 36 micros du marché (toutes technologies) et un éditeur graphique de courbe permettent d'affiner la correction du micro ; un fichier `.cal` REW ou CSV reste importable.
+> **Depuis la v2.0, RoomEq est 100 % autonome et multiplateforme** : sur **Windows**, sa propre **carte son virtuelle** (pilote intégré « RoomEq Virtual Audio ») et son propre **pilote ASIO** (« RoomEq ASIO ») pour faire sortir un DAW directement dans l'égaliseur ; sur **macOS**, son propre **périphérique virtuel** (« RoomEq Virtual », greffon système RoomEqHAL) ; et sur les deux systèmes, un **installateur complet** (MSI / .pkg). **Aucune application tierce** (câble audio virtuel, console de mixage externe) n'est requise ni même téléchargée. La **v2.0** ajoute aussi une **bibliothèque intégrée de 255 corrections casques/écouteurs** (toutes gammes, données AutoEq) — la capture au micro n'étant pas applicable à ce type d'écoute.
+
+RoomEq est une application de bureau qui combine **égaliseur paramétrique**, **table de mixage avec routage du son du système vers l'égaliseur** (périphérique virtuel intégré), **analyseur de fréquences temps réel**, **gestion des pilotes ASIO** (Windows), **calibration acoustique automatique de la pièce** et **corrections prêtes à l'emploi pour 255 casques et écouteurs** : l'application joue une série de signaux de test (bruits et balayage sinusoïdal progressif), capture le micro à la position d'écoute, **croise les résultats de tous les signaux**, analyse la réponse en fréquences et **génère un preset de correction au nombre de bandes, fréquences et largeurs optimisés, appliqué automatiquement à l'égaliseur** — ré-importable à tout moment depuis la courbe affichée, avec une précision au choix. Une bibliothèque intégrée de profils de correction pour 36 micros du marché (toutes technologies) et un éditeur graphique de courbe permettent d'affiner la correction du micro ; un fichier `.cal` REW ou CSV reste importable.
 
 ---
 
@@ -29,36 +31,51 @@ RoomEq est une application de bureau Windows qui combine **égaliseur paramétri
 | **Analyseur de fréquences** | RTA 1/6 d'octave en temps réel, source « Sortie » (signal post-égalisation dérivé du flux de lecture) ou « Micro », taille de FFT réglable (2 048 → 16 384), compensation du profil micro en option |
 | **Calibration multi-signaux** | **Tous les signaux disponibles mesurés successivement** — bruit blanc, rose, **brun**, **violet**, puis **balayage sinusoïdal progressif (20 Hz → 20 kHz, déconvolution de Farina : tout le spectre étalonné en continu)** — puis **croisement médian robuste** des résultats (un signal pollué n'influence pas la courbe), dispersion inter-signaux utilisée pour doser prudemment les zones peu fiables, et **placement automatique des filtres sans aucun doublon** : nombre de bandes, fréquences centrales et largeurs (Q) choisis par l'application pour une courbe optimale, zones d'exclusion anti-doublon (mode « bruit blanc seul » conservé) ; bouton **« Réinitialiser la courbe »** pour vider le graphe et repartir de zéro avant un nouveau test ; **journal de diagnostic complet** (micro choisi, formats, niveaux, erreurs) dans `logs/` à côté de l'exe, **erreurs affichées en rouge dans l'onglet**, micros virtuels signalés, **sélecteur de canal mono** (canal 1/2 seul pour les micros multi-canaux dont une voie est muette ou parasite), capture démarrée avant la lecture (balayage jamais rogné), format de capture adaptatif, un signal en échec n'annule plus la mesure entière |
 | **Correction micro** | Import `.cal` REW / CSV (`;` ou `,`, décimales `.` ou `,`), **bibliothèque intégrée de 36 micros du marché** (mesure, studio, scène — électret, condensateur vrai, RF, dynamique, ruban, USB) avec recherche, **éditeur graphique de courbe** (points ajoutés/déplacés/supprimés à la souris, champs numériques, lissage), **création de profils spécialisés**, renommage, profil appliqué avant l'analyse de la pièce |
-| **ASIO** | Énumération des pilotes installés, lecture exclusive via ASIO (taux et canaux négociés automatiquement), informations de capacité (canaux, buffer, latence, taux supportés), ouverture du panneau de contrôle du pilote |
-| **Mixage & routage système** | Onglet « Mixage & routage » : table de mixage complète dont les pistes correspondent à **toutes les entrées et toutes les sorties de Windows** (plus lecteur de fichiers et générateur internes), **égaliseur propre à chaque piste**, fader/pan/mute/solo et VU-mètres stéréo à crêtes, bus master avec l'EQ principal synchronisé en temps réel, carte son virtuelle multi-protocoles (VB-CABLE, VoiceMeeter, VAC ou boucle WASAPI) avec **installation automatique du pilote depuis les sites officiels** et **bascule automatique des périphériques par défaut de Windows** (sortie et entrée, restaurée à l'arrêt) pour que **tout le son de Windows passe par l'égaliseur** ; **volume de la carte physique routée** (le volume Windows de la carte virtuelle est sans effet) piloté par le **curseur Volume de la barre supérieure (0–100 %)**, par raccourcis clavier **Ctrl+Alt+↑ / ↓ (±5 %)** et **Ctrl+Alt+M (sourdine)** avec affichage OSD, ou depuis la tranche MASTER — **les deux curseurs de volume (barre du haut et tranche MASTER) sont synchronisés en permanence**, quel que soit celui que l'on déplace et dans quel ordre, y compris pour un réglage fait hors de l'application (mixeur Windows, touches du casque) ; **tranches défilables verticalement** (chaque tranche entièrement visible en descendant la page) |
+| **Corrections casques (v2.0)** | **Bibliothèque intégrée de 255 modèles** (39 marques, toutes gammes : petit prix → haut de gamme ; toutes familles : circum-aural, intra-aural, écouteurs classiques, casques gaming, sans fil ANC — Sennheiser, Beyerdynamic, AKG, Sony, Audio-Technica, Bose, Apple, HiFiMAN, Focal, Audeze, Moondrop, Truthear, HyperX, SteelSeries…) : sélection par marque/modèle **ou recherche instantanée** (« hd 650 », « xm5 »…), application en un clic (préampli + 10 bandes paramétriques), source de mesure affichée par modèle ; données dérivées du projet **AutoEq** (MIT, cible Harman) — la capture au micro n'étant pas applicable aux casques |
+| **ASIO** | **Pilote ASIO intégré « RoomEq ASIO » (v2.0)** : votre DAW (REAPER, Cubase, FL Studio, Ableton…) choisit « RoomEq ASIO » comme sortie, sa lecture alimente la piste **« DAW (ASIO) »** du mixeur puis traverse l'égaliseur vers la vraie carte son (48 kHz stéréo, buffers 128–2048) ; énumération des autres pilotes ASIO installés, lecture exclusive via ASIO (taux et canaux négociés automatiquement), informations de capacité (canaux, buffer, latence, taux supportés), ouverture du panneau de contrôle du pilote |
+| **Mixage & routage système** | Onglet « Mixage & routage » : table de mixage complète dont les pistes correspondent à **toutes les entrées et toutes les sorties de Windows** (plus pont DAW, lecteur de fichiers et générateur internes), **égaliseur propre à chaque piste**, fader/pan/mute/solo et VU-mètres stéréo à crêtes, bus master avec l'EQ principal synchronisé en temps réel, **carte son virtuelle RoomEq intégrée** (pilote `roomeqvad` livré et installé avec l'application — paire « RoomEq Input / RoomEq Output », aucun téléchargement) ou **boucle WASAPI** de secours sans pilote, avec **installation du pilote en un clic** et **bascule automatique des périphériques par défaut de Windows** (sortie et entrée, restaurée à l'arrêt) pour que **tout le son de Windows passe par l'égaliseur** ; **volume de la carte physique routée** (le volume Windows de la carte virtuelle est sans effet) piloté par le **curseur Volume de la barre supérieure (0–100 %)**, par raccourcis clavier **Ctrl+Alt+↑ / ↓ (±5 %)** et **Ctrl+Alt+M (sourdine)** avec affichage OSD, ou depuis la tranche MASTER — **les deux curseurs de volume (barre du haut et tranche MASTER) sont synchronisés en permanence**, quel que soit celui que l'on déplace et dans quel ordre, y compris pour un réglage fait hors de l'application (mixeur Windows, touches du casque) ; **tranches défilables verticalement** (chaque tranche entièrement visible en descendant la page) |
 | **Lecteur intégré** | Lecture de fichiers wav / mp3 / flac / aiff / wma / m4a avec EQ en temps réel, **menu déroulant des signaux de test** : bruits blanc / rose / **brun** / **violet**, **sinus de 50 Hz à 15 kHz (10 fréquences utiles)**, **balayages logarithmiques** (20 Hz → 20 kHz et médium 200 Hz → 2 kHz), **+ signaux supplémentaires téléchargeables depuis le dépôt officiel du projet** (impulsions Dirac, bruit gris d'égale sonie, multi-tones SMPTE, balayage lent 30 s — vérifiés par SHA-256, stockés dans `%APPDATA%\RoomEq\signaux`), boucle, volume, bypass |
 | **Aide contextuelle « ? »** | Chaque fonctionnalité des 6 onglets (et de la barre du haut) est accompagnée d'un bouton **« ? »** discret : infobulle complète au survol, boîte de dialogue détaillée au clic |
 | **Défilement de l'interface** | **Défilement horizontal** de la barre supérieure (le **menu des signaux de test** et le bouton **Télécharger d'autres…** restent accessibles sur fenêtre étroite), de la barre de contrôle de l'Analyseur et de la barre de routage du Mixage ; barre supérieure allégée (tout tient sans défilement sur écran 1920 px) ; tranches du Mixage défilables verticalement **et** horizontalement (1.8.0) |
-| **Versions test / public** | Deux exécutables du même binaire : `RoomEq-test.exe` (journalisation complète + télémétrie Drive) et `RoomEq-public.exe` (aucun journal écrit, aucun envoi) ; version visible dans la barre de titre ; au lancement de la version test, une boîte de dialogue propose de lancer la version publique à la place |
+| **Versions test / public** | Un même binaire, deux noms : **`RoomEq.exe` (public, par défaut — aucun journal écrit, aucun envoi)** et `RoomEq-test.exe` (journalisation complète + télémétrie Drive) ; version visible dans la barre de titre ; au lancement de la version test, une boîte de dialogue propose de lancer la version publique à la place ; le mode test peut aussi être forcé par la variable d'environnement `ROOMEQ_TEST=1` (développement) |
 | **Télémétrie de test** | Version test uniquement : le journal de diagnostic part automatiquement vers le dossier Drive « journaux-app » du développement (fermeture / toutes les 5 min / bouton « Envoyer maintenant »), statut affiché dans l'onglet Calibration ; piloté par `telemetrie.json` à côté des exécutables — ignoré par la version publique |
 
 ## Installation et lancement
 
-### Build portable (recommandé)
+### Installateur MSI (recommandé)
+
+1. Téléchargez `RoomEq-2.0.0-win-x64.msi` (GitHub → Actions/Releases) et double-cliquez.
+2. Acceptez l'invite administrateur : l'installateur déploie l'application dans `Program Files\RoomEq`, installe la **carte son virtuelle RoomEq** (pilote `roomeqvad`) et enregistre le **pilote ASIO « RoomEq ASIO »** pour vos DAW.
+3. Rien d'autre à installer : le runtime .NET 8 est embarqué (build auto-contenu), aucun logiciel tiers.
+
+La désinstallation (Paramètres → Applications) retire proprement le pilote et l'application. Le pilote peut aussi être retiré/reposé depuis l'onglet Mixage (« Supprimer le pilote » / « Installer le pilote RoomEq… »).
+
+> **Signature du pilote** : Windows n'accepte que des pilotes signés. Tant que le projet n'a pas de certificat EV (attestation Microsoft — voir `INSTALLATION-PILOTE.md`), les builds sont signés-test : suivez la procédure **« Mode test »** du même document (une fois, 5 minutes) avant d'installer le pilote. L'application elle-même fonctionne sans pilote via la boucle WASAPI.
+
+### Build portable (alternative sans installation)
 
 1. Décompressez le zip choisi où vous voulez (le dossier doit rester inscriptible : les presets vont dans `%APPDATA%`, le journal de calibration dans `logs\` à côté de l'exe) :
-   - `RoomEq-1.9.1-win-x64-test.zip` → contient **`RoomEq-test.exe` ET `RoomEq-public.exe`** + `telemetrie.json` ;
-   - `RoomEq-1.9.1-win-x64-public.zip` → contient **`RoomEq-public.exe` seul**, sans `telemetrie.json`.
-2. Double-cliquez sur **`RoomEq-test.exe`** (test) ou **`RoomEq-public.exe`** (public).
+   - `RoomEq-2.0.0-win-x64-public.zip` → contient **`RoomEq.exe` seul** (public, silencieux) ;
+   - `RoomEq-2.0.0-win-x64-test.zip` → contient **`RoomEq.exe` ET `RoomEq-test.exe`** + `telemetrie.json` + le paquet pilote (`driver\`).
+2. Double-cliquez sur **`RoomEq.exe`** (public) ou **`RoomEq-test.exe`** (test).
 3. Aucun prérequis : le runtime .NET 8 est embarqué (build auto-contenu).
 
-> **Les deux versions, même binaire** : la version est déduite du nom de l'exécutable. La version **test** journalise tout et envoie son journal vers le Drive du développement (à la fermeture, puis toutes les 5 minutes — uniquement du texte de journal, jamais de contenu audio ; désactivable en renommant `telemetrie.json`). Au lancement de la version test, une boîte de dialogue propose de lancer la **version publique** à la place (elle ouvre `RoomEq-public.exe` et referme la version test). La version **publique** ne journalise rien (aucun dossier `logs\`, ni fichier ni mémoire) et n'envoie rien (aucune connexion Drive), même si `telemetrie.json` est présent.
+> **Les deux versions, même binaire** : depuis la v2.0, le silence est la valeur par défaut — le nom déduit la version. `RoomEq.exe` ne journalise rien (aucun dossier `logs\`, ni fichier ni mémoire) et n'envoie rien, même si `telemetrie.json` est présent. `RoomEq-test.exe` (ou la variable `ROOMEQ_TEST=1`) active la journalisation complète et la télémétrie Drive (fermeture + toutes les 5 minutes — uniquement du texte de journal, jamais de contenu audio). Au lancement de la version test, une boîte de dialogue propose de lancer la version publique à la place.
 
-Configuration minimale : Windows 10 ou 11, x64. Un micro est nécessaire pour la calibration (un micro de mesure type UMIK/ECM8000 est recommandé pour la précision).
+Configuration minimale : Windows 10 (1809+) ou 11, x64. Un micro est nécessaire pour la calibration (un micro de mesure type UMIK/ECM8000 est recommandé pour la précision).
 
-### Pilotes ASIO (facultatif)
+### macOS (v2.0)
 
-L'ASIO n'est **pas** fourni avec RoomEq (licence Steinberg). Pour la sortie ASIO :
+1. Téléchargez `RoomEq-2.0.0-macos-arm64.pkg` (Apple Silicon) ou `RoomEq-2.0.0-macos-x64.pkg` (Intel) et double-cliquez.
+2. Acceptez l'invite administrateur : l'installateur déploie `RoomEq.app` dans `/Applications`, installe le **greffon RoomEqHAL** dans `/Library/Audio/Plug-Ins/HAL` et relance `coreaudiod` — le périphérique **« RoomEq Virtual »** apparaît immédiatement dans Réglages Système › Son.
+3. Choisissez « RoomEq Virtual » comme sortie macOS, puis dans RoomEq cliquez **« Router le son vers l'EQ »** : tout le son du système traverse l'égaliseur.
 
-- installez le pilote ASIO de votre interface audio (RME, Focusrite, MOTU, Behringer…), **ou**
-- installez [ASIO4ALL](https://www.asio4all.org/) pour utiliser une sortie classique (Realtek, USB…) en ASIO.
+Détails, signature (Developer ID) et désinstallation : **`INSTALLATION-MACOS.md`**.
 
-Sans pilote ASIO, tout fonctionne en **WASAPI partagé** (par défaut) : la calibration incluse.
+### ASIO : pilote intégré + vos autres pilotes
+
+- **« RoomEq ASIO » est fourni avec l'application** (installé par le MSI ou enregistré par le zip de test) : dans votre DAW, choisissez-le comme périphérique de sortie, puis dans RoomEq ajoutez la piste **« DAW (ASIO) »** dans l'onglet Mixage — la lecture du DAW traverse l'égaliseur puis sort sur la carte physique choisie dans la tranche MASTER (48 kHz stéréo ; lisez le statut du pont dans la barre du Mixage : « DAW connecté… »).
+- Les **autres** pilotes ASIO restent utilisables en sortie d'écoute (RME, Focusrite, MOTU… ou [ASIO4ALL](https://www.asio4all.org/)) — l'ASIO n'est pas requis pour la calibration, le WASAPI partagé suffit.
 
 ## Guide d'utilisation
 
@@ -87,28 +104,28 @@ Sans pilote ASIO, tout fonctionne en **WASAPI partagé** (par défaut) : la cali
 
 L'onglet **Mixage & routage** transforme RoomEq en **carte son virtuelle + table de mixage** : le son de toutes les applications (Spotify, navigateur, jeux…) transite par l'égaliseur avant d'atteindre vos enceintes.
 
-### Principe : la carte son virtuelle (multi-protocoles)
+### Principe : la carte son virtuelle RoomEq (intégrée)
 
-Windows n'autorise pas une application à se déclarer seule comme carte son : il faut un **pilote audio virtuel**. RoomEq prend en charge plusieurs protocoles, au choix dans le sélecteur « **Carte virtuelle** » de l'onglet Mixage & routage :
+Windows n'autorise pas une application à se déclarer seule comme carte son : il faut un **pilote audio virtuel**. RoomEq embarque **le sien** — plus aucun logiciel tiers :
 
-| Protocole | Éditeur | Installation | Périphériques reconnus |
+| Protocole | Origine | Installation | Périphériques |
 |---|---|---|---|
-| **VB-CABLE** (recommandé) | VB-Audio (gratuit) | **Automatique** : bouton « Installer automatiquement… » | « CABLE Input » / « CABLE Output » |
-| **VoiceMeeter** | VB-Audio (gratuit) | **Automatique** | Paires Vaio / Aux / VAIO3 (« VoiceMeeter Input / Output »…) |
-| **Virtual Audio Cable (VAC)** | E. Muzychenko (payant) | Manuelle via « Page du produit… » | « Line 1..N (Virtual Audio Cable) » |
+| **Carte virtuelle RoomEq** (recommandé) | **Pilote intégré** `roomeqvad` (livré avec l'application) | **Un clic** : « Installer le pilote RoomEq… » (paquet local, aucun téléchargement) ou automatiquement par le MSI | « RoomEq Input (RoomEq Virtual Audio) » / « RoomEq Output (RoomEq Virtual Audio) » |
 | **Boucle WASAPI** | Intégré à Windows | Aucune (sans pilote) | Boucle directe de n'importe quelle sortie |
 
-Avec VB-CABLE (ou VoiceMeeter) — la chaîne est **automatique de bout en bout** :
+La chaîne est **automatique de bout en bout** :
 
-1. **Installez le pilote en un clic** : sélectionnez le protocole puis **« Installer automatiquement… »** — RoomEq découvre la **version courante** sur la page produit officielle (VB-Audio renomme ses archives à chaque version), télécharge depuis `download.vb-audio.com` (HTTPS, domaine verrouillé), vérifie l'archive (taille, structure, anti-ZipSlip, exécutable attendu), l'extrait puis lance l'installateur **avec l'invite UAC** (si RoomEq tourne déjà en administrateur ou si l'UAC est en mode silencieux, l'élévation est acquise sans invite : c'est normal). Progression et journal (`%APPDATA%\RoomEq\logs`) affichés.
-2. **Bascule automatique de Windows** : dès que les périphériques sont détectés (option « **Router dès l'installation** », active par défaut), la **sortie par défaut** de Windows passe sur l'entrée de la carte virtuelle (« CABLE Input », « VoiceMeeter Input »…), la piste câble est ajoutée à la console et le routage démarre : le son système traverse l'égaliseur et ressort sur la **sortie physique choisie dans la tranche MASTER**.
-3. **Option « Entrée par défaut → carte virtuelle »** (active par défaut) : pendant le routage, l'**entrée par défaut** de Windows devient la sortie de la carte virtuelle — les autres applications voient un « micro virtuel » alimenté par le son système (pratique pour Discord, l'enregistrement, le streaming).
+1. **Installez le pilote en un clic** : **« Installer le pilote RoomEq… »** lance l'installation du paquet livré avec l'application (`pnputil`, invite administrateur, **rien n'est téléchargé**), puis RoomEq attend l'apparition des périphériques « RoomEq Input / RoomEq Output ». Le bouton « Supprimer le pilote » fait l'inverse (maintenance).
+2. **Bascule automatique de Windows** : dès que les périphériques sont détectés (option « **Router dès l'installation** », active par défaut), la **sortie par défaut** de Windows passe sur « RoomEq Input », la piste « RoomEq Output — Windows » est ajoutée à la console et le routage démarre : le son système traverse l'égaliseur et ressort sur la **sortie physique choisie dans la tranche MASTER**.
+3. **Option « Entrée par défaut → carte virtuelle »** (active par défaut) : pendant le routage, l'**entrée par défaut** de Windows devient « RoomEq Output » — les autres applications voient un « micro virtuel » alimenté par le son système (pratique pour Discord, l'enregistrement, le streaming).
 4. **Restauration automatique** : à l'arrêt du routage, vos périphériques par défaut d'origine (sortie ET entrée) sont rétablis — ils sont mémorisés dans `mixer.json`, donc restaurés même après fermeture de l'application.
 5. Si la bascule automatique est refusée par votre configuration Windows, le bouton « **Définir par défaut** » (API PolicyConfig, trois variantes tentées en cascade) ou le panneau son permettent de le faire manuellement.
 
-Un bouton « Page du produit… » ouvre la page officielle du protocole (téléchargement manuel, licence, documentation). La détection des câbles et les protections anti-larsen prennent en compte **tous** les protocoles simultanément.
+> **Signature** : Windows 10/11 64 bits exige des pilotes signés. Sans certificat EV, le pilote est livré signé-test — la procédure d'activation (mode test) et la voie officielle (attestation Microsoft) sont détaillées dans **`INSTALLATION-PILOTE.md`**.
 
-La barre de statut de l'onglet indique en permanence l'état de la chaîne : carte virtuelle détectée ou non, sortie par défaut, routage actif.
+### Studio : le DAW dans l'égaliseur (pilote ASIO intégré)
+
+Dans votre DAW, choisissez le périphérique **« RoomEq ASIO »** (48 kHz). Dès la lecture, l'onglet Mixage affiche « **DAW connecté (48 kHz)** » : ajoutez la piste **« DAW (ASIO) »** (bouton « + Ajouter une piste ») — elle porte la lecture du DAW, traverse son propre EQ de piste puis l'EQ principal, et sort sur la tranche MASTER (la sortie peut être une carte WASAPI **ou** un pilote ASIO pour une latence minimale). Le statut du pont (connexion, attente, trames écartées) est visible en permanence dans la barre du Mixage ; le pilote ASIO fonctionne même si RoomEq est fermé (il se reconnecte au redémarrage de l'application).
 
 ### La table de mixage
 
@@ -116,7 +133,7 @@ La console reprend les codes des tables analogiques, avec des **tranches horizon
 
 | Élément | Détails |
 |---|---|
-| **Pistes dynamiques** | « + Ajouter une piste » liste **toutes les entrées** de Windows (micros, lignes, CABLE Output…), **toutes les sorties en mode boucle** (loopback : tout ce que Windows joue sur cette sortie) et les sources internes (lecteur de fichiers, générateur de test). Les pistes correspondent donc à l'intégralité des entrées/sorties disponibles |
+| **Pistes dynamiques** | « + Ajouter une piste » liste **toutes les entrées** de Windows (micros, lignes, RoomEq Output…), **toutes les sorties en mode boucle** (loopback : tout ce que Windows joue sur cette sortie), la piste **DAW (ASIO)** (lecture du DAW via le pilote ASIO intégré) et les sources internes (lecteur de fichiers, générateur de test). Les pistes correspondent donc à l'intégralité des sources disponibles |
 | **Égaliseur par piste** | Chaque tranche possède son **propre EQ paramétrique** (bouton EQ → éditeur à droite : bandes peaking/shelf/pass/notch, courbe de réponse, presets rapides « Coupe-bas 80 Hz / Présence 3 kHz / Aigus adoucis / Aucun EQ ») — indépendant de l'EQ principal, qui reste appliqué au bus master |
 | **Fader & pan** | Fader 0 → +3,5 dB de gain utile (0 dB au centre), panoramique à puissance constante |
 | **Mute / Solo** | Règle standard : si au moins une piste est en solo, seules les solos passent |
@@ -126,24 +143,24 @@ La console reprend les codes des tables analogiques, avec des **tranches horizon
 
 Au premier lancement, des pistes par défaut sont proposées : **son Windows** (via la carte virtuelle si présente, sinon en boucle sur la sortie par défaut), **lecteur**, **micro** et **générateur**. La configuration complète (pistes, faders, EQ par piste, sortie master, auto-démarrage) est conservée dans `%APPDATA%\RoomEq\mixer.json`.
 
-### Mode boucle (sans VB-CABLE)
+### Mode boucle (sans pilote)
 
 Sans carte virtuelle, une piste peut capter **en boucle** la sortie d'un périphérique de rendu. Deux précautions :
 
 - choisissez comme **sortie master un périphérique différent** de celui capté — RoomEq **refuse de démarrer** un montage qui créerait une boucle (larsen) ;
 - le son original continue de sortir du périphérique capté : pour n'entendre que le signal traité, coupez physiquement le volume de celui-ci ou utilisez un écran HDMI sans écoute.
 
-VB-CABLE (installé automatiquement) reste la méthode recommandée : « CABLE Input » n'a pas de sortie physique, le son ne peut être entendu **qu'après** l'égaliseur.
+La carte virtuelle RoomEq (pilote intégré) reste la méthode recommandée : « RoomEq Input » n'a pas de sortie physique, le son ne peut être entendu **qu'après** l'égaliseur.
 
 ### Latence et qualité
 
-Le routage fonctionne en **WASAPI partagé** (les autres applications continuent de sonner) avec un tampon de 50 ms côté master ; la latence totale avec VB-CABLE est d'environ 70–90 ms — imperceptible à l'écoute musicale, à connaître pour le doublage labial sur vidéo. Les rééchantillonnages (piste → taux master) utilisent le resampleur WDL ; le traitement EQ est identique au moteur principal (biquads RBJ, échange atomique des filtres).
+Le routage fonctionne en **WASAPI partagé** (les autres applications continuent de sonner) avec un tampon de 50 ms côté master ; la latence totale avec la carte virtuelle RoomEq est d'environ 70–90 ms — imperceptible à l'écoute musicale, à connaître pour le doublage labial sur vidéo. Les rééchantillonnages (piste → taux master) utilisent le resampleur WDL ; le traitement EQ est identique au moteur principal (biquads RBJ, échange atomique des filtres).
 
 ## Procédure de calibration complète
 
 1. **Préparez la pièce** : fermez fenêtres et portes, coupez ventilation/clim, gardez le silence pendant la mesure (la moyenne de Welch atténue mais n'élimine pas les bruits impulsifs : claquements, clavier, voix).
 2. **Micro** : placez-le à la **position d'écoute**, sur pied, à hauteur d'oreille. Pour un micro de mesure à cosinus, orientez-le **vers le plafond** (omni) ou vers les enceintes selon la convention du fabricant. Si vous disposez du fichier de calibration du micro, importez-le d'abord (onglet Micro) — ou choisissez le modèle dans la bibliothèque intégrée.
-3. **Niveau** : dans l'onglet Calibration, choisissez le micro — **votre micro physique** (les cartes virtuelles type « CABLE Output » sont signalées « ne capte pas la pièce » : les choisir fait échouer la mesure) — et réglez le « Niveau du bruit de test » (0,20 par défaut ≈ -14 dBFS). Le volume maître de la barre du haut s'ajoute : visez un niveau d'écoute normal, sans saturation des enceintes.
+3. **Niveau** : dans l'onglet Calibration, choisissez le micro — **votre micro physique** (les cartes virtuelles type « RoomEq Output » sont signalées « ne capte pas la pièce » : les choisir fait échouer la mesure) — et réglez le « Niveau du bruit de test » (0,20 par défaut ≈ -14 dBFS). Le volume maître de la barre du haut s'ajoute : visez un niveau d'écoute normal, sans saturation des enceintes.
 4. **Signaux** : laissez cochée la **mesure multi-signaux** (recommandée) et les cinq signaux sélectionnés. Chaque signal est mesuré tour à tour : **bruit blanc, rose, brun, violet**, puis le **balayage sinusoïdal progressif** (montée continue de 20 Hz à 20 kHz, durée réglable 6–20 s). La durée par bruit est réglable (8–20 s, 12 s par défaut) ; le plan de mesure et la durée totale sont affichés. Décochez des signaux pour aller plus vite, ou décochez « Mesure multi-signaux » pour retrouver le mode « bruit blanc seul ».
 5. **Cible** : « Plate (neutre) » corrige la pièce vers une réponse droite ; « Plate + shelf de graves » conserve un léger renfort d'assise ; « Studio » applique une pente descendante de -1 dB/octave à partir de 1 kHz.
 6. **Limites de sécurité** : boost max 6 dB (protège les haut-parleurs et la marge dynamique), coupe max 12 dB (une coupe est toujours préférable à un boost). Ces bornes sont réglables.
@@ -173,7 +190,7 @@ Le profil est **soustrait** du spectre capturé avant conception de la correctio
 - Onglet **ASIO** : liste des pilotes, canaux d'entrée/sortie, taille de buffer, latence, taux d'échantillonnage supportés, bouton **panneau de contrôle** du pilote (réglages constructeur).
 - En sortie ASIO, RoomEq joue **en exclusif** : le mixeur Windows est contourné (latence minimale, bit-perfect), les autres applications ne sortent plus par cette interface pendant la lecture. Le taux d'échantillonnage est négocié automatiquement (48 kHz si le pilote l'accepte) et le flux est rééchantillonné vers le taux du pilote si besoin.
 - La capture micro reste en WASAPI même en lecture ASIO (les pilotes ASIO consument réservation exclusive ; un micro WASAPI/USB séparé est le cas d'usage normal).
-- Pour égaliser **toutes les applications** (Spotify, navigateur…) : utilisez l'onglet **Mixage & routage** (carte son virtuelle VB-CABLE + table de mixage). RoomEq ne modifie aucun pilote système : la carte virtuelle est un périphérique Windows comme un autre.
+- Pour égaliser **toutes les applications** (Spotify, navigateur…) : utilisez l'onglet **Mixage & routage** (carte son virtuelle RoomEq intégrée + table de mixage). Pour un **DAW**, sortez sur « RoomEq ASIO » et ajoutez la piste « DAW (ASIO) ».
 
 ## Fichiers et dossiers
 
@@ -195,12 +212,32 @@ dotnet test  tests\RoomEq.Core.Tests
 dotnet publish src\RoomEq.App -c Release -r win-x64 --self-contained true -p:PublishDir=..\..\publish\win-x64
 ```
 
-L'exécutable se trouve dans `publish\win-x64\RoomEq.App.exe` : copiez-le sous les noms `RoomEq-test.exe` et/ou `RoomEq-public.exe` pour obtenir les deux versions (même dossier, mêmes DLL).
+L'exécutable se trouve dans `publish\win-x64\RoomEq.App.exe` : copiez-le sous les noms `RoomEq.exe` (public, silencieux) et/ou `RoomEq-test.exe` (test, journalisé).
+
+### Composants natifs (pilote WDM, ASIO, installateur)
+
+Ces composants exigent Windows ; la **CI GitHub Actions les compile automatiquement** (artefacts des workflows) :
+
+| Composant | Où | Comment compiler localement |
+|---|---|---|
+| Carte virtuelle `roomeqvad.sys` | `driver/roomeqvad/` | `powershell -File driver\roomeqvad\build\build_driver.ps1` (VS2022 + le WDK arrive par NuGet, ~500 Mo au premier build) puis `-TestSign` pour signer-test |
+| Pilote ASIO `RoomEqAsio64.dll` | `asio/asiodll/` | `msbuild asio\asiodll\RoomEqAsio.vcxproj /p:Configuration=Release /p:Platform=x64` (MSVC seul) |
+| Noyau du pont ASIO (portable) | `asio/bridge_core/` | `make -C asio/bridge_core test` (g++/Linux inclus) |
+| Installateur MSI | `installer/` | `powershell -File installer\build_msi.ps1` (SDK .NET 8 + `dotnet tool install --global wix --version 6.0.2`) |
 
 ## Architecture technique
 
 ```
 RoomEq.sln
+├── driver/roomeqvad/     Pilote WDM de la carte son virtuelle (WaveRT/PortCls, dérivé
+│                         de l'exemple SYSVAD du WDK, MIT) : un endpoint de rendu
+│                         « RoomEq Input », un endpoint de capture « RoomEq Output »,
+│                         pont interne bridge.cpp (render → capture)
+├── asio/                 Pont ASIO RoomEq
+│   ├── bridge_core/      Protocole partagé + anneau SPSC + PLL (C portable, testé g++)
+│   └── asiodll/          RoomEqAsio64.dll (COM IASIO, mémoire partagée avec l'app)
+├── installer/            MSI WiX (app + pilote + ASIO, actions personnalisées pnputil)
+├── .github/workflows/    CI : tests → pilote (WDK NuGet) + signature test → MSI
 ├── src/
 │   ├── RoomEq.Core/        Noyau DSP, sans dépendance audio ni UI
 │   │   ├── Dsp/            BiquadFilter (RBJ), FFT radix-2 (directe + inverse), Welch,
@@ -237,7 +274,7 @@ RoomEq.sln
 │   │                       (EQ de piste, fader, pan, mute/solo, crêtes), ConsoleMixer
 │   │                       (bus master + EQ principal synchronisé, protections larsen),
 │   │                       AudioDeviceCatalog (entrées/sorties, sonde par protocole),
-│   │                       VirtualAudioProviders (VB-CABLE / VoiceMeeter / VAC / loopback,
+│   │                       VirtualAudioProviders (carte RoomEq / loopback), DriverSetupManager
 │   │                       découverte automatique de version sur la page officielle),
 │   │                       VirtualAudioInstaller (téléchargement officiel multi-candidats,
 │   │                       validation, élévation UAC fiabilisée, détection d'arrivée du pilote),
@@ -278,8 +315,8 @@ RoomEq.sln
     tests/RoomEq.Audio.Tests/  78 tests xUnit : RingBuffer (continuité, saturation,
                                silence), loi de pan, fader, EQ de piste (passe-haut),
                                synchro EQ principal → bus master, persistance mixer.json,
-                               protocoles virtuels (motifs de détection VB-CABLE/
-                               VoiceMeeter/VAC, sécurité installateur : URL et pages
+                               protocoles virtuels (carte RoomEq + loopback, gestion
+                               du paquet pilote local : pnputil install/désinstall)
                                officielles, ZipSlip, PE, recherche d'installateur,
                                découverte de version, seuils de taille, IIDs PolicyConfig),
                                guides, catalogue de signaux (unicités, amplitudes,
@@ -301,7 +338,7 @@ Mode « bruit blanc seul » : Welch → lissage 1/6 oct → correction micro →
 **Des contrôles sont coupés à droite (menu des signaux…).** Quand la fenêtre est étroite, la barre supérieure, la barre de contrôle de l'Analyseur et la barre de routage du Mixage **défilent horizontalement** : molette + Maj, geste deux doigts du pavé tactile, ou la barre de défilement sous la barre concernée. Sur un écran 1920 px tout tient sans défilement.
 **Quelle différence entre les versions test et public ?** Le même binaire, seul le nom de l'exécutable change le comportement : `RoomEq-test.exe` journalise tout et envoie vers le Drive (pour le diagnostic à distance) ; `RoomEq-public.exe` ne journalise rien et n'envoie rien. Au lancement de la version test, une boîte de dialogue propose de basculer vers la version publique si elle est à côté. La version en cours est affichée dans la barre de titre.
 
-**Le volume Windows de la carte virtuelle ne change rien — normal ?** Oui : « CABLE Input » est un tuyau logiciel, son fader est purement décoratif. Réglez le volume de la carte physique qui rend le son : le **curseur Volume de la barre du haut** (de 0 à 100 % il règle directement la carte physique routée), **Ctrl+Alt+↑ / ↓** (±5 %), **Ctrl+Alt+M** (sourdine), ou le curseur « Vol. carte physique » de la tranche MASTER. Les deux curseurs sont **toujours synchronisés** : déplacer l'un met l'autre à la même position, quel que soit l'ordre — et un changement fait hors de l'application (mixeur Windows, touches du casque) est suivi à l'écran.
+**Le volume Windows de la carte virtuelle ne change rien — normal ?** Oui : « RoomEq Input » est un tuyau logiciel, son fader est purement décoratif. Réglez le volume de la carte physique qui rend le son : le **curseur Volume de la barre du haut** (de 0 à 100 % il règle directement la carte physique routée), **Ctrl+Alt+↑ / ↓** (±5 %), **Ctrl+Alt+M** (sourdine), ou le curseur « Vol. carte physique » de la tranche MASTER. Les deux curseurs sont **toujours synchronisés** : déplacer l'un met l'autre à la même position, quel que soit l'ordre — et un changement fait hors de l'application (mixeur Windows, touches du casque) est suivi à l'écran.
 
 **Les deux curseurs de volume n'affichaient pas la même chose — corrigé ?** Oui (1.9.1) : une seule source de vérité (le volume Windows de la carte physique) — chaque commande (barre du haut, tranche MASTER, raccourcis clavier) y écrit, puis tous les affichages relisent la carte : la synchro ne dépend plus de l'ordre de manipulation.
 
@@ -313,7 +350,7 @@ Mode « bruit blanc seul » : Welch → lissage 1/6 oct → correction micro →
 
 **Où est passée l'aide ?** Chaque section affiche un petit « ? » : survol = infobulle, clic = boîte de dialogue complète.
 
-Depuis la 1.6.1 (et encore plus en 1.7.0), toute erreur s'affiche en rouge dans l'onglet Calibration et est tracée dans le journal (`logs\roomeq-AAAA-MM-JJ.log`, chemin affiché en bas du panneau). Causes classiques : micro virtuel choisi dans la liste (« CABLE Output », signalé — choisissez votre micro physique) ; micro muet ou niveau d'entrée à zéro dans Windows ; format du micro refusé (RoomEq retente automatiquement avec le format natif) ; signal ignoré en échec — la mesure continue avec les autres et la raison est listée dans le résumé.
+Depuis la 1.6.1 (et encore plus en 1.7.0), toute erreur s'affiche en rouge dans l'onglet Calibration et est tracée dans le journal (`logs\roomeq-AAAA-MM-JJ.log`, chemin affiché en bas du panneau). Causes classiques : micro virtuel choisi dans la liste (« RoomEq Output », signalé — choisissez votre micro physique) ; micro muet ou niveau d'entrée à zéro dans Windows ; format du micro refusé (RoomEq retente automatiquement avec le format natif) ; signal ignoré en échec — la mesure continue avec les autres et la raison est listée dans le résumé.
 
 **La calibration dit « micro silencieux ».**
 Vérifiez dans les réglages son Windows que le micro sélectionné est le périphérique d'entrée actif, non muet, avec un niveau d'entrée correct (le VU doit bouger pendant le bruit). Dans RoomEq, utilisez l'onglet Analyseur en source « Micro » pour valider que le signal arrive.
@@ -331,10 +368,12 @@ La correction comporte des boosts ; le préampli calculé (-boost max) devrait l
 Utilisez un micro de mesure avec son fichier de calibration, augmentez la durée de mesure (25–30 s), et gardez la coupe max à 12 dB plutôt que d'augmenter le boost.
 
 **EQ de tout le système ?**
-Oui — c'est le rôle de l'onglet **Mixage & routage** : choisissez le protocole (VB-CABLE recommandé), cliquez « Installer automatiquement… » si le pilote manque : Windows bascule tout seul vers la carte virtuelle et le routage démarre. Sinon, cliquez « Router Windows vers l'EQ ». Voir la section dédiée plus haut.
+Oui — c'est le rôle de l'onglet **Mixage & routage** : cliquez « Installer le pilote RoomEq… » si la carte virtuelle manque (paquet intégré, aucun téléchargement) : Windows bascule tout seul vers « RoomEq Input » et le routage démarre. Sinon, cliquez « Router Windows vers l'EQ ». Voir la section dédiée plus haut.
 
 **L'installation automatique échoue ou l'invite UAC n'apparaît pas.**
-Le téléchargement ne se fait que depuis `https://download.vb-audio.com` (versions découvertes sur les pages produit officielles) : vérifiez votre connexion/pare-feu, ou passez par « Page du produit… » pour télécharger manuellement. Concernant l'UAC, trois cas sont normaux : RoomEq lancé **en administrateur** → l'installateur hérite des droits sans invite ; UAC réglé sur « **ne jamais notifier** » → élévation silencieuse ; UAC refusé → un message explicite s'affiche et l'installateur extrait reste disponible dans `%TEMP%\RoomEq-install`. Après installation, un redémarrage de Windows est parfois demandé par l'installateur avant que « CABLE Input / CABLE Output » n'apparaissent.
+Le pilote est livré **avec** l'application (dossier `driver\` du zip, `Program Files\RoomEq\driver\` en installation) : aucun téléchargement n'a lieu. Concernant l'invite administrateur, trois cas sont normaux : RoomEq lancé **en administrateur** → l'installation hérite des droits sans invite ; UAC réglé sur « **ne jamais notifier** » → élévation silencieuse ; UAC refusé → un message explicite s'affiche. Après installation, si « RoomEq Input / RoomEq Output » n'apparaissent pas, redémarrez Windows puis cliquez « ⟳ ».
+
+> Pilote **signé-test** : si l'installation aboutit mais que les périphériques n'apparaissent pas, activez le mode test de Windows (`INSTALLATION-PILOTE.md`) — c'est la signature, pas l'installation, qui bloque alors le démarrage du pilote.
 
 **Je veux retrouver mes périphériques d'origine après un routage.**
 C'est automatique : à l'arrêt du routage (« ■ Arrêter le routage »), la sortie et l'entrée par défaut mémorisées avant la bascule sont restaurées. Si l'application a été fermée pendant le routage, démarrez puis arrêtez le routage une fois (ou utilisez le panneau son).

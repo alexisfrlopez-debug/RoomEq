@@ -1,0 +1,196 @@
+name: Build RoomEq
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────
+  # 1. Tests (rapide) : xUnit sur les 3 OS — le pont ASIO et le greffon
+  #    partagent des chemins multiplateformes vérifiés partout.
+  # ─────────────────────────────────────────────────────────────────────
+  tests:
+    name: Tests xUnit (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Noyau du pont ASIO (g++, Linux)
+        if: runner.os == 'Linux'
+        run: make -C asio/bridge_core test
+
+      - name: Build
+        run: dotnet build RoomEq.sln -c Debug
+
+      - name: Tests Core
+        run: dotnet test tests/RoomEq.Core.Tests --no-build -c Debug
+
+      - name: Tests Audio
+        run: dotnet test tests/RoomEq.Audio.Tests --no-build -c Debug
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 2. Pilote WDM (roomeqvad) + DLL ASIO — Windows + WDK.
+  #    Produit un paquet pilote SIGNÉ-TEST (certificat de la CI exporté à
+  #    côté : pour une distribution propre, voir INSTALLATION-PILOTE.md).
+  # ─────────────────────────────────────────────────────────────────────
+  driver:
+    name: Pilote + ASIO (WDK)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: WDK via NuGet + build + inf2cat + signature de test
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File driver\roomeqvad\build\build_driver.ps1 -Configuration Release -TestSign
+
+      - name: Compiler la DLL ASIO (MSVC, sans WDK)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild `
+                        -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          & $msbuild asio\asiodll\RoomEqAsio.vcxproj /p:Configuration=Release /p:Platform=x64 /m /v:m
+          if ($LASTEXITCODE -ne 0) { throw "build ASIO échoué ($LASTEXITCODE)" }
+
+      - name: Rassembler l'artefact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact\driver | Out-Null
+          Copy-Item driver\roomeqvad\build\x64\* artifact\driver\ -ErrorAction SilentlyContinue
+          Copy-Item -ErrorAction SilentlyContinue `
+            (Get-ChildItem asio\asiodll -Recurse -Filter RoomEqAsio64.dll | Select-Object -First 1).FullName `
+            artifact\RoomEqAsio64.dll
+          Get-ChildItem artifact -Recurse | Select-Object FullName, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roomeq-driver-${{ github.sha }}
+          path: artifact/
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 3b. macOS : application Avalonia + greffon RoomEqHAL (AudioServerPlugIn)
+  #      + paquet .pkg (arm64 + x86_64). Signature ad-hoc : pour la
+  #      distribution, Developer ID + notarisation (INSTALLATION-MACOS.md).
+  # ─────────────────────────────────────────────────────────────────────
+  macos:
+    name: macOS (app + greffon + pkg)
+    runs-on: macos-latest
+    needs: [tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compilation + tests macOS
+        run: |
+          dotnet build RoomEq.sln -c Release
+          dotnet test tests/RoomEq.Core.Tests --no-build -c Release
+          dotnet test tests/RoomEq.Audio.Tests --no-build -c Release
+
+      - name: Paquets macOS (app + greffon + pkg, arm64 et x64)
+        run: bash installer/macos/build_pkg.sh both
+
+      - name: Vérifier les paquets
+        run: |
+          ls -la installer/macos/build/*.pkg
+          pkgutil --check-signature installer/macos/build/*.pkg || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roomeq-macos-${{ github.sha }}
+          path: installer/macos/build/*.pkg
+          if-no-files-found: error
+
+      - name: Joindre au tag (Release) si présent
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          gh release create "$TAG" --draft --title "RoomEq $TAG" --notes "Installation : exécuter le .pkg (administrateur). Voir INSTALLATION-MACOS.md." installer/macos/build/*.pkg || \
+          gh release upload "$TAG" installer/macos/build/*.pkg --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 3. MSI complet : application + pilote CI + ASIO + installateur WiX.
+  # ─────────────────────────────────────────────────────────────────────
+  msi:
+    name: Installateur MSI
+    runs-on: windows-latest
+    needs: [tests, driver]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Récupérer l'artefact pilote + ASIO
+        uses: actions/download-artifact@v4
+        with:
+          name: roomeq-driver-${{ github.sha }}
+          path: ci-driver
+
+      - name: Lire la version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Select-Xml -Path Directory.Build.props -XPath '//Version').Node.InnerText.Trim()
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Installer WiX 6 + extension UI
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 6.0.2
+          wix extension add -g WixToolset.UI.wixext
+
+      - name: Assembler le MSI
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File installer\build_msi.ps1 `
+            -DriverDir ci-driver\driver `
+            -AsioDll ci-driver\RoomEqAsio64.dll
+        env:
+          # python est préinstallé sur les runners ; le générateur en a besoin
+          PYTHON: python
+
+      - name: Vérifier le MSI
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          $msi = "installer\build\RoomEq-$v-win-x64.msi"
+          if (-not (Test-Path $msi)) { throw "MSI introuvable : $msi" }
+          Get-Item $msi | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roomeq-msi-${{ github.sha }}
+          path: installer/build/RoomEq-*.msi
+          if-no-files-found: error
+
+      - name: Joindre au tag (Release) si présent
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = "${env:GITHUB_REF_NAME}"
+          gh release create "$tag" --draft --title "RoomEq $tag" --notes "Installation : exécuter le MSI (administrateur). Le pilote est signé-test : voir INSTALLATION-PILOTE.md." "installer/build/RoomEq-*.msi" || `
+          gh release upload "$tag" "installer/build/RoomEq-*.msi" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

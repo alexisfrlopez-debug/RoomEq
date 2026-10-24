@@ -1,7 +1,7 @@
 # INSTRUCTIONS DE REPRISE — Projet RoomEq (à destination de l'agent IA)
 
 > **À lire en tout premier au début de chaque session.**
-> Dernière mise à jour : 2026-10-11 — État : RoomEq **v1.9.1** livré (**les deux curseurs de volume — barre du haut et Mixage — restent synchronisés** quel que soit l'ordre de manipulation), base 1.9.0 (menu des signaux + catalogue téléchargeable + volume audible sur la sortie), 245/245 tests verts.
+> Dernière mise à jour : 2026-10-10 — État : RoomEq **v1.9.0** livré (menu déroulant des signaux de test avec **catalogue téléchargeable** depuis le dépôt GitHub ; **curseur Volume de la barre du haut audible sur la sortie routée**), 228/228 tests verts.
 > Ce fichier est le point d'entrée unique : il explique l'état du projet, comment
 > restaurer l'environnement depuis ce Drive, comment travailler, et comment exécuter
 > la **sauvegarde incrémentielle obligatoire** en fin de session.
@@ -12,13 +12,13 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq — égaliseur acoustique temps réel pour Windows (correction acoustique de pièce) |
-| **Stack** | .NET 8 · NAudio (WASAPI/ASIO) · Avalonia 11 (MVVM CommunityToolkit) · xUnit |
-| **Version actuelle** | 1.9.1 — **les deux curseurs de volume (barre du haut + Vol. carte physique du Mixage) synchronisés en permanence** (une seule source de vérité : le volume Windows de la carte) ; base 1.9.0 : **menu déroulant des signaux de test** (bruits blanc/rose/brun/violet, sinus 50 Hz→15 kHz, balayages, fichiers téléchargés) + **« Télécharger d'autres… »** (catalogue officiel hébergé sur le dépôt GitHub, SHA-256 vérifié) ; **le curseur Volume de la barre du haut pilote aussi le volume Windows de la carte physique routée (0–100 %)** — audible en usage routé ; base 1.8.1 : défilement horizontal ; base 1.8.0 : deux versions d'exe test télémétré + public silencieux ; base 1.7 : aide « ? », canal micro mono, volume carte physique (Ctrl+Alt+↑/↓/M), audit |
+| **Projet** | RoomEq — égaliseur temps réel **Windows & macOS** (correction acoustique de pièce + corrections casques intégrées) |
+| **Stack** | .NET 8 · NAudio (WASAPI/ASIO, Windows) · CoreAudio P/Invoke (macOS) · Avalonia 11 (MVVM CommunityToolkit) · xUnit · WDM/Porseur Windows (SYSVAD MIT) · AudioServerPlugIn macOS · WiX 6 |
+| **Version actuelle** | **2.0.0 (2026-10-24) — autonomie totale + multiplateforme** : **pilote Windows intégré** `roomeqvad` (carte virtuelle « RoomEq Input/Output »), **pilote ASIO intégré** « RoomEq ASIO » (DAW → EQ → vraie carte), **MSI WiX** ; **greffon macOS RoomEqHAL** (périphérique virtuel « RoomEq Virtual », AudioServerPlugIn + pont /tmp), **application macOS** (CoreAudio AUHAL lecture/capture, .pkg arm64+x64) ; **bibliothèque intégrée de 255 corrections casques/écouteurs** (39 marques, données AutoEq MIT, cible Harman) ; **zéro application tierce** (garde automatisée). Détails : §2. |
 | **Source locale** | `/home/z/my-project/workspace/roomq-source/RoomEq` |
 | **SDK .NET** | `/home/z/.dotnet` → `export PATH="$HOME/.dotnet:$PATH"` (8.0.425) |
-| **Tests** | 245/245 verts (150 Core + 95 Audio) |
-| **GitHub** | https://github.com/alexisfrlopez-debug/RoomEq — dépôt PUBLIC sanitisé (v1.9.1, tag `v1.9.1`) : docs internes et scripts avec placeholders `__ID_*__`, aucune donnée personnelle. Re-sanitiser via `scripts/assemble_github_repo.py (outil interne, non publié)` avant tout nouveau push. **Relève à chaque session** : issues/PR/commentaires (§7bis, `scripts/github_releve.py`). Licence MIT. |
+| **Tests** | 239/239 verts (160 Core + 79 Audio) — matrice CI ubuntu + windows + **macos** ; noyau C du pont testé par g++ (Linux) ; greffon macOS compilé sur runner macOS |
+| **GitHub** | https://github.com/alexisfrlopez-debug/RoomEq — dépôt PUBLIC sanitisé (dernier push : **v2.0.0**, tags `v1.9.1`, `v2.0.0`) incluant `driver/`, `asio/`, `installer/`, `macos/`, `.github/` : docs internes et scripts avec placeholders `__ID_*__`, aucune donnée personnelle. Re-sanitiser via `scripts/assemble_github_repo.py (outil interne, non publié)` avant tout nouveau push. **Relève à chaque session** : issues/PR/commentaires (§7bis, `scripts/github_releve.py`). Licence MIT. |
 | **Drive** | Racine : https://drive.google.com/drive/folders/__ID_RACINE_DRIVE__ |
 | **Règle d'or** | Fin de session = append au `worklog.md` **puis** `python3 scripts/drive_backup.py` |
 
@@ -54,49 +54,83 @@
 
 ---
 
-## 2. État du projet au 2026-10-11 (v1.9.1)
+## 2. État du projet au 2026-10-24 (v2.0.0) — autonomie totale, presets casques, macOS
 
-### 2.0 Fonctionnalités livrées (v1.9.1 — les deux curseurs de volume toujours synchronisés)
+### 2.0 Ce que couvre la v2.0.0 (demandes utilisateurs)
 
-- **Retour utilisateur** : « les 2 curseurs de volume ont des problèmes de
-  synchro selon dans quel ordre ils sont modifiés ».
-- **Diagnostic** (la 1.9.0 avait unidirectionnalisé la synchro) : le curseur
-  « Volume » de la barre du haut poussait bien vers le curseur « Vol. carte
-  physique » du Mixage, mais le binding TwoWay de ce dernier écrivait
-  `RoutedVolume` **sans aucun handler** : le déplacer ne changeait NI la carte
-  NI la barre du haut — puis le moindre mouvement de la barre du haut écrasait
-  la valeur affichée. Mêmes trous pour Ctrl+Alt+↑/↓, pour le changement de
-  sortie master et pour un réglage fait hors de l'application (mixeur
-  Windows). D'où une synchro dépendante de l'ordre.
-- **Correctif — une seule source de vérité (le volume Windows de la carte),
-  tous les affichages relisent la carte après chaque écriture** :
-  - `RoomEq.Audio/Routing/VolumeSyncPolicy.cs` (NOUVEAU, pur et testé) :
-    sentinelle −1 (« indisponible ») jamais interprétée comme un volume,
-    epsilon de changement (0,05 %) vs epsilon d'écriture anti-spam (0,35 %),
-    décision de recadrage de la barre du haut, bornage 0..1 ;
-  - `MixerViewModel.OnRoutedVolumeChanged` (NOUVEAU) : le curseur du Mixage
-    écrit la carte PUIS recale la barre du haut ; garde `_syncingRoutedVolume`
-    contre la boucle du binding TwoWay et garde `_routedVolumeReady` contre
-    le piège du premier peuplement (RoutedVolume démarre à −1, le Slider le
-    contraint à 0 dès l'affichage — ne PAS écrire 0 dans la carte au
-    démarrage !) ;
-  - `MixerViewModel` : nudges clavier et changement de sortie master recalent
-    aussi la barre du haut ; `PollExternalEndpointVolume` dans `Tick()` (80 ms)
-    suit les réglages faits hors de l'application ;
-  - `MainViewModel.SyncVolumeFromRouted` (NOUVEAU, câblé via le constructeur
-    du Mixer — le callback doit vivre dès le chargement de la config au
-    démarrage) : recadre `Volume` sous drapeau `_syncingVolumeFromMixer` pour
-    que `OnVolumeChanged` ne réécrive pas la carte (elle y est déjà) ;
-  - `ApplyTopBarVolume` refactoré sur `VolumeSyncPolicy` (comportement inchangé) ;
-  - XAML : `Mode=TwoWay` explicite sur les deux curseurs ; aides « ? » mises à
-    jour (synchro documentée dans la barre du haut et la tranche MASTER).
-- **Zone d'asymétrie documentée (inchangée)** : au-delà de 100 %, la carte est
-  au maximum (le curseur du Mixage reste à 100 %) et seul le gain du lecteur
-  interne monte — ce point est écrit dans les deux aides et le LISEZMOI.
-- **Tests** : +17 Audio (`VolumeSyncPolicy` : sentinelles, epsilons, bornage,
-  décision de recadrage) — 245 total (150 Core + 95 Audio).
+1. **« Sa propre carte son virtuelle et son propre driver, application
+   installable, zéro référence tierce »** (Windows) — livré.
+2. **« Des presets de correction pour une liste assez fournie de casques et
+   écouteurs de toutes gammes »** (la capture n'étant pas applicable) — livré :
+   255 modèles / 39 marques.
+3. **« En plus de la version Windows, une version macOS (adapter tous les
+   drivers) »** — livré : app + greffon système + installateur .pkg.
 
-### 2.1 Fonctionnalités livrées (v1.9.0 — signaux de test en menu + volume audible sur la sortie)
+### 2.1 Architecture v2.0.0 (vue d'ensemble)
+
+| Brique | Windows | macOS |
+|---|---|---|
+| Carte virtuelle | pilote noyau `roomeqvad.sys` (WDM/PortCls WaveRT, dérivé SYSVAD MIT ; paire « RoomEq Input / RoomEq Output ») | greffon AudioServerPlugIn `RoomEqHAL` (CoreAudio, périphérique unique « RoomEq Virtual » avec flux sortie + flux boucle) |
+| Pont vers l'app | copie noyau render→capture (`driver/roomeqvad/bridge.cpp`) | anneau SPSC `/tmp/roomeq.device.bridge.v1.mmf` (même protocole que le pont ASIO) |
+| DAW → EQ | DLL ASIO intégrée `RoomEqAsio64.dll` (IASIO auto-déclaré, CLSID `{8F5E3A91-…}`, PLL de cadence) | natif CoreAudio : le DAW sort sur « RoomEq Virtual » |
+| Sortie/capture app | NAudio WASAPI + ASIO | **CoreAudio P/Invoke** (`src/RoomEq.Audio/Mac/` : AUHAL `CoreAudioOutput`/`CoreAudioCapture`, catalogue `CoreAudioCatalog`, pont `MacAudioBridge`) |
+| Installateur | WiX 6 MSI + CA DTF (pnputil différé) | `pkgbuild` .pkg (arm64 + x64) + postinstall (relance coreaudiod) |
+| CI | jobs tests(3 OS) + driver(WDK NuGet, signé-test) + msi | job **macos** (build+tests+greffon+pkg) |
+
+- **Le protocole du pont** (en-tête 256 o + anneau 32768 trames 48 kHz/2c/float,
+  drop-oldest, sessions) est partagé par les trois usages (ASIO, périphérique
+  macOS, tests Linux) : `asio/bridge_core/` (C pur, testé g++) ↔
+  `AsioBridgeInterop.cs` ↔ `roomeq_hal.cpp`. Chemin POSIX déterministe :
+  `/tmp/roomeq.<nom>.mmf` (règle dans `AsioBridgeTransport.FallbackPath`,
+  miroir dans `roomeq_hal.cpp` — test `DeviceBridgeTests`).
+- **macOS n'autorise pas** le changement programmatique de sortie par défaut :
+  l'UI le dit (bouton « Définir par défaut » masqué, guide Réglages Système).
+
+### 2.2 Presets casques (v2.0.0)
+
+- `src/RoomEq.Core/Headphones/headphone_presets.json` (ressource intégrée,
+  262 Ko) : 255 modèles — Sennheiser (27), Sony (16), AKG (18), Beyerdynamic
+  (14), HiFiMAN (13), Audio-Technica (11), Apple (6), Bose (6), Grado (6),
+  SteelSeries (6), Moondrop (9), Shure (10), HyperX (4), Razer (3),
+  Logitech G (4), Corsair (2), Beats (4), Samsung (3), Jabra (4), JBL (5),
+  Anker (3), Audeze (7), Focal (5), Etymotic (6), Truthear (5), 7Hz (3),
+  ThieAudio (5), Tin HiFi (3), Simgot (3), 64 Audio, Campfire, Westone,
+  Symphonium, Xenns, Yanyin, Kiwi Ears, CCA, KZ, Blon, Tanchjim, V-Moda,
+  Meze, Philips, Yamaha, Koss, Superlux, 1MORE, FiiO, TGXear, Smabat,
+  EPOS Sennheiser.
+- Chaque preset : préampli + 10 filtres (peaking/shelves), source de mesure
+  conservée (oratory1990 > Super Review > crinacle > Rtings > …).
+- Génération : `scripts/fetch_headphone_presets.py` (arbre GitHub AutoEq →
+  téléchargement parallèle → JSON validé) ; **données figées au dépôt**, zéro
+  dépendance d'exécution. Attribution : `THIRD_PARTY_NOTICES.md` (AutoEq MIT,
+  mesures oratory1990/crinacle/etc.).
+- App : `HeadphonePresetLibrary` (Core) + sélecteur marque/modèle **et**
+  recherche instantanée dans l'onglet Égaliseur (`EqViewModel`, section
+  « Casques & écouteurs ») ; application en un clic = preset complet.
+
+### 2.3 Livrables v2.0.0
+
+- `download/RoomEq-2.0.0-win-x64-test.zip`, `-win-x64-public.zip`,
+  `-source.zip` (scripts `scripts/package_2.0.0.sh`) ;
+- CI (tag `v2.0.0`) : `RoomEq-2.0.0-win-x64.msi` (job msi) +
+  `RoomEq-2.0.0-macos-arm64.pkg` / `-macos-x64.pkg` (job macos) — artefacts
+  GitHub + brouillon de Release.
+- **Signature** : pilote Windows signé-test (CI, `INSTALLATION-PILOTE.md` pour
+  l'attestation) ; greffon macOS ad-hoc (Developer ID + notarisation :
+  `INSTALLATION-MACOS.md`).
+
+### 2.4 Points d'attention / dettes assumées
+
+- Le greffon macOS compile (CI + vérif syntaxique locale contre les en-têtes
+  Apple réels) mais n'a **pas encore été testé sur du vrai matériel** —
+  première session avec un Mac : suivre `INSTALLATION-MACOS.md` §7.
+- Pas de contrôle de volume matériel dans le greffon macOS (v1 volontaire).
+- La bibliothèque casques se régénère manuellement (script) ; pas de mise à
+  jour automatique.
+
+## 2bis. État antérieur au 2026-10-10 (v1.9.0) — historique
+
+### 2.0 Fonctionnalités livrées (v1.9.0 — signaux de test en menu + volume audible sur la sortie)
 
 - **Menu déroulant des signaux de test** (demande : « pour la sélection de
   bruits/types de sinus, je voudrais plutôt un menu déroulant avec possibilité
@@ -160,7 +194,7 @@
   ordonné/index corrompu…), +13 Audio (catalogue : unicités, amplitudes,
   fréquences audibles, balayages, défaut ; conversion curseur) — 228 total.
 
-### 2.3 Fonctionnalités livrées (v1.8.1 — défilement horizontal de l'interface)
+### 2.1 Fonctionnalités livrées (v1.8.1 — défilement horizontal de l'interface)
 
 - **Diagnostic** (retour utilisateur : « les boutons de test de bruit n'apparaissent
   pas tous », après le défilement vertical du mixer en 1.8.0) : la barre supérieure
@@ -195,7 +229,7 @@
   LISEZMOI.txt réécrit (section « DÉFILEMENT HORIZONTAL PARTOUT »).
 - **Tests** : aucun changement de logique → 173/173 inchangés (re-vérifiés).
 
-### 2.4 Fonctionnalités livrées (v1.8.0 — deux versions d'exe)
+### 2.2 Fonctionnalités livrées (v1.8.0 — deux versions d'exe)
 
 - **Deux versions d'exécutable, un seul binaire** (demande : « une version test
   qui log et envoie les logs sur le drive, et une version public qui ne log rien
@@ -240,7 +274,7 @@
   DisplayName cohérent, chemin voisin), `DiagnosticsLog_EnabledFalse_WritesNothing`
   (interrupteur : ni mémoire ni fichier) ; 173 total.
 
-### 2.5 Fonctionnalités livrées (v1.7.0)
+### 2.3 Fonctionnalités livrées (v1.7.0)
 
 - **Télémétrie Drive (le cœur de la 1.7)** : l'EXE de test envoie son
   journal de diagnostic vers le dossier Drive `journaux-app`
@@ -317,7 +351,7 @@
   `ChannelMixerTests` (6 cas), `EqChainRateTests` (reconstruction au taux +
   continuité d'état) ; 158 total.
 
-### 2.6 Fonctionnalités livrées (v1.6.1)
+### 2.4 Fonctionnalités livrées (v1.6.1)
 
 - **Fiabilité de la calibration (v1.6.1)** — retour utilisateur « la courbe de
   calibration ne s'affiche pas », cause : la mesure pouvait échouer silencieusement
@@ -439,11 +473,11 @@
     de sécurité recalculé ;
   - Nouveau : `CorrectionResult.ResidualRmsDb()` (jumeau de `ResidualMaxDb()`).
 
-### 2.7 Architecture du code
+### 2.5 Architecture du code
 
 ```
 RoomEq/
-├── RoomEq.sln · Directory.Build.props (version 1.9.1)
+├── RoomEq.sln · Directory.Build.props (version 1.9.0)
 ├── src/
 │   ├── RoomEq.Core/    DSP pur : BiquadFilter, Fft, Windowing, SpectrumTools,
 │   │                   NoiseGenerator (blanc/rose/brun/violet), LogSweepGenerator,
@@ -484,7 +518,7 @@ RoomEq/
                              catalogue de signaux, curseur → volume Windows…)
 ```
 
-### 2.8 Limites connues (à ne pas « corriger » sans discussion)
+### 2.6 Limites connues (à ne pas « corriger » sans discussion)
 
 - `IPolicyConfig` est une API **non documentée** (standard du secteur) : 3 IIDs tentées en
   cascade avec confirmation par relecture ; repli prévu via panneau son Windows.
@@ -730,6 +764,9 @@ Le tout est relevé **à chaque session** et traité selon le protocole ci-desso
 
 | Version | Date | Contenu | Livrables |
 |---|---|---|---|
+| **2.0.0** | 2026-10-24 | **Autonomie totale + macOS + presets casques.** Windows : pilote de carte virtuelle intégré (`roomeqvad`, SYSVAD MIT adapté, INF `ROOT\ROOMEQVAD`), pilote ASIO intégré (`RoomEqAsio64.dll` + pont SPSC partagé), suppression de TOUTE référence tierce (garde automatisée `NoThirdPartyReferencesTests`), installateur MSI WiX 6 (app + pilote + ASIO, CA pnputil), CI GitHub Actions (tests 3 OS, driver WDK, msi). macOS : application CoreAudio (AUHAL lecture + capture, P/Invoke `src/RoomEq.Audio/Mac/`), greffon système RoomEqHAL (AudioServerPlugIn, périphérique « RoomEq Virtual » + flux boucle, publication dans `/tmp/roomeq.device.bridge.v1.mmf`), installateur .pkg arm64+x64 (job CI macos), icône .icns. Presets casques : 255 modèles intégrés (données AutoEq MIT, cible Harman, 39 marques toutes gammes) + sélecteur/recherche dans l'onglet Égaliseur. 239/239 tests verts. | `RoomEq-2.0.0-win-x64-test.zip` (42 Mo), `RoomEq-2.0.0-win-x64-public.zip` (42 Mo), `RoomEq-2.0.0-source.zip` ; CI : `RoomEq-2.0.0-win-x64.msi`, `RoomEq-2.0.0-macos-arm64.pkg`, `RoomEq-2.0.0-macos-x64.pkg` |
+| 1.9.1 | 2026-10-10 | Synchro permanente des deux curseurs de volume (barre du haut + Vol. carte physique) quel que soit l'ordre de manipulation, y compris réglages externes Windows (`VolumeSyncPolicy` testé) ; packaging + dépôt public v1.9.1. 245/245 tests. | `RoomEq-1.9.1-win-x64-{test,public,source}.zip` |
+
 | 1.9.0 | 2026-10-10 | **Menu déroulant des signaux de test** : 16 signaux intégrés (bruits blanc/rose/brun/violet, sinus 50 Hz→15 kHz, 2 balayages log) via `TestSignalCatalog` ; les 3 boutons fixes deviennent ComboBox + « Jouer » + **« Télécharger d'autres… »** — catalogue officiel hébergé dans le dépôt GitHub (`signaux/` : impulsion Dirac, bruit gris d'égale sonie, multi-tones SMPTE, balayage lent 30 s + manifest.json SHA-256) ; chaîne sécurisée : `SignalManifest.TryParse` (anti-traversal, tailles, sha256, doublons) + `SignalUrls` (domaine/chemin verrouillés) + `SignalStore` (%APPDATA%\RoomEq\signaux, index convivial, SHA vérifié avant écriture) + `SignalCatalogClient` (téléchargement borné) + `SignalCatalogDialog` (progression, statuts) ; fichiers joués en boucle. **Le curseur Volume de la barre du haut pilote aussi le volume Windows de la carte physique routée** (`ApplyTopBarVolume` + `SliderToEndpoint` : 0–100 % = carte physique, au-delà = gain du lecteur seul) — corrige « le volume n'a aucun effet sur la sortie sélectionnée » (le son routé ne passe pas par le lecteur interne). +55 tests (228 total). | `RoomEq-1.9.0-win-x64-test.zip` (42 Mo, 2 exécutables + telemetrie.json), `RoomEq-1.9.0-win-x64-public.zip` (42 Mo, sans identifiants), `RoomEq-1.9.0-source.zip` (avec signaux/) |
 | 1.8.1 | 2026-10-10 | **Défilement horizontal de l'interface** (retour « les boutons de test de bruit n'apparaissent pas tous ») : barre supérieure de la fenêtre (Bruit blanc / Bruit rose / Sinus 1k), barre de contrôle de l'Analyseur et barre de routage du Mixage défilables sur la largeur ; barre supérieure allégée (combo 260 px, source 170 px, volume 120 px — tout tient sans défilement sur 1920 px). XAML uniquement, logique inchangée. | `RoomEq-1.8.1-win-x64-test.zip` (42 Mo, 2 exécutables + telemetrie.json), `RoomEq-1.8.1-win-x64-public.zip` (42 Mo, sans identifiants), `RoomEq-1.8.1-source.zip` (252 Ko) |
 | 1.0.0 | 2026-10-07 | Égaliseur temps réel, analyseur RTA, calibration (courbe cible + designer), profils micro, mesure de pièce, ASIO. 20 tests. | `RoomEq-1.0-win-x64-portable.zip` (42 Mo), `RoomEq-1.0-source.zip` |

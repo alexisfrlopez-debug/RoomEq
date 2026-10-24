@@ -65,7 +65,7 @@
                                VerticalAlignment="Center" Classes.active="{Binding IsRunning}"/>
                     <controls:HelpButton HelpTitle="Routage du son Windows"
                                          HelpText="Chaîne complète : Windows joue dans la carte virtuelle → RoomEq capte sa sortie → égaliseur → rendu sur la sortie physique choisie (en haut à droite du MASTER).&#10;&#10;Au démarrage, les périphériques par défaut de Windows sont basculés vers la carte virtuelle (et l'entrée si l'option est cochée) ; à l'arrêt, les défauts d'origine sont restaurés.&#10;&#10;Le fader MASTER règle le niveau interne de RoomEq — le VOLUME FINAL des enceintes se règle avec Ctrl+Alt+↑ / ↓ (voir « Volume carte physique »)."/>
-                    <Button Classes="accent" Content="Router Windows vers l'EQ"
+                    <Button Classes="accent" Content="Router le son vers l'EQ"
                             Command="{Binding ToggleRoutingCommand}"
                             IsVisible="{Binding !IsRunning}"/>
                     <Button Content="■ Arrêter le routage" Command="{Binding ToggleRoutingCommand}"
@@ -74,6 +74,7 @@
                               VerticalAlignment="Center" FontSize="11"
                               ToolTip.Tip="Démarre le routage automatiquement à l'ouverture de RoomEq"/>
                     <CheckBox Content="Router dès l'installation" IsChecked="{Binding AutoRouteOnInstall}"
+                              IsVisible="{Binding !IsMacOS}"
                               VerticalAlignment="Center" FontSize="11"
                               ToolTip.Tip="Après une installation réussie : Windows bascule automatiquement vers la carte virtuelle (sortie par défaut), la piste câble est ajoutée et le routage démarre"/>
 
@@ -92,7 +93,7 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <controls:HelpButton HelpTitle="Protocoles de carte virtuelle"
-                                         HelpText="Le protocole choisit l'infrastructure qui fait passer le son Windows dans RoomEq :&#10;&#10;• Boucle WASAPI native : rien à installer, fonctionne partout (léger décalage possible).&#10;• VB-CABLE : paire d'entrée/sortie virtuelle fiable, recommandée.&#10;• VoiceMeeter : console virtuelle complète (plus d'entrées, plus de réglages).&#10;• Virtual Audio Cable (VAC) : alternative payante.&#10;&#10;« Installer automatiquement » télécharge depuis le site officiel et lance l'installateur (acceptez l'invite administrateur)."/>
+                                         HelpText="Le protocole choisit l'infrastructure qui fait passer le son Windows dans RoomEq :&#10;&#10;• Carte virtuelle RoomEq : pilote intégré, paire « RoomEq Input / RoomEq Output », aucune application tierce.&#10;• Boucle WASAPI native : rien à installer, fonctionne partout (léger décalage possible).&#10;&#10;« Installer le pilote RoomEq » exécute le pilote livré AVEC l'application (aucun téléchargement) ; acceptez l'invite administrateur."/>
                     <Button Content="⟳" FontSize="11" MinWidth="30" Command="{Binding RefreshDevicesCommand}"
                             ToolTip.Tip="Rafraîchir périphériques et carte virtuelle"/>
                 </StackPanel>
@@ -102,23 +103,31 @@
                     <TextBlock Text="{Binding VirtualStatusText}" VerticalAlignment="Center"
                                FontSize="11" Foreground="#8B93A7" MaxWidth="440"
                                TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding AsioStatusText}" VerticalAlignment="Center"
+                               FontSize="11" Foreground="#6FA8DC" MaxWidth="440" Margin="12,0,0,0"
+                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Pilote ASIO intégré : le DAW choisit « RoomEq ASIO », sa lecture alimente la piste « DAW (ASIO) » puis traverse l'égaliseur avant la vraie carte son."/>
 
-                    <Button Content="Installer automatiquement…" FontSize="11"
+                    <Button Content="Installer le pilote RoomEq…" FontSize="11"
                             Command="{Binding InstallVirtualCardCommand}"
-                            IsVisible="{Binding CanAutoInstall}"
+                            IsVisible="{Binding ShowDriverInstallUi}"
                             IsEnabled="{Binding !IsInstalling}"
-                            ToolTip.Tip="Télécharge la version courante depuis le site officiel (découverte automatique), vérifie, extrait et lance l'installateur (invite UAC si nécessaire), puis détecte l'arrivée des nouveaux périphériques et bascule Windows dessus."/>
-                    <Button Content="Page du produit…" FontSize="11"
-                            Command="{Binding OpenProductPageCommand}"
-                            IsVisible="{Binding HasProductPage}"/>
+                            ToolTip.Tip="Installe le pilote de la carte virtuelle livré avec l'application (aucun téléchargement) : acceptez l'invite administrateur, puis RoomEq détecte l'arrivée de « RoomEq Input / RoomEq Output »."/>
+                    <Button Content="Supprimer le pilote" FontSize="11"
+                            Command="{Binding UninstallDriverCommand}"
+                            IsVisible="{Binding ShowDriverInstallUi}"
+                            IsEnabled="{Binding !IsInstalling}"
+                            ToolTip.Tip="Désinstalle le pilote de la carte virtuelle RoomEq (invite administrateur)."/>
                     <Button Content="Définir par défaut" FontSize="11"
                             Command="{Binding SetVirtualDefaultCommand}"
+                            IsVisible="{Binding !IsMacOS}"
                             IsEnabled="{Binding VirtualCard.CableInputFound}"
                             ToolTip.Tip="Définit l'entrée de la carte virtuelle comme sortie par défaut de Windows : tout le son passe alors par RoomEq"/>
-                    <Button Content="Panneau son" FontSize="11" Command="{Binding OpenSoundPanelCommand}"/>
+                    <Button Content="Réglages son" FontSize="11" Command="{Binding OpenSoundPanelCommand}"/>
                     <controls:HelpButton HelpTitle="Installation et bascule"
-                                         HelpText="• Installer automatiquement : téléchargement officiel + installateur (invite administrateur) + détection des nouveaux périphériques.&#10;• Définir par défaut : place l'entrée de la carte virtuelle comme sortie par défaut de Windows (tout le son passe alors par RoomEq, même sans routage actif).&#10;• Entrée par défaut → carte virtuelle : les autres applications voient un « micro virtuel » qui reçoit ce que Windows joue.&#10;• Panneau son : ouvre mmsys.cpl pour les réglages manuels."/>
+                                         HelpText="• Installer le pilote RoomEq : exécute le pilote intégré (invite administrateur) puis détecte les nouveaux périphériques — rien n'est téléchargé.&#10;• Supprimer le pilote : désinstallation propre de la carte virtuelle.&#10;• Définir par défaut : place l'entrée de la carte virtuelle comme sortie par défaut de Windows (tout le son passe alors par RoomEq, même sans routage actif).&#10;• Entrée par défaut → carte virtuelle : les autres applications voient un « micro virtuel » qui reçoit ce que Windows joue.&#10;• Panneau son : ouvre mmsys.cpl pour les réglages manuels.&#10;&#10;Sur macOS : le greffon s'installe avec le paquet .pkg ; la sortie par défaut se choisit dans Réglages Système › Son (macOS interdit la bascule automatique)."/>
                     <CheckBox Content="Entrée par défaut → carte virtuelle" IsChecked="{Binding SwitchDefaultCapture}"
+                              IsVisible="{Binding !IsMacOS}"
                               VerticalAlignment="Center" FontSize="11"
                               ToolTip.Tip="Pendant le routage : l'entrée par défaut de Windows devient la sortie de la carte virtuelle (micro virtuel pour les autres applications). Restaurée automatiquement à l'arrêt."/>
                 </WrapPanel>
@@ -131,10 +140,6 @@
                                Foreground="#FFC53D" VerticalAlignment="Center"
                                TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
-
-                <TextBlock Text="{Binding ProviderLicenseNote}" FontSize="9.5"
-                           Foreground="#6B7385" TextWrapping="Wrap"
-                           IsVisible="{Binding HasLicenseNote}"/>
 
                 <Expander Header="Guide — faire apparaître RoomEq comme carte son de Windows" FontSize="11">
                     <StackPanel Spacing="4" Margin="4,6,0,2">

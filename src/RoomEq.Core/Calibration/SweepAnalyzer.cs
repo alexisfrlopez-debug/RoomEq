@@ -103,7 +103,7 @@ public static class SweepAnalyzer
             throw new InvalidOperationException(
                 $"Balayage non détecté dans la capture (rapport pic/bruit {snr:0.0} < 8, " +
                 $"retard du meilleur candidat {peak / (double)sampleRate:0.000} s) : vérifiez le niveau de test, " +
-                "le micro sélectionné (évitez les cartes virtuelles type « CABLE Output ») et le routage.");
+                "le micro sélectionné (évitez les cartes virtuelles type « RoomEq Output ») et le routage.");
         }
 
         int peakWrapped = peak >= searchStart ? peak - fftN : peak; // retard signé (échantillons)

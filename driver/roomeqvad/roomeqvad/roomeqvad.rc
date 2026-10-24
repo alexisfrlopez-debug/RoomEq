@@ -1,0 +1,29 @@
+/*++
+
+Copyright (c) Microsoft Corporation All Rights Reserved
+Copyright (c) RoomEq Project — adaptations pour la carte virtuelle RoomEq
+
+Module Name:
+
+    roomeqvad.rc
+
+Abstract:
+
+    Version resource for the RoomEq Virtual Audio driver.
+
+--*/
+
+#include <windows.h>
+
+#include <ntverp.h>
+
+#define VER_FILETYPE                VFT_DRV
+#define VER_FILESUBTYPE             VFT2_DRV_SOUND
+#define VER_FILEDESCRIPTION_STR     "RoomEq Virtual Audio Driver"
+#define VER_INTERNALNAME_STR        "roomeqvad.sys"
+#define VER_ORIGINALFILENAME_STR    "roomeqvad.sys"
+
+#define VER_LEGALCOPYRIGHT_YEARS    "2026"
+#define VER_LEGALCOPYRIGHT_STR      "Copyright (C) RoomEq Project. " VER_LEGALCOPYRIGHT_YEARS
+
+#include "common.ver"

@@ -6,15 +6,14 @@ using RoomEq.Core.Io;
 namespace RoomEq.Audio.Capture;
 
 /// <summary>
-/// Capture micro via WASAPI (format float, adapté automatiquement au mixeur).
-/// Les échantillons sont livrés entrelacés avec leur format réel via le callback.
-/// Format demandé : float 48 kHz mono ; si le périphérique le refuse (ex. micro
-/// verrouillé à 44,1 kHz), on retente avec son format de mixage natif — le
-/// callback reçoit alors le taux réel et s'adapte (downmix mono inclus).
+/// Capture micro : WASAPI (Windows) ou CoreAudio/AUHAL (macOS). Format de travail
+/// float 48 kHz ; le callback reçoit les échantillons entrelacés avec leur format
+/// réel (taux/canaux), le repli se faisant sur le format natif du périphérique.
 /// </summary>
 public sealed class CaptureEngine : IDisposable
 {
     private WasapiCapture? _capture;
+    private Mac.CoreAudioCapture? _macCapture;
     private MMDeviceEnumerator? _enumerator;
 
     private MMDeviceEnumerator Enumer()
@@ -45,6 +44,22 @@ public sealed class CaptureEngine : IDisposable
     public IReadOnlyList<OutputDeviceInfo> EnumerateDevices()
     {
         var list = new List<OutputDeviceInfo>();
+
+        if (OperatingSystem.IsMacOS())
+        {
+            try
+            {
+                foreach (var d in Mac.CoreAudioCatalog.EnumerateInputDevices())
+                    list.Add(new OutputDeviceInfo("capture|" + d.Uid, d.Name, "Capture"));
+            }
+            catch (Exception ex)
+            {
+                LastError = ex.Message;
+                DiagnosticsLog.Error("Énumération des entrées CoreAudio impossible", ex);
+            }
+            return list;
+        }
+
         try
         {
             foreach (var d in Enumer().EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
@@ -67,6 +82,12 @@ public sealed class CaptureEngine : IDisposable
     {
         try
         {
+            if (OperatingSystem.IsMacOS())
+            {
+                string uid = deviceId != null && deviceId.StartsWith("capture|", StringComparison.Ordinal)
+                    ? deviceId["capture|".Length..] : "";
+                return Mac.CoreAudioCatalog.Resolve(uid, Mac.CoreAudioApi.ScopeInput)?.Channels;
+            }
             using var dev = ResolveDevice(deviceId);
             using var ac = dev.AudioClient;
             return Math.Max(1, ac.MixFormat.Channels);
@@ -83,6 +104,12 @@ public sealed class CaptureEngine : IDisposable
     /// </summary>
     public void Start(string? deviceId, Action<float[], int, int> onChunk)
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            StartMac(deviceId, onChunk);
+            return;
+        }
+
         var dev = ResolveDevice(deviceId);
         DiagnosticsLog.Info($"Capture : périphérique « {dev.FriendlyName} » ({deviceId ?? "défaut"})");
 
@@ -122,6 +149,46 @@ public sealed class CaptureEngine : IDisposable
         }
 
         _capture = capture;
+    }
+
+    /// <summary>Capture macOS (AUHAL) : micro par défaut ou périphérique choisi.</summary>
+    private void StartMac(string? deviceId, Action<float[], int, int> onChunk)
+    {
+        _macCapture?.Dispose();
+        _macCapture = null;
+
+        Mac.CoreAudioDeviceInfo? dev = null;
+        if (deviceId != null && deviceId.StartsWith("capture|", StringComparison.Ordinal))
+        {
+            string uid = deviceId["capture|".Length..];
+            dev = Mac.CoreAudioCatalog.Resolve(uid, Mac.CoreAudioApi.ScopeInput);
+        }
+        dev ??= Mac.CoreAudioCatalog.EnumerateInputDevices().FirstOrDefault();
+
+        if (dev == null)
+        {
+            LastError = "Aucun périphérique d'entrée CoreAudio.";
+            throw new InvalidOperationException(
+                "Aucun micro disponible. Branchez un micro et vérifiez les permissions " +
+                "dans Réglages Système › Confidentialité › Micro.");
+        }
+
+        DiagnosticsLog.Info($"Capture : périphérique « {dev.Name} » (CoreAudio)");
+        try
+        {
+            var cap = new Mac.CoreAudioCapture(dev, onChunk, channels: 1);
+            cap.Start();
+            _macCapture = cap;
+            LastStartedFormat = "48000 Hz · 1 canal (CoreAudio)";
+            DiagnosticsLog.Info("Capture CoreAudio démarrée — 48 000 Hz mono");
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            DiagnosticsLog.Error("Démarrage de la capture CoreAudio impossible", ex);
+            throw new InvalidOperationException(
+                $"Impossible de démarrer la capture du micro « {dev.Name} » : {ex.Message}", ex);
+        }
     }
 
     /// <summary>Crée la capture WASAPI, câble les événements puis démarre.</summary>
@@ -171,27 +238,16 @@ public sealed class CaptureEngine : IDisposable
 
     public void Stop()
     {
-        try
-        {
-            _capture?.StopRecording();
-        }
-        catch
-        {
-            // ignore
-        }
+        try { _capture?.StopRecording(); } catch { /* ignore */ }
+        try { _macCapture?.Stop(); } catch { /* ignore */ }
     }
 
     public void Dispose()
     {
         Stop();
-        try
-        {
-            _capture?.Dispose();
-        }
-        catch
-        {
-            // ignore
-        }
+        try { _capture?.Dispose(); } catch { /* ignore */ }
+        try { _macCapture?.Dispose(); } catch { /* ignore */ }
         _capture = null;
+        _macCapture = null;
     }
 }

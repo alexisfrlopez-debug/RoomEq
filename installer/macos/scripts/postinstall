@@ -1,0 +1,10 @@
+#!/bin/bash
+# postinstall RoomEq (macOS) — script d'installation du paquet .pkg.
+# Recharge coreaudiod pour qu'il découvre immédiatement le greffon RoomEqHAL
+# (« RoomEq Virtual » apparaît dans Réglages Système › Son sans redémarrage).
+set -u
+
+# coreaudiod est supervisé par launchd : killall le relance aussitôt
+/usr/bin/killall coreaudiod 2>/dev/null || true
+
+exit 0

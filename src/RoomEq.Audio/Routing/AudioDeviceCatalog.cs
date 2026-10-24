@@ -6,14 +6,19 @@ namespace RoomEq.Audio.Routing;
 /// <summary>Origine d'une piste de la table de mixage.</summary>
 public enum TrackSourceKind
 {
-    /// <summary>Périphérique d'entrée WASAPI classique (micro, ligne, CABLE Output…).</summary>
+    /// <summary>Périphérique d'entrée WASAPI classique (micro, ligne, RoomEq Output…).</summary>
     Capture,
     /// <summary>Boucle de retour d'un périphérique de sortie (tout ce que Windows y joue).</summary>
     Loopback,
     /// <summary>Lecteur de fichiers interne de la console.</summary>
     Player,
     /// <summary>Générateur de signaux de test interne.</summary>
-    Generator
+    Generator,
+    /// <summary>Pont ASIO RoomEq : lecture d'un DAW via RoomEq ASIO (DLL).</summary>
+    AsioBridge,
+    /// <summary>Périphérique virtuel macOS (« RoomEq Virtual », greffon RoomEqHAL) :
+    /// le son que macOS joue dans le périphérique arrive par le pont intégré.</summary>
+    MacVirtualDevice
 }
 
 /// <summary>
@@ -36,20 +41,24 @@ public sealed record TrackSource
         new() { Kind = TrackSourceKind.Player, Name = "Lecteur" };
     public static TrackSource InternalGenerator() =>
         new() { Kind = TrackSourceKind.Generator, Name = "Générateur" };
+    public static TrackSource AsioBridgeSource() =>
+        new() { Kind = TrackSourceKind.AsioBridge, Name = "DAW (ASIO)" };
+    public static TrackSource MacVirtualSource() =>
+        new() { Kind = TrackSourceKind.MacVirtualDevice, Name = "RoomEq Virtual — macOS" };
 }
 
 /// <summary>
 /// État de détection d'une infrastructure de carte son virtuelle.
 /// Nommage historique « Cable » conservé : CableInput* désigne le côté render
-/// (Windows y joue) et CableOutput* le côté capture (RoomEq y lit), quel que soit
-/// le fournisseur (VB-CABLE, VoiceMeeter, VAC…).
+/// (Windows y joue) et CableOutput* le côté capture (RoomEq y lit) — carte
+/// virtuelle RoomEq ou boucle WASAPI.
 /// </summary>
 public sealed class VirtualCardStatus
 {
-    /// <summary>Identifiant du fournisseur sondé (vbcable, voicemeeter, vac, loopback…).</summary>
-    public string ProviderId { get; init; } = "vbcable";
+    /// <summary>Identifiant du fournisseur sondé (roomeq, loopback…).</summary>
+    public string ProviderId { get; init; } = "roomeq";
     /// <summary>Nom affiché du fournisseur sondé.</summary>
-    public string ProviderDisplayName { get; init; } = "VB-CABLE";
+    public string ProviderDisplayName { get; init; } = "RoomEq Virtual Audio";
     public bool CableInputFound { get; init; }   // côté render : Windows y joue
     public bool CableOutputFound { get; init; }  // côté capture : RoomEq y lit
     public bool IsDefaultRender { get; init; }   // le render du câble est-il la sortie par défaut ?
@@ -69,7 +78,7 @@ public sealed class VirtualCardStatus
 /// <summary>
 /// Catalogue des périphériques audio Windows pour la table de mixage : toutes les
 /// entrées, toutes les sorties (utilisables en loopback), détection de la carte son
-/// virtuelle (VB-CABLE) et périphériques par défaut.
+/// virtuelle RoomEq (pilote intégré) et périphériques par défaut.
 /// </summary>
 public sealed class AudioDeviceCatalog
 {
@@ -78,7 +87,7 @@ public sealed class AudioDeviceCatalog
     private MMDeviceEnumerator Enumer()
         => _enumerator ??= new MMDeviceEnumerator();
 
-    /// <summary>Toutes les entrées actives (micros, lignes, CABLE Output…).</summary>
+    /// <summary>Toutes les entrées actives (micros, lignes, RoomEq Output…).</summary>
     public IReadOnlyList<TrackSource> EnumerateCaptureSources()
     {
         var list = new List<TrackSource>();
@@ -137,6 +146,7 @@ public sealed class AudioDeviceCatalog
                     .FirstOrDefault(d => d.ID == source.DeviceId),
                 TrackSourceKind.Loopback => Enumer().EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)
                     .FirstOrDefault(d => d.ID == source.DeviceId),
+                TrackSourceKind.AsioBridge => null,   // pas un périphérique WASAPI
                 _ => null
             };
         }
@@ -147,7 +157,7 @@ public sealed class AudioDeviceCatalog
     }
 
     /// <summary>
-    /// Sonde la carte son virtuelle du fournisseur donné (VB-CABLE par défaut) :
+    /// Sonde la carte son virtuelle du fournisseur donné (carte RoomEq par défaut) :
     /// périphériques render et capture reconnus par ses motifs, et vérifie si le
     /// render du câble est la sortie par défaut de Windows.
     /// </summary>
@@ -207,7 +217,7 @@ public sealed class AudioDeviceCatalog
 
     /// <summary>
     /// Un périphérique de rendu est-il une entrée de câble virtuel ? (union des
-    /// motifs de tous les fournisseurs : VB-CABLE, VoiceMeeter, VAC…)
+    /// motifs de tous les fournisseurs : carte RoomEq…)
     /// </summary>
     public static bool IsVirtualRender(string friendlyName)
         => VirtualAudioCatalog.IsVirtualRender(friendlyName);

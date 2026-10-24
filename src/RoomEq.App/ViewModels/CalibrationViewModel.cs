@@ -35,8 +35,8 @@ public partial class SignalOption : ObservableObject
 }
 
 /// <summary>
-/// Micro de mesure proposé dans la liste : les cartes virtuelles (VB-CABLE,
-/// VoiceMeeter…) sont signalées — elles ne captent pas la pièce et ne doivent
+/// Micro de mesure proposé dans la liste : les cartes virtuelles (RoomEq
+/// Output…) sont signalées — elles ne captent pas la pièce et ne doivent
 /// être choisies que dans des cas très particuliers.
 /// </summary>
 public sealed class MicDeviceOption
@@ -49,7 +49,9 @@ public sealed class MicDeviceOption
     {
         Device = device;
         string n = device.DisplayName;
-        IsVirtual = ContainsAny(n, "cable", "voicemeeter", "virtual", "vb-audio", "vban");
+        // détection des cartes virtuelles : union des motifs des fournisseurs
+        // pris en charge (carte RoomEq intégrée), pas de noms tiers codés en dur
+        IsVirtual = ContainsAny(n, "roomeq output", "roomeq input", "virtual");
         DisplayName = IsVirtual ? n + "  — carte virtuelle (ne capte pas la pièce)" : n;
     }
 
@@ -238,7 +240,7 @@ public partial class CalibrationViewModel : ObservableObject
         List<MicDeviceOption> options = cap.EnumerateDevices().Select(d => new MicDeviceOption(d)).ToList();
 
         // conserver la sélection courante si possible, sinon préférer un micro PHYSIQUE :
-        // les cartes virtuelles (CABLE Output…) ne captent pas la pièce — les choisir
+        // les cartes virtuelles (RoomEq Output…) ne captent pas la pièce — les choisir
         // par défaut conduit à une capture muette et donc à l'échec de la mesure
         string? previousId = SelectedMicDevice?.Device.Id;
         MicDevices = new ObservableCollection<MicDeviceOption>(options);

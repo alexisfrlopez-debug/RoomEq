@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RoomEq v2 — installateur MSI tout-en-un (WiX v5/v6).
+
+  Contenu :
+    • Application auto-contenue (RoomEq.exe public, silencieux par défaut)
+    • Pilote de la carte son virtuelle « RoomEq Virtual Audio » (roomeqvad) :
+      fichiers posés dans [INSTALLDIR]driver puis installés par action
+      personnalisée différée (pnputil, SYSTEM, sans fenêtre)
+    • Pilote ASIO « RoomEq ASIO » (RoomEqAsio64.dll) + enregistrement registre
+
+  Les groupes de fichiers (AppFiles / DriverFiles) sont GÉNÉRÉS par
+  gen_wix_fragment.py juste avant la compilation (équivalent multiplateforme
+  de « heat dir »).
+
+  Variables de liaison (wix build -d …) :
+    PublishRoot : sortie « dotnet publish » de RoomEq.App (win-x64, autonome)
+    DriverRoot  : dossier du paquet pilote (roomeqvad.inf/.sys/.cat)
+    AsioDll     : RoomEqAsio64.dll compilé (MSVC x64)
+    CADll       : RoomEq.Installer.CA.dll (SfxCA, compilé Windows)
+
+  Construction (voir build_msi.ps1) :
+    wix build -arch x64 -ext WixToolset.UI.wixext -culture fr-FR \
+             -d PublishRoot=… -d DriverRoot=… -d AsioDll=… -d CADll=… \
+             RoomEq.wxs AppFiles.wxs DriverFiles.wxs -o RoomEq-<ver>-win-x64.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <?ifndef Version ?>
+  <?define Version = "2.0.0" ?>
+  <?endif?>
+
+  <Package Name="RoomEq"
+           Manufacturer="RoomEq Project"
+           Version="$(var.Version)"
+           UpgradeCode="{7B4E3A91-5C2D-4F6E-8A19-3D5C7E9B1F04}"
+           Scope="perMachine"
+           Compressed="yes"
+           InstallerVersion="500"
+           Language="1036">
+    <SummaryInformation Description="RoomEq — egaliseur acoustique autonome : carte son virtuelle et pilote ASIO integres (v$(var.Version))" />
+
+    <!-- Windows 10/11 64 bits uniquement -->
+    <Launch Condition="VersionNT64 AND VersionNT &gt;= 603" Message="[ProductName] necessite Windows 10/11 64 bits." />
+
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="Une version plus recente de [ProductName] est deja installee." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- répertoires -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLDIR" Name="RoomEq">
+        <Directory Id="DriverDir" Name="driver" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- ============ application (auto-contenue, exécutable public) ============
+         AppFiles.wxs est généré : un composant par fichier, File = clé.
+         L'exe public « RoomEq.exe » est silencieux par défaut (v2.0) : aucun
+         journal, aucun envoi. La version télémétrée est distribuée en zip. -->
+    <Feature Id="Main" Title="RoomEq (application)"
+             Description="Egaliseur acoustique RoomEq, application autonome sans prérequis."
+             Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="AppFiles" />
+    </Feature>
+
+    <!-- ============ pilote carte virtuelle (fichiers + installation) ============ -->
+    <Feature Id="Driver" Title="Carte son virtuelle RoomEq"
+             Description="Pilote « RoomEq Virtual Audio » : route tout le son Windows dans l'égaliseur (recommandé)."
+             Level="1">
+      <ComponentGroupRef Id="DriverFiles" />
+    </Feature>
+
+    <!-- ============ pilote ASIO (DLL + registre) ============ -->
+    <Feature Id="Asio" Title="Pilote ASIO (DAW)"
+             Description="RoomEq ASIO : fait sortir votre DAW directement dans l'égaliseur."
+             Level="1">
+      <ComponentGroupRef Id="AsioComponents" />
+    </Feature>
+
+    <ComponentGroup Id="AsioComponents" Directory="INSTALLDIR">
+      <!-- la DLL : un composant, le fichier est la clé -->
+      <Component Id="AsioDll" Guid="*">
+        <File Id="RoomEqAsio64" Source="$(var.AsioDll)" KeyPath="yes" />
+      </Component>
+      <!-- l'enregistrement registre ASIO : CLSID {8F5E3A91-…} (voir asio/asiodll) -->
+      <Component Id="AsioRegistration" Guid="*">
+        <RegistryValue Root="HKLM" Key="Software\ASIO\RoomEq ASIO"
+                       Name="CLSID" Type="string"
+                       Value="{8F5E3A91-4B2C-4D6E-9A1F-2E7C5B8D9A03}" />
+        <RegistryValue Root="HKLM" Key="Software\ASIO\RoomEq ASIO"
+                       Name="Description" Type="string"
+                       Value="RoomEq ASIO (pont vers l'egaliseur RoomEq)" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{8F5E3A91-4B2C-4D6E-9A1F-2E7C5B8D9A03}"
+                       Type="string" Value="RoomEq ASIO" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{8F5E3A91-4B2C-4D6E-9A1F-2E7C5B8D9A03}\InprocServer32"
+                       Type="string" Value="[INSTALLDIR]RoomEqAsio64.dll" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{8F5E3A91-4B2C-4D6E-9A1F-2E7C5B8D9A03}\InprocServer32"
+                       Name="ThreadingModel" Type="string" Value="Apartment" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ============ actions personnalisées pilote ============ -->
+    <Binary Id="RoomEqCA" SourceFile="$(var.CADll)" />
+
+    <!-- découverte du nom oemNN.inf avant toute suppression (immédiat) -->
+    <CustomAction Id="FindRoomEqDriver" BinaryRef="RoomEqCA" DllEntry="FindRoomEqDriver"
+                  Return="check" />
+
+    <!-- installation (différé, SYSTEM) -->
+    <CustomAction Id="InstallRoomEqDriver" BinaryRef="RoomEqCA" DllEntry="InstallRoomEqDriver"
+                  Execute="deferred" Impersonate="no" Return="check" />
+    <CustomAction Id="SetInstallDriverData" Property="InstallRoomEqDriver"
+                  Value="INSTALLDIR=[INSTALLDIR]" />
+
+    <!-- désinstallation (différé, SYSTEM) : les échecs n'empêchent pas la sortie -->
+    <CustomAction Id="UninstallRoomEqDriver" BinaryRef="RoomEqCA" DllEntry="UninstallRoomEqDriver"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+    <CustomAction Id="SetUninstallDriverData" Property="UninstallRoomEqDriver"
+                  Value="INSTALLDIR=[INSTALLDIR];DRIVERSTOREINF=[DRIVERSTOREINF]" />
+
+    <InstallExecuteSequence>
+      <!-- installation : après la copie des fichiers, si la fonctionnalité pilote est active -->
+      <Custom Action="SetInstallDriverData" After="InstallFiles" Condition="&amp;Driver=3" />
+      <Custom Action="InstallRoomEqDriver" After="SetInstallDriverData" Condition="&amp;Driver=3" />
+
+      <!-- désinstallation : localiser puis retirer le pilote avant la suppression des fichiers -->
+      <Custom Action="FindRoomEqDriver" Before="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot; AND ?Driver=3" />
+      <Custom Action="SetUninstallDriverData" After="FindRoomEqDriver" Condition="REMOVE~=&quot;ALL&quot; AND ?Driver=3" />
+      <Custom Action="UninstallRoomEqDriver" After="SetUninstallDriverData" Condition="REMOVE~=&quot;ALL&quot; AND ?Driver=3" />
+    </InstallExecuteSequence>
+
+    <!-- ============ interface (WixUI, localisée) ============ -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <UI>
+      <ProgressText Action="InstallRoomEqDriver" Message="Installation du pilote de la carte son virtuelle RoomEq..." />
+      <ProgressText Action="UninstallRoomEqDriver" Message="Desinstallation du pilote de la carte son virtuelle..." />
+    </UI>
+  </Package>
+</Wix>

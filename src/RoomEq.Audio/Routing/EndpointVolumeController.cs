@@ -5,8 +5,8 @@ namespace RoomEq.Audio.Routing;
 /// <summary>
 /// Contrôle du VOLUME WINDOWS d'un périphérique de sortie physique (API
 /// IAudioEndpointVolume, volume maître du point de terminaison). Nécessaire
-/// parce que le fader de volume de la carte son VIRTUELLE (CABLE Input,
-/// VoiceMeeter…) n'a AUCUN effet sur le niveau perçu : le réglage utile est
+/// parce que le fader de volume de la carte son VIRTUELLE (RoomEq Input)
+/// n'a AUCUN effet sur le niveau perçu : le réglage utile est
 /// celui de la carte physique qui rend réellement le son — ici, la sortie
 /// master choisie dans l'onglet Mixage. Cible modifiable à chaud.
 /// </summary>

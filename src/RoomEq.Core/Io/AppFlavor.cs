@@ -12,12 +12,12 @@ public enum AppFlavorKind
 
 /// <summary>
 /// Détermine la « version » de l'exécutable en cours (test ou public) à partir de
-/// son NOM DE FICHIER : les deux versions sont des copies du même binaire publiées
-/// côte à côte — « RoomEq-test.exe » et « RoomEq-public.exe » chargent les mêmes
-/// DLL et ne diffèrent que par leur comportement de journalisation/télémétrie.
-/// Tout nom ne contenant pas « public » est traité comme la version de test
-/// (y compris le nom de développement « RoomEq.App.exe ») : règle d'or, une
-/// version publique doit toujours s'annoncer explicitement.
+/// son NOM DE FICHIER : les deux versions sont des copies du même binaire.
+/// Depuis la v2.0, le SILENCE est la valeur par défaut (respect de la vie
+/// privée) : seul un nom contenant explicitement « test » — ou la variable
+/// d'environnement ROOMEQ_TEST=1 — active la journalisation et la télémétrie.
+/// Le nom d'installation « RoomEq.exe » est donc public, tout comme l'exécutable
+/// de développement « RoomEq.App.exe ».
 /// </summary>
 public static class AppFlavor
 {
@@ -28,26 +28,39 @@ public static class AppFlavor
     public static bool IsTest => Current == AppFlavorKind.Test;
 
     /// <summary>Nom affichable de la version courante : « test » ou « public ».</summary>
-    public static string DisplayName => Current == AppFlavorKind.Public ? "public" : "test";
+    public static string DisplayName => Current == AppFlavorKind.Test ? "test" : "public";
 
     /// <summary>
     /// Chemin présumé de l'exécutable public voisin (à côté de l'exécutable courant) ;
     /// peut ne pas exister — voir <see cref="PublicExeAvailable"/>.
     /// </summary>
     public static string PublicExePath { get; } =
-        Path.Combine(AppContext.BaseDirectory, "RoomEq-public.exe");
+        Path.Combine(AppContext.BaseDirectory, "RoomEq.exe");
 
     /// <summary>L'exécutable public voisin est-il présent (bascule possible depuis la version test) ?</summary>
     public static bool PublicExeAvailable => File.Exists(PublicExePath);
 
     /// <summary>
     /// Règle de décision par nom de fichier (fonction pure, testée) :
-    /// un exécutable dont le nom contient « public » est la version publique.
+    /// un exécutable dont le nom contient « test » est la version de test ;
+    /// tout le reste — y compris « RoomEq.exe » installé — est public (silencieux).
+    /// La variable d'environnement ROOMEQ_TEST=1 force la version test.
     /// </summary>
     public static AppFlavorKind FromExecutableName(string executablePathOrName)
     {
         string name = Path.GetFileName(executablePathOrName)?.ToLowerInvariant() ?? "";
-        return name.Contains("public") ? AppFlavorKind.Public : AppFlavorKind.Test;
+        if (name.Contains("test"))
+            return AppFlavorKind.Test;
+        try
+        {
+            if (Environment.GetEnvironmentVariable("ROOMEQ_TEST") == "1")
+                return AppFlavorKind.Test;
+        }
+        catch
+        {
+            // environnement illisible : rester public (silencieux)
+        }
+        return AppFlavorKind.Public;
     }
 
     private static AppFlavorKind Detect()
@@ -55,12 +68,12 @@ public static class AppFlavor
         try
         {
             string? exe = Environment.ProcessPath;
-            return exe is null ? AppFlavorKind.Test : FromExecutableName(exe);
+            return exe is null ? AppFlavorKind.Public : FromExecutableName(exe);
         }
         catch
         {
-            // en cas d'imprévu, la version de test est le comportement historique
-            return AppFlavorKind.Test;
+            // en cas d'imprévu, la version publique (silencieuse) est le comportement sûr
+            return AppFlavorKind.Public;
         }
     }
 }

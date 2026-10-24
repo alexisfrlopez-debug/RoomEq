@@ -41,6 +41,41 @@
                 <Separator Background="#2A2F3A" Height="1"/>
 
                 <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Casques &amp; écouteurs" Classes="h2" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Corrections casques intégrées"
+                                         HelpText="Pour un casque ou des écouteurs, la correction par capture au micro n'a pas de sens : le micro mesurerait le couple casque-micro, pas le casque.&#10;&#10;RoomEq embarque donc une bibliothèque de corrections prêtes à l'emploi, couvrant toutes les gammes (petit prix → haut de gamme), tous les usages (circum-aural, intra-aural, gaming, sans fil) et les modèles les plus répandus.&#10;&#10;Chaque correction = préampli + filtres paramétriques, dérivée de mesures sur tête artificielle publiées et vérifiées (projet AutoEq, licence MIT, cible Harman).&#10;&#10;Marque puis modèle (ou tapez quelques lettres pour chercher dans tout le catalogue), puis « Appliquer » : les bandes de l'égaliseur sont remplacées. Vous pouvez ensuite les affiner, et enregistrer le résultat comme preset perso."/>
+                </StackPanel>
+                <TextBlock Text="{Binding HeadphoneCatalogText}" Classes="muted" FontSize="10"
+                           TextWrapping="Wrap"/>
+                <TextBox Watermark="Rechercher un modèle (ex. « hd 650 », « xm5 »)…"
+                         Text="{Binding HeadphoneSearch}" MinHeight="30"/>
+                <ComboBox ItemsSource="{Binding HeadphoneBrands}"
+                          SelectedItem="{Binding SelectedHeadphoneBrand}"
+                          IsEnabled="{Binding !HeadphoneSearch}"
+                          HorizontalAlignment="Stretch"
+                          ToolTip.Tip="Marque (ignorée pendant une recherche : la recherche couvre tout le catalogue)."/>
+                <ComboBox ItemsSource="{Binding HeadphoneModels}"
+                          SelectedItem="{Binding SelectedHeadphoneModel}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Label}"/>
+                                <TextBlock Text="{Binding SubLabel}" FontSize="10" Opacity="0.6"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Content="Appliquer la correction casque" Classes="accent"
+                        Command="{Binding ApplyHeadphonePresetCommand}"
+                        IsEnabled="{Binding CanApplyHeadphone}"
+                        ToolTip.Tip="Remplace les bandes actuelles par la correction du modèle sélectionné (préampli compris)."/>
+                <TextBlock Text="{Binding HeadphoneStatus}" Foreground="#4ADE80" FontSize="10"
+                           TextWrapping="Wrap" MinHeight="14"/>
+
+                <Separator Background="#2A2F3A" Height="1"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
                     <TextBlock Text="Import calibration" Classes="h2" VerticalAlignment="Center"/>
                     <controls:HelpButton HelpTitle="Import calibration"
                                          HelpText="Régénère les bandes de l'égaliseur depuis la dernière courbe mesurée dans l'onglet Calibration (disponible tant que la courbe n'a pas été réinitialisée).&#10;&#10;La PRÉCISION détermine le plan de correction :&#10;• Douce : max 8 bandes, larges — correction discrète, idéale en première écoute.&#10;• Standard : max 14 bandes.&#10;• Fine : max 20 bandes — reprend les résonances étroites.&#10;• Ultra : max 30 bandes très étroites — correction chirurgicale.&#10;&#10;Dans tous les cas : aucune bande en doublon, fréquences/gains optimisés, préampli de sécurité recalculé."/>

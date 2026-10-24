@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Calibration\MicLibrary.json" />
+    <EmbeddedResource Include="Headphones\headphone_presets.json" />
     <InternalsVisibleTo Include="RoomEq.Core.Tests" />
   </ItemGroup>
 

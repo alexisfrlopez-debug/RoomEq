@@ -364,3 +364,27 @@ Stage Summary:
 - RoomEq v1.9.0 : le curseur Volume de la barre du haut est audible sur la sortie routée (0–100 % = volume Windows de la carte physique ; au-delà, gain du lecteur) ; les signaux de test passent en menu déroulant enrichi (16 intégrés) avec « Télécharger d'autres… » alimenté par le dépôt GitHub (SHA-256 vérifié, stockés dans %APPDATA%\RoomEq\signaux, lecture en boucle).
 - 228/228 tests verts ; dépôt public mis à jour (3 commits + tag v1.9.0) avec zéro fuite ; catalogue distant vérifié téléchargeable.
 - Livrables download/RoomEq-1.9.0-{win-x64-test,win-x64-public,source}.zip.
+
+---
+Task ID: 17
+Agent: Super Z (principal)
+Task: v1.9.1 — retour utilisateur « les 2 curseurs de volume ont des problèmes de synchro selon dans quel ordre ils sont modifiés » : synchro permanente des deux curseurs (barre du haut + Vol. carte physique du Mixage).
+
+Work Log:
+- Reprise de session : relève GitHub §7bis (0 issue / 0 PR), SDK .NET déjà présent, build + 228/228 tests verts avant travaux.
+- Diagnostic : la 1.9.0 avait une synchro UNIDIRECTIONNELLE — le curseur de la barre du haut poussait vers RoutedVolume (Mixage), mais le binding TwoWay de ce curseur écrivait la propriété SANS aucun handler OnRoutedVolumeChanged : le déplacer ne changeait ni la carte ni la barre du haut, puis le moindre mouvement de la barre du haut écrasait la valeur affichée. Mêmes trous : Ctrl+Alt+↑/↓, changement de sortie master, réglages Windows externes (mixeur, touches du casque). D'où une synchro dépendante de l'ordre.
+- Correctif — une seule source de vérité (le volume Windows de la carte), tous les affichages relisent la carte après chaque écriture :
+  - VolumeSyncPolicy.cs (RoomEq.Audio, NOUVEAU, pur) : sentinelle −1 jamais interprétée (IsUsable), epsilon changement 0,05 % vs écriture anti-spam 0,35 % (HasChangedSinceLastSeen / ShouldWriteToEndpoint), décision de recadrage (ShouldSyncTopBar), bornage (ClampToEndpointRange) ;
+  - MixerViewModel.OnRoutedVolumeChanged (NOUVEAU) : curseur Mixage → écriture carte PUIS SyncTopBarFromEndpoint ; double garde contre la boucle du binding (_syncingRoutedVolume) et contre le piège du premier peuplement (RoutedVolume = −1 initial, le Slider le contraint à 0 dès l'affichage → _routedVolumeReady empêche d'écrire 0 dans la carte au démarrage) ;
+  - NudgeRoutedVolume (Ctrl+Alt+±) et OnSelectedOutputChanged recalent aussi la barre du haut ; PollExternalEndpointVolume dans Tick() (80 ms) suit les réglages faits hors de l'application ;
+  - MainViewModel.SyncVolumeFromRouted (NOUVEAU, câblé via le constructeur du Mixer pour vivre dès le chargement de la config au démarrage) : recadre Volume sous drapeau _syncingVolumeFromMixer → OnVolumeChanged ne réécrit pas la carte (elle y est déjà), pas d'aller-retour ; statut enrichi au-delà de 100 % ;
+  - ApplyTopBarVolume refactoré sur VolumeSyncPolicy (comportement inchangé) ; XAML : Mode=TwoWay explicite sur les deux curseurs, aides « ? » des deux sections documentant la synchro.
+- Zone d'asymétrie conservée et documentée : au-delà de 100 %, la carte reste au maximum (curseur Mixage à 100 %) et seul le gain du lecteur interne monte.
+- Tests : +17 Audio (VolumeSyncPolicy : sentinelles, epsilons, bornage, anti-boucle) → 245/245 verts (150 Core + 95 Audio).
+- Docs : README (rangées Mixage/MASTER/Volume, FAQ « deux curseurs » nouvelle), LISEZMOI.txt réécrit 1.9.1 (section « LES DEUX CURSEURS DE VOLUME RESTENT SYNCHRONISÉS »), INSTRUCTIONS-REPRISE (état 1.9.1, §2.0 nouveau + renumérotation 2.1→2.8, tests 245, GitHub v1.9.1).
+- Packaging scripts/package_1.9.1.sh (dérivé 1.9.0 + contrôles nouveautés 1.9.1) : version 1.9.1.0 dans les DLL, pack signaux cohérent (SHA-256), 245/245 re-vérifiés. Livrables : RoomEq-1.9.1-win-x64-test.zip (42 Mo), RoomEq-1.9.1-win-x64-public.zip (42 Mo), RoomEq-1.9.1-source.zip (4,3 Mo).
+- Publication GitHub : assemble_github_repo.py (mode mise à jour, zéro fuite), faux « modifiés » de bits d'exécution normalisés 644, commit e6067d6 « fix(volume) » + tag v1.9.1 poussés ; vérification distante (version 1.9.1 dans Directory.Build.props, VolumeSyncPolicy.cs HTTP 200).
+
+Stage Summary:
+- RoomEq v1.9.1 : les deux curseurs de volume (barre du haut + Vol. carte physique du Mixage) affichent et pilotent le MÊME volume Windows de la carte physique — déplacer l'un recale l'autre, dans n'importe quel ordre ; Ctrl+Alt+↑/↓, changement de sortie master et réglages Windows externes suivis aussi.
+- 245/245 tests verts ; dépôt public à jour (commit e6067d6 + tag v1.9.1, zéro fuite) ; livrables download/RoomEq-1.9.1-{win-x64-test,win-x64-public,source}.zip.

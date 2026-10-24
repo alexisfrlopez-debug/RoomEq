@@ -49,10 +49,23 @@ public sealed class ConsoleMixer : IDisposable
 
     // ---------------------------------------------------------------- sorties
 
-    /// <summary>Destinations possibles du bus master : sorties WASAPI + pilotes ASIO.</summary>
+    /// <summary>Destinations possibles du bus master : CoreAudio (macOS) ou sorties WASAPI + pilotes ASIO (Windows).</summary>
     public IReadOnlyList<OutputDeviceInfo> EnumerateOutputs()
     {
         var list = new List<OutputDeviceInfo>();
+        if (OperatingSystem.IsMacOS())
+        {
+            try
+            {
+                list.AddRange(Mac.CoreAudioCatalog.ToOutputInfos());
+            }
+            catch
+            {
+                // CoreAudio indisponible : liste vide, l'UI le signalera
+            }
+            return list;
+        }
+
         foreach (var d in _catalog.EnumerateRenderDevices())
             list.Add(d);
         try
@@ -271,9 +284,25 @@ public sealed class ConsoleMixer : IDisposable
         string? id = _outputId;
         if (id == null)
         {
+            if (OperatingSystem.IsMacOS())
+            {
+                // sortie par défaut macOS
+                uint defaultId = Mac.CoreAudioCatalog.GetDefaultOutputDeviceId();
+                if (defaultId == 0)
+                    throw new InvalidOperationException("Aucune sortie CoreAudio disponible.");
+                string name = Mac.CoreAudioApi.ReadDeviceName(defaultId);
+                return new Mac.CoreAudioOutput(new Mac.CoreAudioDeviceInfo(defaultId, name, name, 2));
+            }
             var def = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
             _outputId = "wasapi|" + def.ID;
             return new ConsoleWasapiOutput(def);
+        }
+        if (id.StartsWith("coreaudio|", StringComparison.Ordinal))
+        {
+            string uid = id["coreaudio|".Length..];
+            var dev = Mac.CoreAudioCatalog.Resolve(uid, Mac.CoreAudioApi.ScopeOutput)
+                ?? throw new InvalidOperationException("Périphérique CoreAudio introuvable (débranché ?)");
+            return new Mac.CoreAudioOutput(dev);
         }
         if (id.StartsWith("wasapi|", StringComparison.Ordinal))
         {
@@ -295,7 +324,7 @@ public sealed class ConsoleMixer : IDisposable
     /// <summary>
     /// Interdit tout montage aboutissant à une boucle de rétroaction :
     /// - une piste loopback ne doit pas capturer le périphérique de sortie master ;
-    /// - le master ne doit pas partir vers une entrée de câble virtuel (CABLE Input),
+    /// - le master ne doit pas partir vers une entrée de câble virtuel (RoomEq Input),
     ///   sinon le son re-rentre dans le câble et tourne en boucle.
     /// </summary>
     private void ValidateNoFeedbackLocked()
@@ -303,6 +332,19 @@ public sealed class ConsoleMixer : IDisposable
         string? outWasapiId = _outputId?.StartsWith("wasapi|", StringComparison.Ordinal) == true
             ? _outputId["wasapi|".Length..]
             : null;
+        string? outCoreAudioUid = _outputId?.StartsWith("coreaudio|", StringComparison.Ordinal) == true
+            ? _outputId["coreaudio|".Length..]
+            : null;
+
+        // macOS : le master ne doit pas repartir dans le périphérique virtuel
+        if (outCoreAudioUid != null
+            && Mac.CoreAudioCatalog.FindRoomEqVirtual() is { } virt
+            && string.Equals(virt.Uid, outCoreAudioUid, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "La sortie master ne peut pas être le périphérique virtuel RoomEq " +
+                "lui-même (boucle audio). Choisissez vos enceintes ou votre casque.");
+        }
 
         if (outWasapiId != null)
         {

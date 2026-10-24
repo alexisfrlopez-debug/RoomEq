@@ -1,0 +1,179 @@
+;/*++
+;
+;Copyright (c) Microsoft Corporation All Rights Reserved
+;Copyright (c) RoomEq Project - RoomEq virtual sound card driver (WDM WaveRT,
+;derived from the SYSVAD sample of the Windows Driver Kit, MIT license).
+;
+;Module Name:
+;
+;    roomeqvad.inx
+;
+;Abstract:
+;
+;    INF of the RoomEq virtual sound card. Root-enumerated device
+;    (ROOT\ROOMEQVAD) exposing two endpoints:
+;      - "RoomEq Input (RoomEq Virtual Audio)"  : Windows playback device
+;      - "RoomEq Output (RoomEq Virtual Audio)" : recording device read by
+;        the RoomEq application (internal render -> capture bridge).
+;
+;--*/
+
+[Version]
+Signature   = "$Windows NT$"
+Class       = MEDIA
+ClassGUID   = {4d36e96c-e325-11ce-bfc1-08002be10318}
+Provider    = %ProviderName%
+DriverVer   = 10/24/2026, 2.0.0.0
+CatalogFile = roomeqvad.cat
+PnpLockDown = 1
+
+[SourceDisksNames]
+222="RoomEq Virtual Audio driver disk","",222
+
+[SourceDisksFiles]
+roomeqvad.sys=222
+
+[SignatureAttributes]
+roomeqvad.sys=SignatureAttributes.DRM
+
+[SignatureAttributes.DRM]
+DRMLevel=1300
+
+[Manufacturer]
+%MfgName%=RoomEq,NTamd64.10.0...17763
+
+; Windows 10 (1809+) and Windows 11, 64-bit.
+[RoomEq.NTamd64.10.0...17763]
+%DeviceDesc%=RoomEqVAD, ROOT\ROOMEQVAD
+
+[DestinationDirs]
+RoomEqVAD.CopyList=13 ; 13 = package DriverStore directory
+
+;======================================================
+; Device installation
+;======================================================
+[RoomEqVAD.NT]
+Include=ks.inf,wdmaudio.inf
+Needs=KS.Registration, WDMAUDIO.Registration
+CopyFiles=RoomEqVAD.CopyList
+AddReg=RoomEqVAD.AddReg
+
+[RoomEqVAD.CopyList]
+roomeqvad.sys
+
+[RoomEqVAD.AddReg]
+HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
+HKR,,Driver,,roomeqvad.sys
+
+HKR,PowerSettings,ConservationIdleTime,3,3,0,0,0  ; 3 s (battery)
+HKR,PowerSettings,PerformanceIdleTime,3,3,0,0,0   ; 3 s (AC)
+HKR,PowerSettings,IdlePowerState,3,3,0,0,0        ; D3 when idle
+
+HKR,Drivers,SubClasses,,"wave,midi,mixer"
+HKR,Drivers\wave\wdmaud.drv,Driver,,wdmaud.drv
+HKR,Drivers\midi\wdmaud.drv,Driver,,wdmaud.drv
+HKR,Drivers\mixer\wdmaud.drv,Driver,,wdmaud.drv
+HKR,Drivers\wave\wdmaud.drv,Description,,%DeviceDesc%
+HKR,Drivers\midi\wdmaud.drv,Description,,%MIDI%
+HKR,Drivers\mixer\wdmaud.drv,Description,,%DeviceDesc%
+
+; Custom endpoint pin names (MediaCategories)
+HKR,%MEDIA_CATEGORIES%\%SpeakerCustomNameGUID%,Name,,"RoomEq Input"
+HKR,%MEDIA_CATEGORIES%\%MicInCustomNameGUID%,Name,,"RoomEq Output"
+
+[RoomEqVAD.NT.Services]
+AddService=roomeqvad,0x00000002,RoomEqVAD.ServiceInstall
+
+[RoomEqVAD.ServiceInstall]
+DisplayName   = %ServiceName%
+ServiceType   = 1                  ; SERVICE_KERNEL_DRIVER
+StartType     = 3                  ; SERVICE_DEMAND_START
+ErrorControl  = 1                  ; SERVICE_ERROR_NORMAL
+ServiceBinary = %13%\roomeqvad.sys
+
+;======================================================
+; Interfaces - render endpoint: "RoomEq Input"
+;======================================================
+[RoomEqVAD.NT.Interfaces]
+AddInterface=%KSCATEGORY_AUDIO%, %KSNAME_WaveSpeaker%, RoomEq.I.WaveSpeaker
+AddInterface=%KSCATEGORY_RENDER%, %KSNAME_WaveSpeaker%, RoomEq.I.WaveSpeaker
+AddInterface=%KSCATEGORY_REALTIME%, %KSNAME_WaveSpeaker%, RoomEq.I.WaveSpeaker
+AddInterface=%KSCATEGORY_AUDIO%, %KSNAME_TopologySpeaker%, RoomEq.I.TopologySpeaker
+AddInterface=%KSCATEGORY_TOPOLOGY%, %KSNAME_TopologySpeaker%, RoomEq.I.TopologySpeaker
+
+; Interfaces - capture endpoint: "RoomEq Output"
+AddInterface=%KSCATEGORY_AUDIO%, %KSNAME_WaveMicIn%, RoomEq.I.WaveMicIn
+AddInterface=%KSCATEGORY_CAPTURE%, %KSNAME_WaveMicIn%, RoomEq.I.WaveMicIn
+AddInterface=%KSCATEGORY_REALTIME%, %KSNAME_WaveMicIn%, RoomEq.I.WaveMicIn
+AddInterface=%KSCATEGORY_AUDIO%, %KSNAME_TopologyMicIn%, RoomEq.I.TopologyMicIn
+AddInterface=%KSCATEGORY_TOPOLOGY%, %KSNAME_TopologyMicIn%, RoomEq.I.TopologyMicIn
+
+[RoomEq.I.WaveSpeaker]
+AddReg=RoomEq.I.WaveSpeaker.AddReg
+
+[RoomEq.I.WaveSpeaker.AddReg]
+HKR,,CLSID,,%Proxy.CLSID%
+HKR,,FriendlyName,,%Speaker.Wave.szPname%
+
+[RoomEq.I.TopologySpeaker]
+AddReg=RoomEq.I.TopologySpeaker.AddReg
+
+[RoomEq.I.TopologySpeaker.AddReg]
+HKR,,CLSID,,%Proxy.CLSID%
+HKR,,FriendlyName,,%Speaker.Topo.szPname%
+HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_ANY%
+; Event-driven mode (pull mode).
+HKR,EP\0,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x1
+
+[RoomEq.I.WaveMicIn]
+AddReg=RoomEq.I.WaveMicIn.AddReg
+
+[RoomEq.I.WaveMicIn.AddReg]
+HKR,,CLSID,,%Proxy.CLSID%
+HKR,,FriendlyName,,%MicIn.Wave.szPname%
+
+[RoomEq.I.TopologyMicIn]
+AddReg=RoomEq.I.TopologyMicIn.AddReg
+
+[RoomEq.I.TopologyMicIn.AddReg]
+HKR,,CLSID,,%Proxy.CLSID%
+HKR,,FriendlyName,,%MicIn.Topo.szPname%
+HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_ANY%
+HKR,EP\0,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x1
+
+[Strings]
+;Non-localizable
+ProviderName="RoomEq"
+MfgName="RoomEq Project"
+ServiceName="RoomEq Virtual Audio Driver"
+DeviceDesc="RoomEq Virtual Audio"
+MIDI="RoomEq Virtual Audio MIDI"
+
+KSNAME_WaveSpeaker="WaveSpeaker"
+KSNAME_TopologySpeaker="TopologySpeaker"
+KSNAME_WaveMicIn="WaveMicIn"
+KSNAME_TopologyMicIn="TopologyMicIn"
+
+Proxy.CLSID="{17CCA71B-ECD7-11D0-B908-00A0C9223196}"
+KSCATEGORY_AUDIO="{6994AD04-93EF-11D0-A3CC-00A0C9223196}"
+KSCATEGORY_RENDER="{65E8773E-8F56-11D0-A3B9-00A0C9223196}"
+KSCATEGORY_CAPTURE="{65E8773D-8F56-11D0-A3B9-00A0C9223196}"
+KSCATEGORY_REALTIME="{EB115FFC-10C8-4964-831D-6DCB02E6F23F}"
+KSCATEGORY_TOPOLOGY="{DDA54A40-1E4C-11D1-A050-405705C10000}"
+
+KSNODETYPE_ANY="{00000000-0000-0000-0000-000000000000}"
+
+MEDIA_CATEGORIES="MediaCategories"
+
+; Bridge pin name GUIDs (see speakertoptable.h / micintoptable.h)
+SpeakerCustomNameGUID="{be4f1a3e-2d7c-4c58-9b31-8a1e5d0c7f42}"
+MicInCustomNameGUID="{d48deb08-fd1c-4d1e-b821-9064d49ae96e}"
+
+PKEY_AudioEndpoint_Association="{1DA5D803-D492-4EDD-8C23-E2C280B2E16F},1"
+PKEY_AudioEndpoint_Supports_EventDriven_Mode="{1DA5D803-D492-4EDD-8C23-E2C280B2E16F},7"
+
+;Localizable
+Speaker.Wave.szPname="RoomEq Virtual Audio - Render (Wave)"
+Speaker.Topo.szPname="RoomEq Virtual Audio - Render (Topology)"
+MicIn.Wave.szPname="RoomEq Virtual Audio - Capture (Wave)"
+MicIn.Topo.szPname="RoomEq Virtual Audio - Capture (Topology)"

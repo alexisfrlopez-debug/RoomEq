@@ -10,10 +10,11 @@ namespace RoomEq.App.Controls;
 
 /// <summary>
 /// Boîte de dialogue montrée au lancement de la VERSION TEST (lorsque l'exécutable
-/// public est présent à côté) : elle propose de lancer la version publique à la
-/// place. « Lancer la version publique » démarre RoomEq-public.exe puis arrête
-/// cette instance de test ; tout autre choix (bouton, croix, Échap) continue en
-/// version test. Thème sombre de l'application appliqué par les styles globaux.
+/// public « RoomEq.exe » est présent à côté) : elle propose de lancer la version
+/// publique à la place. « Lancer la version publique » démarre RoomEq.exe puis
+/// arrête cette instance de test ; tout autre choix (bouton, croix, Échap)
+/// continue en version test. Thème sombre de l'application appliqué par les
+/// styles globaux.
 /// </summary>
 public static class FlavorDialog
 {

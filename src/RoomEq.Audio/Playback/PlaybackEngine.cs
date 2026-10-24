@@ -56,10 +56,24 @@ public sealed class PlaybackEngine : IDisposable
     public event Action<string>? ErrorOccurred;
     public event Action<string?>? SourceChanged;
 
-    /// <summary>Énumère les sorties : périphériques WASAPI actifs + pilotes ASIO installés.</summary>
+    /// <summary>Énumère les sorties : CoreAudio (macOS) ou périphériques WASAPI actifs + pilotes ASIO (Windows).</summary>
     public IReadOnlyList<OutputDeviceInfo> EnumerateOutputs()
     {
         var list = new List<OutputDeviceInfo>();
+
+        if (OperatingSystem.IsMacOS())
+        {
+            try
+            {
+                list.AddRange(Mac.CoreAudioCatalog.ToOutputInfos());
+            }
+            catch (Exception ex)
+            {
+                ErrorOccurred?.Invoke("Énumération CoreAudio impossible : " + ex.Message);
+            }
+            return list;
+        }
+
         try
         {
             foreach (var d in Enumer().EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
@@ -131,6 +145,13 @@ public sealed class PlaybackEngine : IDisposable
 
     private IAudioOutput CreateOutput(string id)
     {
+        if (id.StartsWith("coreaudio|", StringComparison.Ordinal))
+        {
+            string uid = id["coreaudio|".Length..];
+            var dev = Mac.CoreAudioCatalog.Resolve(uid, Mac.CoreAudioApi.ScopeOutput)
+                ?? throw new InvalidOperationException("Périphérique CoreAudio introuvable (débranché ?)");
+            return new Mac.CoreAudioOutput(dev);
+        }
         if (id.StartsWith("wasapi|", StringComparison.Ordinal))
         {
             string deviceId = id["wasapi|".Length..];
@@ -250,9 +271,21 @@ public sealed class PlaybackEngine : IDisposable
         if (_output != null) return;
         try
         {
-            var def = Enumer().GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
-            _outputId = "wasapi|" + def.ID;
-            _output = new WasapiOutput(def);
+            if (OperatingSystem.IsMacOS())
+            {
+                uint def = Mac.CoreAudioCatalog.GetDefaultOutputDeviceId();
+                if (def == 0) throw new InvalidOperationException("Aucune sortie CoreAudio disponible.");
+                string name = Mac.CoreAudioApi.ReadDeviceName(def);
+                string uid = Mac.CoreAudioApi.ReadDeviceUid(def);
+                _outputId = "coreaudio|" + (uid.Length > 0 ? uid : name);
+                _output = new Mac.CoreAudioOutput(new Mac.CoreAudioDeviceInfo(def, uid, name, 2));
+            }
+            else
+            {
+                var def = Enumer().GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
+                _outputId = "wasapi|" + def.ID;
+                _output = new WasapiOutput(def);
+            }
             _output.PlaybackStopped += (_, _) => StateChanged?.Invoke(State);
         }
         catch (Exception ex)
