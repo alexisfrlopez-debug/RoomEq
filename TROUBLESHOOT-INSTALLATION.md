@@ -8,7 +8,8 @@ dans la table ci-dessous, puis suivez la section correspondante.
 |---|---|---|
 | « **Windows a protégé votre ordinateur** » (fond bleu, SmartScreen) | MSI téléchargé d'Internet + non signé | [Cas 1](#cas-1--windows-a-protégé-votre-ordinateur-smartscreen) |
 | « **Windows ne peut pas vérifier l'éditeur** de ce logiciel » | Marque « du web » sur le fichier | [Cas 2](#cas-2--windows-ne-peut-pas-vérifier-léditeur) |
-| « **Opération annulée** », le fichier **disparaît** ou « Menace détectée » | Antivirus / Defender | [Cas 3](#cas-3--antivirus--defender-bloque-ou-supprime-le-msi) |
+| « **Opération annulée** », le fichier **disparaît** ou « Menace détectée » | Antivirus / Defender (quarantaine) | [Cas 3](#cas-3--antivirus--defender-bloque-ou-supprime-le-msi) |
+| « **Modifications non autorisées bloquées** » (msiexec.exe / SrTasks.exe) | Accès contrôlé aux dossiers (anti-ransomware) | [Cas 3bis](#cas-3bis--modifications-non-autorisées-bloquées-accès-contrôlé-aux-dossiers) |
 | « **Vous devez disposer de droits d'administrateur** » ou invite UAC sans mot de passe valide | Session non administrateur | [Cas 4](#cas-4--droits-administrateur-manquants) |
 | Message RoomEq : « **Impossible d'activer le mode de signature de test** de Windows (bcdedit…) » | Secure Boot actif dans le BIOS/UEFI | [Cas 5](#cas-5--secure-boot-actif-mode-test-impossible) |
 | « Cette application est bloquée par la **stratégie de votre organisation** » | PC géré (entreprise/école) ou mode S | [Cas 6](#cas-6--pc-géré-par-une-organisation) |
@@ -93,6 +94,54 @@ heuristiques antivirus, car certains logiciels malveillants font pareil
 > Pour information : la chaîne de build est publique (GitHub Actions) et
 > le paquet driver CI (`roomeq-driver-2.0.0-ci.zip`, Drive) contient le
 > `.cer` de test si vous voulez auditer la signature avant d'exécuter.
+
+---
+
+## Cas 3bis — « Modifications non autorisées bloquées » (accès contrôlé aux dossiers)
+
+**Cas confirmé par capture d'écran (17:09/17:11).** Notification exacte
+de Sécurité Windows :
+
+> **« Modifications non autorisées bloquées »**
+> L'accès contrôlé aux dossiers a bloqué `C:\Windows\System32\msiexec.exe`
+> (puis `SrTasks.exe`) d'apporter des modifications.
+
+**Cause** : la protection **anti-ransomware** de Defender (« Accès
+contrôlé aux dossiers », CFA) bloque tout processus non expressément
+approuvé qui touche aux zones qu'elle protège — y compris des binaires
+Windows légitimes : ici l'installateur lui-même (`msiexec.exe`) et la
+création du **point de restauration système** (`SrTasks.exe`). C'est une
+classe de faux positifs connue de cette fonctionnalité (très agressive
+par conception) ; cela n'indique pas que le MSI est malveillant. La
+chaîne d'installation d'un paquet non signé (point de restauration →
+actions différées dans un processus msiexec enfant) la déclenche
+facilement.
+
+**Désactivation temporaire (recommandé, ~2 minutes) :**
+
+1. **Paramètres → Confidentialité et sécurité → Sécurité Windows →
+   Ouvrir Sécurité Windows** (ou zone de notifications → icône bouclier).
+2. **Protection contre les virus et menaces** → descendre jusqu'à
+   **« Protection contre les ransomware »** → **Gérer la protection
+   contre les ransomware**.
+3. Basculez **« Accès contrôlé aux dossiers » sur Désactivé**.
+4. Relancez le MSI (clic droit → **Exécuter en tant qu'administrateur**).
+5. Une fois l'installation terminée et la machine redémarrée :
+   **réactivez** « Accès contrôlé aux dossiers » (la protection est
+   désactivée uniquement pendant ces quelques minutes).
+
+**Variante chirurgicale (garder la protection active)** : même écran →
+« **Autoriser une application via l'accès contrôlé aux dossiers** » →
+**Ajouter une application autorisée** → sélectionnez
+`C:\Windows\System32\msiexec.exe`. Si une nouvelle notification cite
+`SrTasks.exe` (point de restauration), ajoutez-le de la même façon
+(`C:\Windows\System32\SrTasks.exe`). Les applications récemment
+bloquées figurent aussi dans la liste du même écran avec un bouton
+« + Ajouter ».
+
+> Astuce PowerShell (administrateur) pour la variante :
+> `Add-MpPreference -ControlledFolderAccessAllowedApplications
+> "C:\Windows\System32\msiexec.exe"`
 
 ---
 

@@ -61,10 +61,11 @@ d'Internet, il déclenche les garde-fous Windows. Identification rapide :
 |---|---|---|
 | « Windows a protégé votre ordinateur » (écran bleu) | SmartScreen + marque « du web » | Clic droit sur le MSI → Propriétés → cocher **« Débloquer »** → OK ; ou « Informations complémentaires » → « Exécuter quand même » |
 | « Opération annulée » / fichier supprimé | Antivirus / Defender | Sécurité Windows → Historique de protection → **Restaurer** ; exclusion temporaire du fichier ; vérifier la taille (37 408 768 o) |
+| « Modifications non autorisées bloquées » (msiexec.exe / SrTasks.exe) | **Accès contrôlé aux dossiers** (anti-ransomware) | Protection contre les ransomware → désactiver « Accès contrôlé aux dossiers » le temps de l'installation (ou autoriser `msiexec.exe`), réactiver ensuite |
 | « Impossible d'activer le mode de signature de test… » (message RoomEq) | **Secure Boot actif** | Désactiver Secure Boot dans le BIOS/UEFI puis relancer (voir ci-dessous) |
 | Code 1603 / « installation interrompue » | Échec en cours | Journal : `msiexec /i RoomEq-…msi /l*v "%TEMP%\RoomEq-install.log"` puis chercher `RoomEq CA ERREUR` |
 
-Le guide complet (7 cas, procédures pas à pas, codes d'erreur) est publié
+Le guide complet (8 cas, procédures pas à pas, codes d'erreur) est publié
 avec les livrables : **`TROUBLESHOOT-INSTALLATION.md`**, accompagné du
 script **`Installer-RoomEq.ps1`** (débloque + installe + journal + lecture
 de l'erreur, auto-élévation UAC).
