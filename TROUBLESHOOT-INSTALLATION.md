@@ -143,6 +143,42 @@ bloquées figurent aussi dans la liste du même écran avec un bouton
 > `Add-MpPreference -ControlledFolderAccessAllowedApplications
 > "C:\Windows\System32\msiexec.exe"`
 
+### Si la commande PowerShell ne suffit pas (cas confirmé en pratique)
+
+Autoriser `msiexec.exe` seul ne suffit **pas** pour ce MSI, pour deux raisons :
+
+1. **La chaîne d'installation fait intervenir d'autres processus** que
+   Windows bloque un par un : `SrTasks.exe` (point de restauration, déjà
+   constaté sur la capture), `bcdedit.exe` (mode test), `pnputil.exe`
+   (pilote). Chacun déclenche sa propre notification « Modifications non
+   autorisées bloquées » et fait échouer son étape.
+2. **La commande ne produit aucun effet si PowerShell n'était pas ouvert
+   en administrateur** : elle est alors refusée (« accès refusé ») et rien
+   n'est ajouté à la liste blanche.
+
+Deux issues, de la plus simple à la plus complète :
+
+**Voie 1 — couper la protection pendant l'installation (4 clics, fiable)** :
+suivez le chemin **A** ci-dessus (Accès contrôlé aux dossiers →
+**Désactivé**), installez, redémarrez si proposé, puis **réactivez** la
+protection. C'est la méthode recommandée : elle neutralise d'un coup tous
+ les processus de la chaîne, y compris ceux qu'on ne voit pas.
+
+**Voie 2 — le script `Installer-RoomEq.ps1` v2 (tout-en-un)** : clic droit
+→ *Exécuter avec PowerShell*. Il diagnostique la machine **avant**
+d'installer (état de l'anti-ransomware, **Secure Boot**, mode test,
+pilote, périphérique, application), coupe l'accès contrôlé aux dossiers
+le temps de l'installation, la **réactive automatiquement à la fin**,
+installe avec journal détaillé, et affiche un **rapport à copier-coller**
+qui contient le verdict exact de l'échec le cas échéant.
+
+> ⚠️ **Après la levée du blocage anti-ransomware, l'échec peut changer de
+> visage** : si l'installateur affiche « *Impossible d'activer le mode de
+> signature de test de Windows (bcdedit…)* », ce n'est plus l'antivirus —
+> c'est le **Secure Boot** (cas 5) : le mode test est cryptographiquement
+> impossible tant qu'il est actif. Le script v2 détecte ce cas dès son
+> diagnostic (ligne `Secure Boot : ACTIF` du rapport).
+
 ---
 
 ## Cas 4 — Droits administrateur manquants
@@ -246,9 +282,11 @@ Codes courants :
 | 1730 | Paquet non approuvé | Cas 6 ou antivirus |
 | 3010 | **Succès** + redémarrage requis | Normal avec le mode test : redémarrez |
 
-Le script **`Installer-RoomEq.ps1`** (à côté de ce guide) automatise :
-détection du MSI, déblocage, installation avec journal, et ouverture du
-journal en cas d'échec.
+Le script **`Installer-RoomEq.ps1` v2** (à côté de ce guide) automatise tout :
+diagnostic préalable (anti-ransomware, Secure Boot, mode test, pilote,
+périphérique), gestion de l'accès contrôlé aux dossiers le temps de
+l'installation, déblocage, installation avec journal, et rapport final à
+copier-coller en cas d'échec.
 
 ---
 
@@ -258,9 +296,15 @@ journal en cas d'échec.
 1. Clic droit sur le MSI → Propriétés → cocher « Débloquer » → OK
 2. Double-clic → UAC → Oui
 3. (écran bleu SmartScreen ?) « Informations complémentaires » → « Exécuter quand même »
-4. Si Secure Boot le bloque : BIOS/UEFI → Secure Boot → Disabled → relancer le MSI
-5. Redémarrer quand proposé → cartes « RoomEq Input/Output » dans le panneau son
+4. Notification « Modifications non autorisées bloquées » ? → couper l'accès
+   contrôlé aux dossiers pendant l'installation (cas 3bis, voie 1) → réactiver après
+5. Message « mode de signature de test impossible » ? → cas 5 (Secure Boot, BIOS)
+6. Redémarrer quand proposé → cartes « RoomEq Input/Output » dans le panneau son
 ```
+
+**Ou en une seule manipulation** : clic droit sur `Installer-RoomEq.ps1` →
+*Exécuter avec PowerShell* — le script enchaîne déblocage, gestion de
+l'anti-ransomware, installation et rapport final tout seul.
 
 ## La solution durable (pour la distribution publique)
 
