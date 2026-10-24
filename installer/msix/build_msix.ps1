@@ -31,7 +31,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$root  = Split-Path -Parent $PSScriptRoot          # racine du dépôt (RoomEq/)
+# $PSScriptRoot = installer/msix/ → deux niveaux pour la racine du dépôt
+$root  = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)   # RoomEq/
 $inst  = $PSScriptRoot                             # installer/msix/
 $build = Join-Path $inst 'build'
 $layout = Join-Path $build 'layout'
