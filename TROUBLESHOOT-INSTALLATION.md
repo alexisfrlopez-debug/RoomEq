@@ -335,12 +335,15 @@ haut s'en sort en moins d'une minute.
 
 ## Cas 8 — La carte son virtuelle n'apparaît pas
 
-Après `RoomEqDriverSetup.exe` (ou le bouton « Installer le pilote RoomEq » de
+Après `RoomEqDriverSetup.exe` (ou le bouton « Installer le pilote Room » de
 l'onglet Mixage), **« RoomEq Input » / « RoomEq Output »** ne figurent pas
 dans les périphériques audio. Dans l'ordre des fréquences :
 
 1. **Lancez le diagnostic automatique** (invite administrateur, ne modifie
-   rien) :
+   rien). **v2.2.0 : zéro ligne de commande** — ouvrez
+   `RoomEqDriverSetup.exe` et cliquez **« Diagnostic complet »** (le panneau
+   d'état en haut de la fenêtre, visible dès l'ouverture, donne déjà
+   l'essentiel). Équivalent console pour le support à distance :
 
    ```
    RoomEqDriverSetup.exe --status
@@ -354,15 +357,16 @@ dans les périphériques audio. Dans l'ordre des fréquences :
 
    | Verdict | Cause | Action |
    |---|---|---|
-   | « Windows n'est PAS en mode test… refuse de charger ce pilote signé-test (code 52) » | Mode test absent ou refusé à l'installation — c'est le comportement **voulu** si vous avez répondu non | Trois voies : relancer `--install` et accepter le mode test ; rester sans carte virtuelle (lecteur, calibration et boucle WASAPI fonctionnent) ; attendre le pilote signé Microsoft (`docs/SIGNATURE-ET-STORE.md`) |
-   | « le paquet est dans le magasin mais le PÉRIPHÉRIQUE n'existe pas » | Installation partielle : `pnputil` seul ne crée jamais le périphérique d'un pilote `ROOT\…` (ancien bouton de l'application avant v2.1.0) | Relancer `RoomEqDriverSetup.exe --install` (étape 5 = création du périphérique) |
-   | « le mode test est actif mais le Secure Boot l'ignore » | Secure Boot actif : Windows refuse le mode test **par conception** | Désactiver Secure Boot dans le BIOS/UEFI puis redémarrer ; ou `--mode-normal` pour faire marche arrière |
+   | « Windows n'est PAS en mode test… refuse de charger ce pilote signé-test (code 52) » | Mode test absent ou refusé à l'installation — c'est le comportement **voulu** si vous avez répondu non | Trois voies : bouton **« Installer le pilote »** et accepter le mode test ; rester sans carte virtuelle (lecteur, calibration et boucle WASAPI fonctionnent) ; attendre le pilote signé Microsoft (`docs/SIGNATURE-ET-STORE.md`) |
+   | « le paquet est dans le magasin mais le PÉRIPHÉRIQUE n'existe pas » | Installation partielle : `pnputil` seul ne crée jamais le périphérique d'un pilote `ROOT\…` (ancien bouton de l'application avant v2.1.0) | Bouton **« Installer le pilote »** (étape 5 = création du périphérique) |
+   | « le mode test est actif mais le Secure Boot l'ignore » | Secure Boot actif : Windows refuse le mode test **par conception** | Désactiver Secure Boot dans le BIOS/UEFI puis redémarrer ; ou bouton **« Revenir au mode normal »** pour faire marche arrière |
    | « tout semble correct » | La carte existe mais est masquée ou désactivée | `mmsys.cpl` → clic droit dans la liste → **« Afficher les périphériques désactivés »** → clic droit sur RoomEq → **Activer** |
 
 3. **Le bouton de l'application** : depuis la v2.1.0, il lance
    `RoomEqDriverSetup.exe` quand celui-ci est présent à côté de l'application
    (cas de la version installable, qui le dépose automatiquement, ou des deux
-   exécutables dans le même dossier). Avant cette version, il ne faisait
+   exécutables dans le même dossier) — **depuis la v2.2.0 il ouvre sa fenêtre
+   graphique et démarre l'installation d'office**. Avant v2.1.0, il ne faisait
    qu'un `pnputil /add-driver` — d'où des installations « réussies » sans
    carte.
 
@@ -372,10 +376,11 @@ Vous avez activé le mode test (directement ou via une installation
 antérieure) et voulez le couper — y compris le filigrane « Mode de test » en
 bas à droite du bureau :
 
-1. **Le plus simple** : `RoomEqDriverSetup.exe --mode-normal`
+1. **Le plus simple** : ouvrez `RoomEqDriverSetup.exe` et cliquez
+   **« Revenir au mode normal »** (équivalent console : `--mode-normal`) :
    - coupe le mode test (`bcdedit /set testsigning off`) ;
    - propose le redémarrage (le filigrane disparaît ensuite définitivement) ;
-   - propose le retrait complet du pilote signe-test, devenu inutilisable en
+   - propose le retrait complet du pilote signé-test, devenu inutilisable en
      mode normal.
 
 2. **À la main** (invite de commandes administrateur) :

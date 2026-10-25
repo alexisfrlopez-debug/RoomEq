@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <!-- v2.2.0 : WinExe (pas de fenetre console au double-clic) ; les
+         options console s'attachent a la console parente (AttachConsole).
+         WinForms est fourni par le .NET Framework 4.7.2 de Windows :
+         aucune dependance a embarquer, l'exe reste ~350 Ko. -->
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net472</TargetFramework>
     <LangVersion>9.0</LangVersion>
     <Nullable>disable</Nullable>
@@ -27,6 +31,9 @@
     <Reference Include="System.Security" />
     <!-- pre-diagnostic Secure Boot via WMI (root\Microsoft\Windows\SecureBoot) -->
     <Reference Include="System.Management" />
+    <!-- interface graphique (WinForms, fournie par le Framework 4.7.2) -->
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 
   <!-- Payload embarque : la CI (ou un dev) copie les fichiers pilote dans

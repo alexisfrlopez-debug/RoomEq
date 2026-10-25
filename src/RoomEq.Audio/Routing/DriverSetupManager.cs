@@ -160,11 +160,11 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
         // ---- chemin complet : installateur autonome embarqué ----------------
         if (setupExe != null)
         {
-            Report("Lancement de l'installateur du pilote (RoomEqDriverSetup)… acceptez l'invite administrateur, puis suivez sa fenêtre console.");
+            Report("Lancement de l'installateur du pilote (RoomEqDriverSetup)… acceptez l'invite administrateur, puis suivez sa fenêtre.");
             var psi = new ProcessStartInfo
             {
                 FileName = setupExe,
-                Arguments = "--install",
+                Arguments = "--gui --install",
                 Verb = "runas",              // élévation UAC
                 UseShellExecute = true,
             };
@@ -177,7 +177,7 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
                 if (p.ExitCode != 0)
                     return new InstallResult(false,
                         $"L'installateur du pilote s'est terminé sur un problème (code {p.ExitCode}) — " +
-                        "sa fenêtre console explique l'étape en cause (mode test refusé, Secure Boot…).");
+                        "sa fenêtre explique l'étape en cause (mode test refusé, Secure Boot…).");
             }
             catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
             {
@@ -263,11 +263,11 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
         }
         if (setupExe != null)
         {
-            Report("Lancement de la désinstallation (RoomEqDriverSetup --uninstall)… acceptez l'invite administrateur.");
+            Report("Lancement de la désinstallation (RoomEqDriverSetup)… acceptez l'invite administrateur.");
             var psi = new ProcessStartInfo
             {
                 FileName = setupExe,
-                Arguments = "--uninstall",
+                Arguments = "--gui --uninstall",
                 Verb = "runas",
                 UseShellExecute = true,
             };
@@ -280,7 +280,7 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
                     return new InstallResult(p.ExitCode == 0,
                         p.ExitCode == 0
                             ? "Pilote RoomEq supprimé (périphérique, paquet, ASIO, certificat)."
-                            : $"La désinstallation s'est terminée sur un problème (code {p.ExitCode}) — voir sa fenêtre console.");
+                            : $"La désinstallation s'est terminée sur un problème (code {p.ExitCode}) — voir sa fenêtre.");
                 }
             }
             catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)

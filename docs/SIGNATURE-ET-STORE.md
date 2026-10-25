@@ -163,3 +163,47 @@ désinstallation puis réinstallation après la phase A bénéficiera
 automatiquement du mode « pilote attesté » : l'installateur détecte
 l'absence de `.cer` dans le paquet pilote et saute certificat/mode
 test/redémarrage sans aucune modification de code (déjà implémenté).
+
+## 7. « Peut-on charger le pilote sans signature ET sans mode test ? »
+
+Question légitime (oct. 2026) : *« il existe bien des drivers non signés qui
+arrivent à s'installer tout de même normalement, non ? »* Réponse honnête,
+en trois parties.
+
+### 7.1 Ce que l'on observe n'est pas ce que l'on croit
+
+Les « pilotes non signés qui s'installent » sont en réalité, dans quasi tous
+les cas :
+
+| Observation | Réalité technique |
+|---|---|
+| « Ce pilote tiers n'est pas signé et pourtant il charge » | Il **est** signé — par Microsoft (**attestation signing**, invisible : le certificat du vendeur ne s'affiche nulle part dans les propriétés du fichier). C'est la voie de la phase A. |
+| « Celui-là s'installe sans problème » | **Installer ≠ charger.** `pnputil` ajoute volontiers un paquet non signé au magasin ; le blocage a lieu au **chargement noyau** (périphérique code 52). C'est exactement le symptôme « installé mais carte absente » de RoomEq. |
+| « Les vieux pilotes non-MS chargent encore » | Signés en **cross-signing** avant le 29 juillet 2015 — pratique que Microsoft a supprimée depuis ; ces pilotes bénéficient d'un sursis (et sont bloqués si HVCI est actif). |
+| « Ce périphérique fonctionne sans pilote signé » | Pilote **user-mode** (UMDF) ou classe Windows intégrée — pas un pilote noyau. |
+
+Une carte son virtuelle exige un pilote **noyau** (architecture audio
+Windows) : aucun contournement user-mode n'existe.
+
+### 7.2 Les « astuces » qui existent — et pourquoi les écarter
+
+| Piste | Verdict |
+|---|---|
+| **F7 « Désactiver l'application obligatoire des signatures de pilotes »** (Paramètres → Système → Récupération → Démarrage avancé → Paramètres de démarrage → touche 7) | **Fonctionne, 100 % graphique** — mais **effacée au premier redémarrage** : bon pour un test d'une session, inutilisable au quotidien (la carte disparaît à chaque reboot). Exige aussi Secure Boot désactivé. |
+| `bcdedit /set nointegritychecks on` | Pire que le mode test (désactive TOUT contrôle), ignoré avec Secure Boot, partiellement supprimé des builds récents — et ligne de commande + redémarrage. Aucun intérêt. |
+| Outils type DSEFix / EfiGuard / kdmapper (bypass noyau) | Techniques de **malware** : Defender les met en quarantaine à l'instant, PatchGuard provoque des BSOD aléatoires, chaque mise à jour Windows les casse. Jamais, même pour un test perso : la machine devient instable ET l'antivirus combat l'installateur. |
+| « Spoofer » la signature (modifier le `.cat` / le certificat) | Toute modification du fichier ** invalide** la signature ; un certificat maison ne passe la validation racine Microsoft **que** justement en mode test. Cercle complet : le mode test est déjà la version officielle de cette idée. |
+
+### 7.3 Conclusion pratique
+
+- **Sans mode test et sans signature Microsoft : le pilote noyau ne peut pas
+  charger. Point.** Ce n'est pas un manque d'ingénierie côté RoomEq, c'est le
+  modèle de sécurité de Windows x64 (conception).
+- Pour **tester** : le mode test (une case dans la fenêtre graphique
+  `RoomEqDriverSetup`, un redémarrage, un filigrane réversible via
+  « Revenir au mode normal »), ou l'application **sans carte virtuelle**
+  (lecteur, EQ, calibration, boucle WASAPI fonctionnent).
+- Pour **distribuer proprement** : phase A (attestation Microsoft) — c'est
+  précisément la raison d'être de la feuille de route ci-dessus. Le jour où
+  le paquet pilote revient signé Microsoft, l'installateur saute tout seul
+  certificat/mode test/redémarrage (déjà implémenté).

@@ -7,21 +7,22 @@
 //    - RoomEqDriverSetup.exe (ce programme) : pilote + ASIO en un seul
 //      fichier, les fichiers pilote sont EMBARQUES en ressource.
 //
-//  Usage :
-//    RoomEqDriverSetup.exe                 installation (defaut)
-//    RoomEqDriverSetup.exe --status        etat de la machine (rien ne change) +
-//                                           VERDICT : pourquoi la carte n'apparait
-//                                           pas, le cas echeant, et quoi faire
+//  Usage (v2.2.0 — interface graphique par defaut) :
+//    RoomEqDriverSetup.exe                 FENETRE GRAPHIQUE : etat de la machine,
+//                                           boutons Installer / Diagnostic complet /
+//                                           Revenir au mode normal / Desinstaller.
+//                                           Aucune ligne de commande.
+//    RoomEqDriverSetup.exe --gui --install   idem fenetre, installation lancee
+//                                           d'office (utilise par le bouton
+//                                           « Installer le pilote » de l'application)
+//
+//  Options console (support / automatisation — comportement inchange) :
+//    RoomEqDriverSetup.exe --console       installation en console (defaut historique)
+//    RoomEqDriverSetup.exe --status        etat de la machine + VERDICT
 //    RoomEqDriverSetup.exe --uninstall     retrait complet (best effort)
-//    RoomEqDriverSetup.exe --mode-normal   RETOUR AU MODE NORMAL de Windows :
-//                                           coupe le mode test (filigrane inclus),
-//                                           propose le retrait du pilote signe-test
-//    RoomEqDriverSetup.exe --install --accept-testmode
-//                                         installe sans demander la confirmation
-//                                           du passage en mode test (automatisation)
-//    RoomEqDriverSetup.exe --install --no-testmode
-//                                         refuse le mode test sans question :
-//                                           installation annulee proprement
+//    RoomEqDriverSetup.exe --mode-normal   RETOUR AU MODE NORMAL de Windows
+//    RoomEqDriverSetup.exe --install --accept-testmode   (automatisation)
+//    RoomEqDriverSetup.exe --install --no-testmode       (annulation propre)
 //
 //  MODE TEST (v2.1.0) : le pilote actuel est SIGNE-TEST ; Windows ne peut le
 //  charger QU'en mode test (bcdedit). Ce programme ne l'active JAMAIS sans
@@ -62,35 +63,52 @@ namespace RoomEqDriverSetup
         private const string AsioClsid = "{8F5E3A91-4B2C-4D6E-9A1F-2E7C5B8D9A03}";
         private const string AsioDllName = "RoomEqAsio64.dll";
 
+        /// <summary>Vrai si la fenetre graphique est active (textes adaptes).</summary>
+        internal static bool GuiActive;
+
+        [STAThread]
         private static int Main(string[] args)
         {
-            try { Console.OutputEncoding = Encoding.UTF8; } catch { }
-            try { Console.Title = "RoomEqDriverSetup"; } catch { }
-
-            bool acceptTestMode = Array.IndexOf(args, "--accept-testmode") >= 0;
-            bool noTestMode = Array.IndexOf(args, "--no-testmode") >= 0;
-            string mode = "install";
+            // v2.2.0 : double-clic (aucun argument) = FENETRE GRAPHIQUE ;
+            // les options console restent pour le support et l'automatisation.
+            bool wantGui = args.Length == 0;
+            bool acceptTestMode = false, noTestMode = false;
+            string mode = null;
             foreach (string a in args)
             {
                 string m = a.TrimStart('-').ToLowerInvariant();
+                if (m == "gui") { wantGui = true; continue; }
+                if (m == "console" || m == "cli" || m == "c") continue;
                 if (m == "u") m = "uninstall";
                 if (m == "s") m = "status";
                 if (m == "n" || m == "normal") m = "mode-normal";
                 if (m == "install" || m == "uninstall" || m == "status" || m == "mode-normal")
                 {
                     mode = m;
-                    break;
+                    continue;
                 }
-                if (m == "accept-testmode" || m == "no-testmode" || m == "i") continue;
+                if (m == "accept-testmode") { acceptTestMode = true; continue; }
+                if (m == "no-testmode") { noTestMode = true; continue; }
+                if (m == "i") { mode = "install"; continue; }
                 if (m.Length > 0)
                 {
                     Console.WriteLine("Argument inconnu : " + a);
-                    Console.WriteLine("Usage : RoomEqDriverSetup.exe [--install | --status | --uninstall | --mode-normal]");
+                    Console.WriteLine("Usage : RoomEqDriverSetup.exe [--gui] | [--install | --status | --uninstall | --mode-normal]");
                     Console.WriteLine("        [--install --accept-testmode | --install --no-testmode]");
+                    Console.WriteLine("        (sans argument : fenetre graphique)");
                     return 1;
                 }
             }
 
+            if (wantGui)
+            {
+                GuiActive = true;
+                return GuiRunner.Run(mode);   // mode = action auto (null = aucune)
+            }
+
+            AttachToConsole();
+            try { Console.OutputEncoding = Encoding.UTF8; } catch { }
+            try { Console.Title = "RoomEqDriverSetup"; } catch { }
             Console.WriteLine("RoomEqDriverSetup - carte son virtuelle RoomEq");
             Console.WriteLine("==============================================");
             Console.WriteLine();
@@ -104,6 +122,7 @@ namespace RoomEqDriverSetup
                 return 1;
             }
 
+            if (mode == null) mode = "install";
             switch (mode)
             {
                 case "status": return RunStatus();
@@ -114,9 +133,28 @@ namespace RoomEqDriverSetup
             }
         }
 
+        // WinExe : aucune console n'est attachee d'office. Pour les options
+        // console lancees depuis un terminal, on s'attache a la console
+        // parente ; sinon (double-clic avec arguments) on en ouvre une pour
+        // que le rapport reste visible.
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool AttachConsole(uint dwProcessId);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool AllocConsole();
+        private const uint AttachParentProcess = 0xFFFFFFFF;
+
+        private static void AttachToConsole()
+        {
+            try
+            {
+                if (!AttachConsole(AttachParentProcess)) AllocConsole();
+            }
+            catch { }
+        }
+
         // ==================================================== INSTALLATION
 
-        private static int RunInstall(bool acceptTestMode, bool noTestMode)
+        internal static int RunInstall(bool acceptTestMode, bool noTestMode)
         {
             string workDir;
             string cerPath = null;
@@ -132,35 +170,33 @@ namespace RoomEqDriverSetup
 
             if (testModeNeeded && !acceptTestMode)
             {
-                Console.WriteLine("[Mode test] Le pilote RoomEq distribue est signe-test.");
-                Console.WriteLine("             Windows refuse de charger un pilote signe-test");
-                Console.WriteLine("             tant qu'il n'est PAS en 'mode test' (bcdedit),");
-                Console.WriteLine("             signale par un filigrane 'Mode de test' en bas a");
-                Console.WriteLine("             droite du bureau apres redemarrage.");
-                Console.WriteLine();
-                Console.WriteLine("             SANS le mode test, la carte RoomEq n'apparait pas.");
-                Console.WriteLine("             (Trois voies : accepter le mode test ; attendre le");
-                Console.WriteLine("              pilote signe Microsoft - docs/SIGNATURE-ET-STORE.md ;");
-                Console.WriteLine("              ou utiliser RoomEq sans carte virtuelle : lecteur,");
-                Console.WriteLine("              calibration et boucle WASAPI restent fonctionnels.)");
-                Console.WriteLine();
+                Ui.Say("[Mode test] Le pilote RoomEq distribue est signe-test.");
+                Ui.Say("             Windows refuse de charger un pilote signe-test");
+                Ui.Say("             tant qu'il n'est PAS en 'mode test' (bcdedit),");
+                Ui.Say("             signale par un filigrane 'Mode de test' en bas a");
+                Ui.Say("             droite du bureau apres redemarrage.");
+                Ui.Say("");
+                Ui.Say("             SANS le mode test, la carte RoomEq n'apparait pas.");
+                Ui.Say("             (Trois voies : accepter le mode test ; attendre le");
+                Ui.Say("              pilote signe Microsoft - docs/SIGNATURE-ET-STORE.md ;");
+                Ui.Say("              ou utiliser RoomEq sans carte virtuelle : lecteur,");
+                Ui.Say("              calibration et boucle WASAPI restent fonctionnels.)");
+                Ui.Say("");
                 if (noTestMode)
                 {
-                    Console.WriteLine(">>> --no-testmode : installation annulee sans rien modifier.");
-                    Console.WriteLine(">>> L'application RoomEq reste utilisable (boucle WASAPI,");
-                    Console.WriteLine(">>> lecteur + EQ, calibration au micro).");
+                    Ui.Say(">>> --no-testmode : installation annulee sans rien modifier.");
+                    Ui.Say(">>> L'application RoomEq reste utilisable (boucle WASAPI,");
+                    Ui.Say(">>> lecteur + EQ, calibration au micro).");
                     return 0;
                 }
-                Console.Write(">>> Activer le mode test de Windows et installer le pilote ? (o/N) : ");
-                string rep;
-                try { rep = Console.ReadLine(); } catch { rep = ""; }
-                if (rep == null || !rep.Trim().ToLowerInvariant().StartsWith("o"))
+                bool accord = Ui.Confirm("Activer le mode test de Windows et installer le pilote ?", false);
+                if (!accord)
                 {
-                    Console.WriteLine();
-                    Console.WriteLine(">>> Choix NON : rien n'a ete modifie (aucun certificat importe,");
-                    Console.WriteLine(">>> aucun pilote ajoute, aucun mode change).");
-                    Console.WriteLine(">>> Revenez quand vous voulez : --status (diagnostic),");
-                    Console.WriteLine(">>> --mode-normal (si le mode test etait deja actif).");
+                    Ui.Say("");
+                    Ui.Say(">>> Choix NON : rien n'a ete modifie (aucun certificat importe,");
+                    Ui.Say(">>> aucun pilote ajoute, aucun mode change).");
+                    Ui.Say(">>> Revenez quand vous voulez : bouton Diagnostic complet");
+                    Ui.Say(">>> (ou --status), bouton Revenir au mode normal.");
                     return 0;
                 }
             }
@@ -170,7 +206,7 @@ namespace RoomEqDriverSetup
             try
             {
                 workDir = ExtractPayload(out cerPath);
-                Console.WriteLine("       -> " + workDir);
+                Ui.Say("       -> " + workDir);
             }
             catch (Exception ex)
             {
@@ -183,15 +219,15 @@ namespace RoomEqDriverSetup
             Step(2, 6, "Certificat de signature de test");
             if (cerPath == null)
             {
-                Console.WriteLine("       [SAUT] aucun .cer embarque -> build officiellement signe");
-                Console.WriteLine("       (ni certificat, ni mode test, ni redemarrage).");
+                Ui.Say("       [SAUT] aucun .cer embarque -> build officiellement signe");
+                Ui.Say("       (ni certificat, ni mode test, ni redemarrage).");
             }
             else
             {
                 try
                 {
                     int imported = ImportCertToStores(cerPath);
-                    Console.WriteLine("       -> importe dans Root + TrustedPublisher ("
+                    Ui.Say("       -> importe dans Root + TrustedPublisher ("
                                       + imported + " nouveau(x) magasin(s))");
                 }
                 catch (Exception ex)
@@ -204,11 +240,11 @@ namespace RoomEqDriverSetup
             Step(3, 6, "Mode signature de test de Windows");
             if (cerPath == null)
             {
-                Console.WriteLine("       [SAUT] inutile pour un pilote signe Microsoft.");
+                Ui.Say("       [SAUT] inutile pour un pilote signe Microsoft.");
             }
             else if (IsTestSigningOn())
             {
-                Console.WriteLine("       -> deja actif (pas de redemarrage necessaire).");
+                Ui.Say("       -> deja actif (pas de redemarrage necessaire).");
             }
             else
             {
@@ -218,36 +254,36 @@ namespace RoomEqDriverSetup
                 if (EnableTestSigning(out err))
                 {
                     rebootNeeded = true;
-                    Console.WriteLine("       -> ACTIVE. Le noyau l'appliquera au prochain demarrage.");
+                    Ui.Say("       -> ACTIVE. Le noyau l'appliquera au prochain demarrage.");
                     if (secureBoot == true)
                     {
-                        Console.WriteLine("       [!] ATTENTION : Secure Boot semble ACTIF - le mode test");
-                        Console.WriteLine("           risque d'etre ignore au demarrage. Si les cartes");
-                        Console.WriteLine("           RoomEq n'apparaissent pas apres le reboot, desactivez");
-                        Console.WriteLine("           Secure Boot dans le BIOS/UEFI (INSTALLATION-PILOTE.md).");
+                        Ui.Say("       [!] ATTENTION : Secure Boot semble ACTIF - le mode test");
+                        Ui.Say("           risque d'etre ignore au demarrage. Si les cartes");
+                        Ui.Say("           RoomEq n'apparaissent pas apres le reboot, desactivez");
+                        Ui.Say("           Secure Boot dans le BIOS/UEFI (INSTALLATION-PILOTE.md).");
                     }
                 }
                 else
                 {
-                    Console.WriteLine();
-                    Console.WriteLine("[ERREUR] impossible d'activer le mode testsigning (bcdedit : " + err + ").");
+                    Ui.Say("");
+                    Ui.ErrorSafe("[ERREUR] impossible d'activer le mode testsigning (bcdedit : " + err + ").");
                     if (secureBoot == true)
                     {
-                        Console.WriteLine();
-                        Console.WriteLine("         CAUSE CONFIRMEE : le Secure Boot est ACTIF. Windows refuse");
-                        Console.WriteLine("         par conception de charger un pilote signe-test quand il l'est.");
-                        Console.WriteLine("         Deux solutions :");
-                        Console.WriteLine("           A. desactiver Secure Boot dans le BIOS/UEFI (redemarrage,");
-                        Console.WriteLine("              touche Suppr/F2 selon la carte mere), puis relancer ce");
-                        Console.WriteLine("              programme - voir INSTALLATION-PILOTE.md, cas 5 ;");
-                        Console.WriteLine("           B. attendre le pilote signe Microsoft (phase A du plan de");
-                        Console.WriteLine("              distribution, docs/SIGNATURE-ET-STORE.md).");
+                        Ui.Say("");
+                        Ui.Say("         CAUSE CONFIRMEE : le Secure Boot est ACTIF. Windows refuse");
+                        Ui.Say("         par conception de charger un pilote signe-test quand il l'est.");
+                        Ui.Say("         Deux solutions :");
+                        Ui.Say("           A. desactiver Secure Boot dans le BIOS/UEFI (redemarrage,");
+                        Ui.Say("              touche Suppr/F2 selon la carte mere), puis relancer ce");
+                        Ui.Say("              programme - voir INSTALLATION-PILOTE.md, cas 5 ;");
+                        Ui.Say("           B. attendre le pilote signe Microsoft (phase A du plan de");
+                        Ui.Say("              distribution, docs/SIGNATURE-ET-STORE.md).");
                     }
                     else
                     {
-                        Console.WriteLine("         Cause la plus frequente : Secure Boot actif (voir ci-dessus).");
-                        Console.WriteLine("         Journal complet ci-dessus. En cas de blocage, transmettre");
-                        Console.WriteLine("         cette fenetre en copier-coller.");
+                        Ui.Say("         Cause la plus frequente : Secure Boot actif (voir ci-dessus).");
+                        Ui.Say("         Journal complet ci-dessus. En cas de blocage, transmettre");
+                        Ui.Say("         cette fenetre en copier-coller.");
                     }
                     return 1;
                 }
@@ -266,7 +302,7 @@ namespace RoomEqDriverSetup
                                     + OneLine(output, 200));
                 }
                 string oem = ParseDriverStoreName(output, InfName);
-                Console.WriteLine("       -> paquet ajoute" + (oem != null ? " (" + oem + ")" : ""));
+                Ui.Say("       -> paquet ajoute" + (oem != null ? " (" + oem + ")" : ""));
             }
 
             // -- 5) peripherique ROOT\ROOMEQVAD --------------------------------
@@ -274,14 +310,14 @@ namespace RoomEqDriverSetup
             try
             {
                 bool created = EnsureVirtualDevice(inf);
-                Console.WriteLine("       -> " + (created ? "cree et pilote lie." : "deja present, pilote lie."));
+                Ui.Say("       -> " + (created ? "cree et pilote lie." : "deja present, pilote lie."));
             }
             catch (Exception ex)
             {
                 if (rebootNeeded)
                 {
-                    Console.WriteLine("       [!] liaison differee au redemarrage (" + ex.Message + ")");
-                    Console.WriteLine("           PnP reessaiera automatiquement au boot - pas bloquant.");
+                    Ui.Say("       [!] liaison differee au redemarrage (" + ex.Message + ")");
+                    Ui.Say("           PnP reessaiera automatiquement au boot - pas bloquant.");
                 }
                 else
                 {
@@ -294,63 +330,60 @@ namespace RoomEqDriverSetup
             try
             {
                 string dll = InstallAsio(workDir);
-                Console.WriteLine("       -> " + dll);
-                Console.WriteLine("          + enregistrement COM ASIO (HKLM).");
+                Ui.Say("       -> " + dll);
+                Ui.Say("          + enregistrement COM ASIO (HKLM).");
             }
             catch (Exception ex)
             {
-                Console.WriteLine("       [!] ASIO non installe (" + ex.Message + ")");
-                Console.WriteLine("           Le pilote WASAPI fonctionne sans ASIO ; reessayer plus tard");
-                Console.WriteLine("           avec --install est sans risque (installation idempotente).");
+                Ui.Say("       [!] ASIO non installe (" + ex.Message + ")");
+                Ui.Say("           Le pilote WASAPI fonctionne sans ASIO ; reessayer plus tard");
+                Ui.Say("           avec --install est sans risque (installation idempotente).");
             }
 
             // -- verdict ---------------------------------------------------------
-            Console.WriteLine();
-            Console.WriteLine("==============================================================");
-            Console.WriteLine("RESULTAT : installation du pilote terminee.");
-            Console.WriteLine("Apres redemarrage, les cartes 'RoomEq Input / RoomEq Output'");
-            Console.WriteLine("figurent dans les parametres son de Windows.");
+            Ui.Say("");
+            Ui.Say("==============================================================");
+            Ui.HeadingSafe("RESULTAT : installation du pilote terminee.");
+            Ui.Say("Apres redemarrage, les cartes 'RoomEq Input / RoomEq Output'");
+            Ui.Say("figurent dans les parametres son de Windows.");
             if (rebootNeeded)
             {
-                Console.WriteLine();
-                Console.WriteLine("* REDEMARRAGE REQUIS * (le mode test vient d'etre active).");
-                Console.WriteLine("Un filigrane 'Mode de test' apparaitra en bas a droite de");
-                Console.WriteLine("l'ecran : c'est normal et attendu avec un pilote signe-test.");
-                Console.WriteLine();
-                Console.Write("Redemarrer maintenant ? (O/n) : ");
-                string rep = Console.ReadLine();
-                if (string.IsNullOrEmpty(rep) || rep.Trim().ToLowerInvariant().StartsWith("o"))
+                Ui.Say("");
+                Ui.Say("* REDEMARRAGE REQUIS * (le mode test vient d'etre active).");
+                Ui.Say("Un filigrane 'Mode de test' apparaitra en bas a droite de");
+                Ui.Say("l'ecran : c'est normal et attendu avec un pilote signe-test.");
+                Ui.Say("");
+                if (Ui.Confirm("Redemarrer maintenant ?", true))
                 {
-                    Console.WriteLine("Redemarrage dans 5 secondes...");
+                    Ui.Say("Redemarrage dans 5 secondes...");
                     Process.Start(new ProcessStartInfo("shutdown.exe", "/r /t 5") { UseShellExecute = false });
                 }
                 else
                 {
-                    Console.WriteLine("Redemarrez manuellement avant d'utiliser la carte son.");
+                    Ui.Say("Redemarrez manuellement avant d'utiliser la carte son.");
                 }
             }
-            Console.WriteLine();
-            Console.Write("Appuyez sur Entree pour fermer...");
-            try { Console.ReadLine(); } catch { }
+            Ui.Say("");
+            Ui.Pause();
             return 0;
         }
 
         // ==================================================== DESINSTALLATION
 
-        private static int RunUninstall()
+        internal static int RunUninstall()
         {
-            Console.WriteLine("Desinstallation de la carte son virtuelle RoomEq");
-            Console.WriteLine("(best effort : chaque etape est tentee, jamais bloquante)");
-            Console.WriteLine();
+            Ui.Say("Desinstallation de la carte son virtuelle RoomEq");
+            Ui.Say("(best effort : chaque etape est tentee, jamais bloquante)");
+            Ui.Say("");
 
             Step(1, 5, "Peripherique ROOT\\ROOMEQVAD");
             try
             {
                 bool removed = RemoveRootDevice();
-                Console.WriteLine("       -> " + (removed ? "retire."
+                Ui.Say("       -> " + (removed ? "retire."
                         : "introuvable (rien a faire)."));
             }
-            catch (Exception ex) { Console.WriteLine("       [!] " + ex.Message); }
+            catch (Exception ex) { Ui.Say("       [!] " + ex.Message); }
 
             Step(2, 5, "Paquet du magasin de pilotes");
             try
@@ -358,70 +391,67 @@ namespace RoomEqDriverSetup
                 string oem = ResolveStoreInfName();
                 if (oem == null)
                 {
-                    Console.WriteLine("       -> introuvable dans le magasin (rien a faire).");
+                    Ui.Say("       -> introuvable dans le magasin (rien a faire).");
                 }
                 else
                 {
                     string output;
                     int code = RunHidden("pnputil.exe",
                         "/delete-driver " + oem + " /uninstall /force", out output);
-                    Console.WriteLine("       -> pnputil /delete-driver " + oem + " (code " + code + ")");
+                    Ui.Say("       -> pnputil /delete-driver " + oem + " (code " + code + ")");
                 }
             }
-            catch (Exception ex) { Console.WriteLine("       [!] " + ex.Message); }
+            catch (Exception ex) { Ui.Say("       [!] " + ex.Message); }
 
             Step(3, 5, "Enregistrement ASIO + DLL");
             try
             {
                 UninstallAsio();
-                Console.WriteLine("       -> cles registre + C:\\Program Files\\RoomEq retires.");
+                Ui.Say("       -> cles registre + C:\\Program Files\\RoomEq retires.");
             }
-            catch (Exception ex) { Console.WriteLine("       [!] " + ex.Message); }
+            catch (Exception ex) { Ui.Say("       [!] " + ex.Message); }
 
             Step(4, 5, "Certificat de test");
             try
             {
                 string cer = ExtractCertOnly();
                 bool removedCert = RemoveCertFromStores(cer);
-                Console.WriteLine("       -> " + (removedCert
+                Ui.Say("       -> " + (removedCert
                         ? "retire de Root + TrustedPublisher."
                         : "introuvable ou deja retire."));
             }
-            catch (Exception ex) { Console.WriteLine("       [!] " + ex.Message); }
+            catch (Exception ex) { Ui.Say("       [!] " + ex.Message); }
 
             Step(5, 5, "Fichiers temporaires");
             try
             {
                 string dir = Path.Combine(Path.GetTempPath(), "RoomEqDriverSetup");
                 if (Directory.Exists(dir)) Directory.Delete(dir, true);
-                Console.WriteLine("       -> nettoyes.");
+                Ui.Say("       -> nettoyes.");
             }
-            catch (Exception ex) { Console.WriteLine("       [!] " + ex.Message); }
+            catch (Exception ex) { Ui.Say("       [!] " + ex.Message); }
 
-            Console.WriteLine();
-            Console.WriteLine("Desinstallation terminee.");
+            Ui.Say("");
+            Ui.Say("Desinstallation terminee.");
 
             // le mode test n'a plus d'interet sans le pilote signe-test :
             // proposer de le couper maintenant (retour au mode normal)
             bool testWasOn = IsTestSigningOn();
             if (testWasOn)
             {
-                Console.WriteLine();
-                Console.Write("Le mode test de Windows est actif. Le couper maintenant ? (O/n) : ");
-                string repMode;
-                try { repMode = Console.ReadLine(); } catch { repMode = ""; }
-                if (repMode == null || repMode.Trim().ToLowerInvariant().StartsWith("o"))
+                Ui.Say("");
+                if (Ui.Confirm("Le mode test de Windows est actif. Le couper maintenant ?", true))
                     return DisableTestSigningAndOfferReboot();
-                Console.WriteLine(">>> mode test laisse actif. Pour le couper plus tard :");
-                Console.WriteLine(">>> RoomEqDriverSetup.exe --mode-normal   (ou bcdedit /set testsigning off)");
+                Ui.Say(">>> mode test laisse actif. Pour le couper plus tard :");
+                Ui.Say(">>> bouton Revenir au mode normal (ou --mode-normal,");
+                Ui.Say(">>> ou bcdedit /set testsigning off).");
             }
             else
             {
-                Console.WriteLine("(Le mode test de Windows n'est pas actif : rien a couper.)");
+                Ui.Say("(Le mode test de Windows n'est pas actif : rien a couper.)");
             }
-            Console.WriteLine();
-            Console.Write("Appuyez sur Entree pour fermer...");
-            try { Console.ReadLine(); } catch { }
+            Ui.Say("");
+            Ui.Pause();
             return 0;
         }
 
@@ -432,17 +462,17 @@ namespace RoomEqDriverSetup
         /// test » disparait apres redemarrage), puis propose le retrait complet
         /// du pilote signe-test devenu inutilisable en mode normal.
         /// </summary>
-        private static int RunModeNormal()
+        internal static int RunModeNormal()
         {
-            Console.WriteLine("Retour au mode NORMAL de Windows");
-            Console.WriteLine("================================");
-            Console.WriteLine();
+            Ui.Say("Retour au mode NORMAL de Windows");
+            Ui.Say("================================");
+            Ui.Say("");
 
             if (!IsTestSigningOn())
             {
-                Console.WriteLine("[SAUT] Windows n'est pas en mode test : rien a couper.");
-                Console.WriteLine("       (Le filigrane 'Mode de test', s'il est visible, provient");
-                Console.WriteLine("       d'une autre source ; aucun changement apporte ici.)");
+                Ui.Say("[SAUT] Windows n'est pas en mode test : rien a couper.");
+                Ui.Say("       (Le filigrane 'Mode de test', s'il est visible, provient");
+                Ui.Say("       d'une autre source ; aucun changement apporte ici.)");
             }
             else
             {
@@ -457,30 +487,26 @@ namespace RoomEqDriverSetup
             try { storeHere = ResolveStoreInfName() != null; } catch { }
             if (deviceHere || storeHere)
             {
-                Console.WriteLine();
-                Console.WriteLine("En mode normal, le pilote RoomEq signe-test ne peut PAS se");
-                Console.WriteLine("charger : la carte virtuelle restera invisible tant que le");
-                Console.WriteLine("pilote n'est pas officiellement signe Microsoft.");
-                Console.Write("Retirer le pilote et le certificat maintenant ? (O/n) : ");
-                string rep;
-                try { rep = Console.ReadLine(); } catch { rep = ""; }
-                if (rep == null || rep.Trim().ToLowerInvariant().StartsWith("o"))
+                Ui.Say("");
+                Ui.Say("En mode normal, le pilote RoomEq signe-test ne peut PAS se");
+                Ui.Say("charger : la carte virtuelle restera invisible tant que le");
+                Ui.Say("pilote n'est pas officiellement signe Microsoft.");
+                if (Ui.Confirm("Retirer le pilote et le certificat maintenant ?", true))
                 {
-                    Console.WriteLine();
+                    Ui.Say("");
                     return RunUninstall();
                 }
-                Console.WriteLine(">>> pilote laisse en place (invisible mais inoffensif :");
-                Console.WriteLine(">>> --uninstall le retirera quand vous voudrez).");
+                Ui.Say(">>> pilote laisse en place (invisible mais inoffensif :");
+                Ui.Say(">>> le bouton Desinstaller le retirera quand vous voudrez).");
             }
             else
             {
-                Console.WriteLine();
-                Console.WriteLine("(Aucune trace du pilote RoomEq sur cette machine :");
-                Console.WriteLine(" rien d'autre a nettoyer.)");
+                Ui.Say("");
+                Ui.Say("(Aucune trace du pilote RoomEq sur cette machine :");
+                Ui.Say(" rien d'autre a nettoyer.)");
             }
-            Console.WriteLine();
-            Console.Write("Appuyez sur Entree pour fermer...");
-            try { Console.ReadLine(); } catch { }
+            Ui.Say("");
+            Ui.Pause();
             return 0;
         }
 
@@ -496,50 +522,47 @@ namespace RoomEqDriverSetup
                 int code2 = RunHidden("bcdedit.exe", "/deletevalue {current} testsigning", out err2);
                 if (code2 != 0 && IsTestSigningOn())
                 {
-                    Console.WriteLine("[ERREUR] impossible de couper le mode test (bcdedit : "
+                    Ui.ErrorSafe("[ERREUR] impossible de couper le mode test (bcdedit : "
                                       + OneLine(err, 160) + " / " + OneLine(err2, 120) + ")");
-                    Console.WriteLine("         Cause la plus frequente : Secure Boot actif (le mode");
-                    Console.WriteLine("         test n'a alors jamais pu etre mis en route).");
+                    Ui.Say("         Cause la plus frequente : Secure Boot actif (le mode");
+                    Ui.Say("         test n'a alors jamais pu etre mis en route).");
                     return 1;
                 }
             }
 
-            Console.WriteLine();
-            Console.WriteLine(">>> MODE TEST DESACTIVE. Le filigrane 'Mode de test' disparaitra");
-            Console.WriteLine(">>> definitivement apres le PROCHAIN REDEMARRAGE.");
-            Console.WriteLine();
-            Console.Write("Redemarrer maintenant ? (O/n) : ");
-            string rep;
-            try { rep = Console.ReadLine(); } catch { rep = ""; }
-            if (rep == null || rep.Trim().ToLowerInvariant().StartsWith("o"))
+            Ui.Say("");
+            Ui.Say(">>> MODE TEST DESACTIVE. Le filigrane 'Mode de test' disparaitra");
+            Ui.Say(">>> definitivement apres le PROCHAIN REDEMARRAGE.");
+            Ui.Say("");
+            if (Ui.Confirm("Redemarrer maintenant ?", true))
             {
-                Console.WriteLine("Redemarrage dans 5 secondes...");
+                Ui.Say("Redemarrage dans 5 secondes...");
                 Process.Start(new ProcessStartInfo("shutdown.exe", "/r /t 5") { UseShellExecute = false });
             }
             else
             {
-                Console.WriteLine("Redemarrez quand vous voulez pour appliquer le retour au normal.");
+                Ui.Say("Redemarrez quand vous voulez pour appliquer le retour au normal.");
             }
             return 0;
         }
 
         // ==================================================== ETAT
 
-        private static int RunStatus()
+        internal static int RunStatus()
         {
             bool? sb = IsSecureBootEnabled();
             bool testMode = IsTestSigningOn();
-            Console.WriteLine("Etat de la machine (rien n'est modifie) :");
-            Console.WriteLine();
-            Console.WriteLine("  Secure Boot        : " + NullSafe(sb, "Actif", "Inactif"));
-            Console.WriteLine("  Mode testsigning   : " + (testMode ? "Actif" : "Inactif"));
-            Console.WriteLine("  Build pilote       : " + (HasEmbeddedCert()
+            Ui.Say("Etat de la machine (rien n'est modifie) :");
+            Ui.Say("");
+            Ui.Say("  Secure Boot        : " + NullSafe(sb, "Actif", "Inactif"));
+            Ui.Say("  Mode testsigning   : " + (testMode ? "Actif" : "Inactif"));
+            Ui.Say("  Build pilote       : " + (HasEmbeddedCert()
                 ? "signe-test (mode test requis pour charger)"
                 : "signature officielle (aucun mode test requis)"));
 
             string oem = null;
             try { oem = ResolveStoreInfName(); } catch { }
-            Console.WriteLine("  Pilote magasin     : " + (oem != null ? "Present (" + oem + ")" : "Absent"));
+            Ui.Say("  Pilote magasin     : " + (oem != null ? "Present (" + oem + ")" : "Absent"));
 
             bool dev = false;
             uint problem = 0, status = 0;
@@ -549,81 +572,125 @@ namespace RoomEqDriverSetup
             {
                 started = (status & 0x00000008) != 0;        // DN_STARTED
                 hasProblem = (status & 0x00000400) != 0;     // DN_HAS_PROBLEM
-                Console.WriteLine("  Peripherique       : Present (" + DeviceStateText(started, hasProblem, problem) + ")");
+                Ui.Say("  Peripherique       : Present (" + DeviceStateText(started, hasProblem, problem) + ")");
             }
             else
             {
-                Console.WriteLine("  Peripherique       : Absent");
+                Ui.Say("  Peripherique       : Absent");
             }
 
             string svc = ServiceState("roomeqvad");
-            Console.WriteLine("  Service roomeqvad  : " + svc);
+            Ui.Say("  Service roomeqvad  : " + svc);
 
             string asio = AsioDllRegisteredPath();
-            Console.WriteLine("  ASIO (registre)    : " + (asio != null ? "Enregistre -> " + asio : "Non enregistre"));
-            Console.WriteLine();
+            Ui.Say("  ASIO (registre)    : " + (asio != null ? "Enregistre -> " + asio : "Non enregistre"));
+            Ui.Say("");
 
             // ---------------- VERDICT : pourquoi la carte n'apparait pas -------
-            Console.WriteLine("--------------------------------------------------------------");
-            Console.WriteLine("VERDICT");
-            Console.WriteLine("--------------------------------------------------------------");
+            Ui.Say("--------------------------------------------------------------");
+            Ui.HeadingSafe("VERDICT");
+            Ui.Say("--------------------------------------------------------------");
             if (!dev && oem == null)
             {
-                Console.WriteLine("  Le pilote RoomEq n'est pas installe sur cette machine.");
-                Console.WriteLine("  -> Lancez : RoomEqDriverSetup.exe --install");
-                Console.WriteLine("     (le mode test sera PROPOSE explicitement ; repondre non");
-                Console.WriteLine("      n'installe rien et laisse Windows en mode normal)");
+                Ui.Say("  Le pilote RoomEq n'est pas installe sur cette machine.");
+                Ui.Say("  -> " + (GuiActive ? "bouton 'Installer le pilote' en bas de la fenetre."
+                                    : "Lancez : RoomEqDriverSetup.exe --install"));
+                Ui.Say("     (le mode test sera PROPOSE explicitement ; repondre non");
+                Ui.Say("      n'installe rien et laisse Windows en mode normal)");
             }
             else if (!dev)
             {
-                Console.WriteLine("  Le paquet pilote est dans le magasin mais le PERIPHERIQUE");
-                Console.WriteLine("  n'existe pas : c'est lui qui cree les entrees son.");
-                Console.WriteLine("  -> Lancez : RoomEqDriverSetup.exe --install");
-                Console.WriteLine("     (l'etape 5 cree le peripherique ROOT\\ROOMEQVAD ; une");
-                Console.WriteLine("      installation partielle par pnputil seul ne suffit pas)");
+                Ui.Say("  Le paquet pilote est dans le magasin mais le PERIPHERIQUE");
+                Ui.Say("  n'existe pas : c'est lui qui cree les entrees son.");
+                Ui.Say("  -> " + (GuiActive ? "bouton 'Installer le pilote' : l'etape 5 cree"
+                                    : "Lancez : RoomEqDriverSetup.exe --install"));
+                Ui.Say("     le peripherique ROOT\\ROOMEQVAD ; une installation partielle");
+                Ui.Say("      par pnputil seul ne suffit pas)");
             }
             else if (!testMode && HasEmbeddedCert())
             {
-                Console.WriteLine("  CAUSE TROUVEE : Windows n'est PAS en mode test, il refuse");
-                Console.WriteLine("  donc de charger ce pilote signe-test (code " + problem + ").");
-                Console.WriteLine("  TROIS VOIES :");
-                Console.WriteLine("   A. Accepter le mode test : --install (question explicite),");
-                Console.WriteLine("      filigrane 'Mode de test' sur le bureau ensuite ;");
-                Console.WriteLine("   B. Rester en mode normal SANS carte virtuelle : RoomEq reste");
-                Console.WriteLine("      utilisable (lecteur + EQ, calibration, boucle WASAPI) ;");
-                Console.WriteLine("   C. Pilote signe Microsoft (definitif, sans mode test) :");
-                Console.WriteLine("      voir docs/SIGNATURE-ET-STORE.md (phase A).");
+                Ui.Say("  CAUSE TROUVEE : Windows n'est PAS en mode test, il refuse");
+                Ui.Say("  donc de charger ce pilote signe-test (code " + problem + ").");
+                Ui.Say("  TROIS VOIES :");
+                Ui.Say("   A. Accepter le mode test : " + (GuiActive
+                        ? "bouton Installer (question explicite),"
+                        : "--install (question explicite),"));
+                Ui.Say("      filigrane 'Mode de test' sur le bureau ensuite ;");
+                Ui.Say("   B. Rester en mode normal SANS carte virtuelle : RoomEq reste");
+                Ui.Say("      utilisable (lecteur + EQ, calibration, boucle WASAPI) ;");
+                Ui.Say("   C. Pilote signe Microsoft (definitif, sans mode test) :");
+                Ui.Say("      voir docs/SIGNATURE-ET-STORE.md (phase A).");
             }
             else if (testMode && sb == true)
             {
-                Console.WriteLine("  CAUSE PROBABLE : le mode test est actif mais le Secure Boot");
-                Console.WriteLine("  l'IGNORE au demarrage (conception de Windows). Le pilote ne");
-                Console.WriteLine("  peut donc pas se charger.");
-                Console.WriteLine("  -> Desactiver Secure Boot dans le BIOS/UEFI, redemarrer ;");
-                Console.WriteLine("     ou revenir au mode normal : --mode-normal.");
+                Ui.Say("  CAUSE PROBABLE : le mode test est actif mais le Secure Boot");
+                Ui.Say("  l'IGNORE au demarrage (conception de Windows). Le pilote ne");
+                Ui.Say("  peut donc pas se charger.");
+                Ui.Say("  -> Desactiver Secure Boot dans le BIOS/UEFI, redemarrer ;");
+                Ui.Say("     ou " + (GuiActive ? "bouton Revenir au mode normal."
+                              : "revenir au mode normal : --mode-normal."));
             }
             else if (hasProblem && !started)
             {
-                Console.WriteLine("  Le peripherique existe mais son pilote ne demarre pas");
-                Console.WriteLine("  (code " + problem + " : " + ProblemText(problem) + ").");
-                Console.WriteLine("  -> Relancez --install (liaison du pilote retentee) puis");
-                Console.WriteLine("     redemarrer ; si le code persiste, transmettre ce rapport.");
+                Ui.Say("  Le peripherique existe mais son pilote ne demarre pas");
+                Ui.Say("  (code " + problem + " : " + ProblemText(problem) + ").");
+                Ui.Say("  -> Relancez " + (GuiActive ? "l'installation"
+                              : "--install") + " (liaison du pilote retentee) puis");
+                Ui.Say("     redemarrer ; si le code persiste, transmettre ce rapport.");
             }
             else
             {
-                Console.WriteLine("  Tout semble correct cote pilote. Si la carte n'apparait");
-                Console.WriteLine("  toujours pas dans les peripheriques Windows :");
-                Console.WriteLine("   1. Parametres > Systeme > Son > Panneau son (mmsys.cpl) ;");
-                Console.WriteLine("   2. clic droit dans la liste > 'Afficher les peripheriques");
-                Console.WriteLine("      desactives' : 'RoomEq Input / RoomEq Output' doivent y");
-                Console.WriteLine("      figurer (clic droit > Activer le cas echeant) ;");
-                Console.WriteLine("   3. sinon, redemarrer Windows puis relancer --status.");
+                Ui.Say("  Tout semble correct cote pilote. Si la carte n'apparait");
+                Ui.Say("  toujours pas dans les peripheriques Windows :");
+                Ui.Say("   1. Parametres > Systeme > Son > Panneau son (mmsys.cpl) ;");
+                Ui.Say("   2. clic droit dans la liste > 'Afficher les peripheriques");
+                Ui.Say("      desactives' : 'RoomEq Input / RoomEq Output' doivent y");
+                Ui.Say("      figurer (clic droit > Activer le cas echeant) ;");
+                Ui.Say("   3. sinon, redemarrer Windows puis " + (GuiActive
+                        ? "bouton Diagnostic complet." : "relancer --status."));
             }
-            Console.WriteLine("--------------------------------------------------------------");
-            Console.WriteLine();
-            Console.Write("Appuyez sur Entree pour fermer...");
-            try { Console.ReadLine(); } catch { }
+            Ui.Say("--------------------------------------------------------------");
+            Ui.Say("");
+            Ui.Pause();
             return 0;
+        }
+
+        // ------------------------------------------------ capture d'etat (GUI)
+
+        /// <summary>
+        /// Instantane des sondes de la machine pour le panneau d'etat de la
+        /// fenetre graphique (les textes completes/VERDICT restent dans
+        /// RunStatus, ce capture ne modifie rien).
+        /// </summary>
+        internal sealed class StatusSnap
+        {
+            public bool? SecureBoot;
+            public bool TestMode;
+            public bool TestSignedBuild;
+            public string StoreInf;        // null = absent du magasin
+            public bool Device;
+            public bool DeviceStarted;
+            public bool DeviceHasProblem;
+            public uint Problem;
+            public string Service;
+            public string AsioPath;       // null = non enregistre
+        }
+
+        internal static StatusSnap CaptureStatus()
+        {
+            var s = new StatusSnap();
+            try { s.SecureBoot = IsSecureBootEnabled(); } catch { }
+            s.TestMode = IsTestSigningOn();
+            s.TestSignedBuild = HasEmbeddedCert();
+            try { s.StoreInf = ResolveStoreInfName(); } catch { }
+            uint status = 0, problem = 0;
+            try { s.Device = ProbeRootDevice(ref status, ref problem); } catch { }
+            s.DeviceStarted = (status & 0x00000008) != 0;   // DN_STARTED
+            s.DeviceHasProblem = (status & 0x00000400) != 0; // DN_HAS_PROBLEM
+            s.Problem = problem;
+            s.Service = ServiceState("roomeqvad");
+            s.AsioPath = AsioDllRegisteredPath();
+            return s;
         }
 
         /// <summary>Etat lisible du peripherique racine.</summary>
@@ -1118,7 +1185,7 @@ namespace RoomEqDriverSetup
 
         // ==================================================== outils
 
-        private static bool IsElevated()
+        internal static bool IsElevated()
         {
             using (var id = System.Security.Principal.WindowsIdentity.GetCurrent())
             {
@@ -1129,21 +1196,21 @@ namespace RoomEqDriverSetup
 
         private static void Step(int n, int total, string title)
         {
-            Console.WriteLine();
-            Console.WriteLine("[" + n + "/" + total + "] " + title);
+            Ui.Say("");
+            Ui.Say("[" + n + "/" + total + "] " + title);
         }
 
         private static int FailStep(string message)
         {
-            Console.WriteLine();
-            Console.WriteLine("[ERREUR] " + message);
-            Console.WriteLine();
-            Console.WriteLine("Rien n'a ete casse : les etapes precedentes sont inoffensives");
-            Console.WriteLine("(certificat uniquement, ou paquet ajoute sans liaison).");
-            Console.WriteLine("Transmettre cette fenetre (copier-coller) pour un diagnostic precis.");
-            Console.WriteLine();
-            Console.Write("Appuyez sur Entree pour fermer...");
-            try { Console.ReadLine(); } catch { }
+            Ui.Say("");
+            Ui.ErrorSafe("[ERREUR] " + message);
+            Ui.Say("");
+            Ui.Say("Rien n'a ete casse : les etapes precedentes sont inoffensives");
+            Ui.Say("(certificat uniquement, ou paquet ajoute sans liaison).");
+            Ui.Say("Transmettre " + (GuiActive ? "le contenu du journal (copier-coller)"
+                    : "cette fenetre (copier-coller)") + " pour un diagnostic precis.");
+            Ui.Say("");
+            Ui.Pause();
             return 1;
         }
 
@@ -1183,7 +1250,7 @@ namespace RoomEqDriverSetup
                 }
                 if (p.ExitCode != 0)
                 {
-                    Console.WriteLine("       (sortie " + exe + " : " + OneLine(output, 300)
+                    Ui.Say("       (sortie " + exe + " : " + OneLine(output, 300)
                         + (err.Trim().Length > 0 ? " [stderr] " + OneLine(err, 200) : "") + ")");
                 }
                 return p.ExitCode;
