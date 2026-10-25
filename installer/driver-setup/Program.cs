@@ -301,7 +301,7 @@ namespace RoomEqDriverSetup
                     return FailStep("pnputil a echoue (code " + code + ") : "
                                     + OneLine(output, 200));
                 }
-                string oem = ParseDriverStoreName(output, InfName);
+                string oem = ParsePublishedName(output);
                 Ui.Say("       -> paquet ajoute" + (oem != null ? " (" + oem + ")" : ""));
             }
 
@@ -724,7 +724,10 @@ namespace RoomEqDriverSetup
             try
             {
                 string output;
-                int code = RunHidden("sc.exe", "query " + service, out output);
+                // 1060 = ERROR_SERVICE_DOES_NOT_EXIST : etat NORMAL avant
+                // installation, pas une erreur (v2.2.1 : sortie brute masquee).
+                int code = RunHidden("sc.exe", "query " + service, out output,
+                                     new[] { 1060 });
                 if (code != 0) return "non installe";
                 if (output.IndexOf("RUNNING", StringComparison.OrdinalIgnoreCase) >= 0) return "en cours";
                 if (output.IndexOf("STOPPED", StringComparison.OrdinalIgnoreCase) >= 0) return "arrete";
@@ -1056,7 +1059,19 @@ namespace RoomEqDriverSetup
             uint needed;
             Guid fromInf;
             if (NativeMethods.SetupDiGetINFClassW(inf, out fromInf, className, 64, out needed))
+            {
                 classGuid = fromInf;
+            }
+            else
+            {
+                // v2.2.1 : plus d'echec silencieux. Un INF de style legacy
+                // ($Windows NT$) fait echouer GetINFClass AVEC 0xE0000205,
+                // et cette erreur residuelle pollue ensuite les appels
+                // SetupDi de creation du peripherique.
+                Ui.Say("       [!] classe illisible dans l'INF (0x"
+                    + Marshal.GetLastWin32Error().ToString("X")
+                    + ") -> classe MEDIA utilisee par defaut.");
+            }
 
             IntPtr set = NativeMethods.SetupDiCreateDeviceInfoList(ref classGuid, IntPtr.Zero);
             if (set == IntPtr.Zero || set == new IntPtr(-1))
@@ -1067,8 +1082,16 @@ namespace RoomEqDriverSetup
                 var dev = new NativeMethods.SP_DEVINFO_DATA();
                 dev.cbSize = Marshal.SizeOf(typeof(NativeMethods.SP_DEVINFO_DATA));
 
+                // v2.2.1 : DICD_GENERATE_ID fabrique lui-meme l'instance
+                // "ROOT\<nom>\NNNN" -> il ne faut JAMAIS passer le prefixe
+                // "ROOT\" ici (sinon instance en ROOT\ROOT\ROOMEQVAD\NNNN
+                // et echec selon les builds de Windows). Le prefixe ne sert
+                // que pour le HARDWAREID ci-dessous.
+                string deviceName = HwId.StartsWith("ROOT\\", StringComparison.OrdinalIgnoreCase)
+                    ? HwId.Substring(5) : HwId;
+
                 if (!NativeMethods.SetupDiCreateDeviceInfoW(
-                        set, HwId, ref classGuid, null, IntPtr.Zero,
+                        set, deviceName, ref classGuid, null, IntPtr.Zero,
                         NativeMethods.DICD_GENERATE_ID, ref dev))
                     throw new Exception("SetupDiCreateDeviceInfo a echoue (erreur 0x"
                                         + Marshal.GetLastWin32Error().ToString("X") + ")");
@@ -1150,6 +1173,27 @@ namespace RoomEqDriverSetup
             return ParseDriverStoreName(output, InfName);
         }
 
+        /// <summary>
+        /// Premier "nom publié" (oemNN.inf) d'une sortie pnputil, quelle que
+        /// soit la langue (v2.2.1 : tolère les accents mal décodés).
+        /// </summary>
+        private static string ParsePublishedName(string enumOutput)
+        {
+            foreach (string raw in (enumOutput ?? "").Split('\n'))
+            {
+                string line = raw.Trim().TrimEnd('\r');
+                int i = line.IndexOf(':');
+                if (i <= 0) continue;
+                string key = line.Substring(0, i).Trim().ToLowerInvariant();
+                // "Published Name" / "nom du (fichier|pilote) publié" :
+                // contient toujours "publi", accents ou pas (mojibake inclus).
+                if (!key.Contains("publi")) continue;
+                string value = line.Substring(i + 1).Trim();
+                if (value.Length > 0) return value;
+            }
+            return null;
+        }
+
         /// <summary>Analyse 'pnputil /enum-drivers' (EN/FR) -> oemNN.inf.</summary>
         private static string ParseDriverStoreName(string enumOutput, string originalInfName)
         {
@@ -1164,16 +1208,17 @@ namespace RoomEqDriverSetup
                 if (i <= 0) continue;
                 string key = line.Substring(0, i).Trim();
                 string value = line.Substring(i + 1).Trim();
-
-                if (key.EndsWith("published name", StringComparison.OrdinalIgnoreCase)
-                    || key.EndsWith("nom du fichier publié", StringComparison.OrdinalIgnoreCase)
-                    || key.EndsWith("nom du fichier publie", StringComparison.OrdinalIgnoreCase))
+                // v2.2.1 : cles tolérantes aux accents et aux libellés
+                // (EN "published name"/"original name", FR "nom du fichier
+                // publié"/"nom du pilote publié"/"nom inf d'origine"...) :
+                // les sorties pnputil passent par la page OEM CP850 et le "é"
+                // peut arriver mal décodé ; "publi" et "orig" matchent tout.
+                string k = key.ToLowerInvariant();
+                if (k.Contains("publi"))
                 {
                     published = value;
                 }
-                else if (key.EndsWith("original name", StringComparison.OrdinalIgnoreCase)
-                         || key.EndsWith("nom inf d'origine", StringComparison.OrdinalIgnoreCase)
-                         || key.EndsWith("nom du fichier inf d'origine", StringComparison.OrdinalIgnoreCase))
+                else if (k.Contains("orig") && (k.Contains("inf") || k.Contains("name")))
                 {
                     if (published != null
                         && string.Equals(value, originalInfName, StringComparison.OrdinalIgnoreCase))
@@ -1228,7 +1273,8 @@ namespace RoomEqDriverSetup
             return s.Length <= max ? s : s.Substring(0, max) + "...";
         }
 
-        private static int RunHidden(string exe, string args, out string output)
+        private static int RunHidden(string exe, string args, out string output,
+                                     int[] quietExitCodes = null)
         {
             var psi = new ProcessStartInfo
             {
@@ -1238,6 +1284,14 @@ namespace RoomEqDriverSetup
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                // v2.2.1 : sc.exe / pnputil / bcdedit sortent dans la page de
+                // code OEM (CP850 en francais). Sans ce decodage explicite,
+                // .NET les lisait en Windows-1252 : accents mojibakes
+                // ("echec" -> "\u201achec") et les cles accentuees de pnputil
+                // ("nom du fichier publie") ne matchaient plus -> faux
+                // "Pilote magasin : Absent" apres un ajout reussi.
+                StandardOutputEncoding = Encoding.GetEncoding(850),
+                StandardErrorEncoding = Encoding.GetEncoding(850),
             };
             using (var p = Process.Start(psi))
             {
@@ -1248,7 +1302,11 @@ namespace RoomEqDriverSetup
                     try { p.Kill(); } catch { }
                     p.WaitForExit();
                 }
-                if (p.ExitCode != 0)
+                // v2.2.1 : certains codes d'echec sont des etats NORMAUX
+                // attendus (ex. sc.exe 1060 = service absent avant
+                // installation) : pas de sortie brute dans le journal.
+                if (p.ExitCode != 0
+                    && (quietExitCodes == null || Array.IndexOf(quietExitCodes, p.ExitCode) < 0))
                 {
                     Ui.Say("       (sortie " + exe + " : " + OneLine(output, 300)
                         + (err.Trim().Length > 0 ? " [stderr] " + OneLine(err, 200) : "") + ")");

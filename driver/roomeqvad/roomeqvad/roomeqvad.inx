@@ -19,11 +19,17 @@
 ;--*/
 
 [Version]
-Signature   = "$Windows NT$"
+; v2.2.1 : "$CHICAGO$" est le style INF "Plug-and-Play moderne"
+; (INF_STYLE_WIN4) attendu par toutes les APIs d'installation (comme le
+; sample SYSVAD de Microsoft). "$Windows NT$" = style legacy NT4
+; (INF_STYLE_OLDNT) : pnputil l'ajoute au magasin mais SetupDiGetINFClass
+; et la creation du peripherique echouent avec 0xE0000205
+; (ERROR_WRONG_INF_STYLE).
+Signature   = "$CHICAGO$"
 Class       = MEDIA
 ClassGUID   = {4d36e96c-e325-11ce-bfc1-08002be10318}
 Provider    = %ProviderName%
-DriverVer   = 10/24/2026, 2.0.0.0
+DriverVer   = 10/25/2026, 2.2.1.0
 CatalogFile = roomeqvad.cat
 PnpLockDown = 1
 

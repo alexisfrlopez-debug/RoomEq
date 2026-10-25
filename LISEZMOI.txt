@@ -1,5 +1,24 @@
-RoomEq 2.2.0 — 100 % autonome : pilote de carte virtuelle et ASIO intégrés
+RoomEq 2.2.1 — 100 % autonome : pilote de carte virtuelle et ASIO intégrés
 =============================================================================
+
+NOUVEAUTES 2.2.1
+----------------
+  • CORRECTION CRITIQUE DE L'INSTALLATION DU PILOTE : l'etape 5/6
+    « Peripherique RoomEq Virtual Audio » echouait avec l'erreur
+    0xE0000205 sur TOUTES les machines (fichier INF de style legacy
+    « $Windows NT$ » au lieu du style moderne « $CHICAGO$ » attendu
+    par les APIs d'installation de Windows). Le peripherique et les
+    cartes « RoomEq Input / RoomEq Output » se creent desormais
+    correctement. Le bug etait present depuis la premiere version du
+    portage ; il est corrige et couvert par des tests.
+  • JOURNAL PROPRE : l'etat « service non installe » (code 1060) n'affiche
+    plus la sortie brute de sc.exe ; plus de mojibakes (« ‚chec ») :
+    les sorties des outils Windows sont maintenant decodees correctement
+    (page de code OEM CP850).
+  • DIAGNOSTIC FIABLE EN FRANÇAIS : la ligne « Pilote magasin » ne peut
+    plus s'afficher « Absent » a tort apres un ajout reussi (les cles
+    accentuees de pnputil, ex. « nom du fichier publie », sont desormais
+    reconnues quelle que soit la facon dont Windows les a encodees).
 
 NOUVEAUTES 2.2.0
 ----------------
@@ -59,17 +78,17 @@ Plus AUCUNE application tierce (câble audio virtuel, console externe) :
 INSTALLATION
 ------------
 EXECUTABLES (recommande si Windows bloque le MSI) :
-    1) RoomEqDriverSetup-2.2.0.exe : la carte son + l'ASIO en un fichier
-       (pilote embarque). Double-clic -> UAC -> FENETRE GRAPHIQUE (v2.2.0) :
+    1) RoomEqDriverSetup-2.2.1.exe : la carte son + l'ASIO en un fichier
+       (pilote embarque). Double-clic -> UAC -> FENETRE GRAPHIQUE (v2.2.1) :
        panneau d'etat + journal + boutons Installer / Diagnostic complet /
        Revenir au mode normal / Desinstaller. Le mode test est PROPOSE
        en boite de dialogue (jamais active en silence, defaut : NON).
        Options console (support) : --status (etat + VERDICT si la carte
        manque) / --uninstall / --mode-normal / --accept-testmode /
        --no-testmode.
-    2) RoomEq-2.2.0-win-x64.exe : l'application PORTABLE en un seul fichier
+    2) RoomEq-2.2.1-win-x64.exe : l'application PORTABLE en un seul fichier
        (~45 Mo) — aucune installation, aucun UAC.
-    3) RoomEqAppSetup-2.2.0.exe : la meme application en version INSTALLABLE
+    3) RoomEqAppSetup-2.2.1.exe : la meme application en version INSTALLABLE
        (l'exe portable ET le setup pilote sont embarques dedans) —
        installation sans UAC dans
        %LOCALAPPDATA%\Programs\RoomEq, raccourcis Menu Demarrer/Bureau,

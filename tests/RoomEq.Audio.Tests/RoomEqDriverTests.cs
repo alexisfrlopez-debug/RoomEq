@@ -52,6 +52,17 @@ public class RoomEqDriverTests : IDisposable
     [InlineData("fr-long",
         "Nom du fichier publié : oem5.inf\r\nNom du fichier INF d'origine : roomeqvad.inf\r\n",
         "oem5.inf")]
+    [InlineData("fr-win11-pilote",
+        "Nom du pilote publié : oem41.inf\r\nNom du fichier INF d'origine : roomeqvad.inf\r\n",
+        "oem41.inf")]
+    [InlineData("fr-win11-pilote-origine",
+        "Nom du pilote publié : oem9.inf\r\nNom du pilote INF d'origine : roomeqvad.inf\r\n",
+        "oem9.inf")]
+    [InlineData("fr-mojibake-cp850-lu-1252",
+        // « é » CP850 (0x82) décodé en Windows-1252 = U+201A «‚» :
+        // cas vécu (v2.2.0) où le parse échouait en silence.
+        "Nom du fichier publi\u201a : oem8.inf\r\nNom du fichier INF d'origine : roomeqvad.inf\r\n",
+        "oem8.inf")]
     [InlineData("absent",
         "Published Name: oem12.inf\r\nOriginal Name: autre.inf\r\n",
         null)]

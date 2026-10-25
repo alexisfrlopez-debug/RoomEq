@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace RoomEq.Audio.Routing;
 
@@ -92,15 +93,17 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
             string key = line[..i].Trim();
             string value = line[(i + 1)..].Trim();
 
-            if (key.EndsWith("published name", StringComparison.OrdinalIgnoreCase)
-                || key.EndsWith("nom du fichier publié", StringComparison.OrdinalIgnoreCase)
-                || key.EndsWith("nom du fichier publie", StringComparison.OrdinalIgnoreCase))
+            // v2.2.1 : clés tolérantes aux accents et libellés (EN
+            // "published name"/"original name", FR "nom du fichier publié"/
+            // "nom du pilote publié"/"nom inf d'origine"…) : les sorties
+            // pnputil passent par la page OEM CP850 et le « é » peut arriver
+            // mal décodé ; « publi » et « orig » matchent toutes les variantes.
+            string k = key.ToLowerInvariant();
+            if (k.Contains("publi"))
             {
                 published = value;   // toujours suivre le dernier nom publié vu
             }
-            else if (key.EndsWith("original name", StringComparison.OrdinalIgnoreCase)
-                     || key.EndsWith("nom inf d'origine", StringComparison.OrdinalIgnoreCase)
-                     || key.EndsWith("nom du fichier inf d'origine", StringComparison.OrdinalIgnoreCase))
+            else if (k.Contains("orig") && (k.Contains("inf") || k.Contains("name")))
             {
                 if (published != null
                     && string.Equals(value, originalInfName, StringComparison.OrdinalIgnoreCase))
@@ -304,6 +307,10 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 CreateNoWindow = true,
+                // v2.2.1 : pnputil sort dans la page OEM (CP850 en français) —
+                // sans décodage explicite, les clés accentuées (« publié »)
+                // arrivaient mojibakées et l'analyse échouait en silence.
+                StandardOutputEncoding = Encoding.GetEncoding(850),
             };
             using var p = Process.Start(psi);
             if (p != null)
