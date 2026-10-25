@@ -211,12 +211,13 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────
   # 3b. Executables « sans MSI » : application portable (fichier unique)
-  #      + setup pilote autonome (fichiers pilote embarques). Contourne
-  #      toute la chaine msiexec/Windows Installer (demande utilisateur
-  #      apres blocages CFA sur msiexec/SrTasks).
+  #      + version INSTALLABLE de l'application (RoomEqAppSetup : demarrage
+  #      automatique Windows, sans UAC) + setup pilote autonome (fichiers
+  #      pilote embarques). Contourne toute la chaine msiexec/Windows
+  #      Installer (demande utilisateur apres blocages CFA).
   # ─────────────────────────────────────────────────────────────────────
   exes:
-    name: Executables (app portable + pilote)
+    name: Executables (app portable/setup + pilote)
     runs-on: windows-latest
     needs: [tests, driver]
     steps:
@@ -233,7 +234,7 @@ jobs:
           name: roomeq-driver-${{ github.sha }}
           path: ci-driver
 
-      - name: Assembler les 2 executables
+      - name: Assembler les 3 executables
         shell: pwsh
         run: |
           powershell -ExecutionPolicy Bypass -File installer\build_exes.ps1 `
@@ -245,8 +246,9 @@ jobs:
         run: |
           $exe1 = Get-Item 'installer\build\RoomEq-*-win-x64.exe' | Select-Object -First 1
           $exe2 = Get-Item 'installer\build\RoomEqDriverSetup-*.exe' | Select-Object -First 1
-          if (-not $exe1 -or -not $exe2) { throw 'Un des executables est introuvable' }
-          Get-Item $exe1.FullName, $exe2.FullName | Select-Object Name, Length
+          $exe3 = Get-Item 'installer\build\RoomEqAppSetup-*.exe' | Select-Object -First 1
+          if (-not $exe1 -or -not $exe2 -or -not $exe3) { throw 'Un des executables est introuvable' }
+          Get-Item $exe1.FullName, $exe2.FullName, $exe3.FullName | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
@@ -254,6 +256,7 @@ jobs:
           path: |
             installer/build/RoomEq-*-win-x64.exe
             installer/build/RoomEqDriverSetup-*.exe
+            installer/build/RoomEqAppSetup-*.exe
           if-no-files-found: error
 
       - name: Joindre au tag (Release) si présent
@@ -263,9 +266,10 @@ jobs:
           $tag = "${env:GITHUB_REF_NAME}"
           $exe1 = Get-Item 'installer\build\RoomEq-*-win-x64.exe' | Select-Object -First 1
           $exe2 = Get-Item 'installer\build\RoomEqDriverSetup-*.exe' | Select-Object -First 1
-          if (-not $exe1 -or -not $exe2) { throw 'Executables introuvables pour la publication' }
-          gh release create "$tag" --draft --title "RoomEq $tag" --notes "Distribution 2 executables (sans MSI) : l'application portable (aucune installation) puis RoomEqDriverSetup (pilote + ASIO, une invite UAC). Voir INSTALLATION-PILOTE.md." "$($exe1.FullName)" "$($exe2.FullName)" || `
-          gh release upload "$tag" "$($exe1.FullName)" "$($exe2.FullName)" --clobber
+          $exe3 = Get-Item 'installer\build\RoomEqAppSetup-*.exe' | Select-Object -First 1
+          if (-not $exe1 -or -not $exe2 -or -not $exe3) { throw 'Executables introuvables pour la publication' }
+          gh release create "$tag" --draft --title "RoomEq $tag" --notes "Distribution executables (sans MSI) : application au choix PORTABLE (aucune installation) ou INSTALLABLE (RoomEqAppSetup : raccourcis + demarrage automatique Windows, sans UAC), puis RoomEqDriverSetup (pilote + ASIO, une invite UAC). Voir INSTALLATION-PILOTE.md." "$($exe1.FullName)" "$($exe2.FullName)" "$($exe3.FullName)" || `
+          gh release upload "$tag" "$($exe1.FullName)" "$($exe2.FullName)" "$($exe3.FullName)" --clobber
         env:
           GH_TOKEN: ${{ github.token }}
 

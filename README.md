@@ -42,12 +42,15 @@ RoomEq est une application de bureau qui combine **égaliseur paramétrique**, *
 
 ## Installation et lancement
 
-### Distribution « 2 exécutables » (recommandée si Windows bloque le MSI)
+### Distribution « exécutables » (recommandée si Windows bloque le MSI)
 
-Deux fichiers, zéro manipulation PowerShell, zéro `msiexec` :
+Trois fichiers, zéro manipulation PowerShell, zéro `msiexec` :
 
 1. **`RoomEqDriverSetup-2.0.0.exe`** — la carte son virtuelle + le pilote ASIO, pilote embarqué à l'intérieur du fichier. Double-clic → UAC → la console affiche chaque étape (certificat, mode test, pilote, périphérique, ASIO) puis propose le redémarrage. Options : `--status` (état), `--uninstall` (retrait complet).
 2. **`RoomEq-2.0.0-win-x64.exe`** — l'application entière en **un seul fichier portable** (~45 Mo) : aucune installation, aucun UAC, lancez-la depuis le Bureau ou une clé USB.
+3. **`RoomEqAppSetup-2.0.0.exe`** — la même application en **version installable** (le portable est embarqué dedans) : installation **sans UAC** dans `%LOCALAPPDATA%\Programs\RoomEq`, raccourcis Menu Démarrer/Bureau, **lancement automatique au démarrage de Windows** (proposé, désactivable), entrée « Applications & fonctionnalités » avec désinstalleur. Options : `--status`, `--uninstall`, `--no-autostart`, `--no-desktop`.
+
+> Portable ou installée : choisissez — les réglages et mesures (`%APPDATA%\RoomEq`) sont partagés entre les deux et conservés à la désinstallation.
 
 > Premier lancement après téléchargement : clic droit → Propriétés → « Débloquer » (SmartScreen, voir `TROUBLESHOOT-INSTALLATION.md`). Le **Secure Boot** doit être désactivé tant que le pilote est signé-test (le setup le détecte et l'explique).
 

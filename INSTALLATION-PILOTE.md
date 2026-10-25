@@ -19,7 +19,7 @@ Ce document couvre l'installation du pilote de la carte son virtuelle RoomEq
 
 ## 1. Installer le pilote sur une machine (application déjà installée)
 
-### Nouvelle voie (oct. 2026) : la distribution « 2 exécutables », sans MSI
+### Nouvelle voie (oct. 2026) : la distribution « exécutables », sans MSI
 
 Face aux blocages de la chaîne Windows Installer chez certains utilisateurs
 (SmartScreen, puis anti-ransomware « accès contrôlé aux dossiers » qui
@@ -29,19 +29,31 @@ interceptait `msiexec.exe` et `SrTasks.exe`), une distribution alternative
 | Fichier | Rôle | Privilèges |
 |---|---|---|
 | `RoomEq-<version>-win-x64.exe` | **L'application**, portable, auto-contenue en **un seul fichier** (~45 Mo) : aucun installateur, aucun UAC, lancez-la depuis n'importe où (Bureau, dossier, clé USB). | Aucun |
+| `RoomEqAppSetup-<version>.exe` | **La même application, en version installable** (l'exe portable est embarqué à l'intérieur, ~45 Mo) : installe dans `%LOCALAPPDATA%\Programs\RoomEq` **sans UAC**, crée les raccourcis Menu Démarrer/Bureau, propose le **lancement automatique au démarrage de Windows** et s'ajoute à « Applications & fonctionnalités » avec désinstalleur intégré. | Aucun |
 | `RoomEqDriverSetup-<version>.exe` | **La carte son virtuelle + le pilote ASIO** en un seul fichier : les fichiers pilote sont embarqués à l'intérieur. Une invite UAC (unique), une console qui affiche chaque étape, puis propose le redémarrage. | Administrateur |
 
 **Installation** : exécutez `RoomEqDriverSetup` (acceptez l'UAC), redémarrez
-quand il le propose, puis lancez `RoomEq-…-win-x64.exe`. Aucune manipulation
-PowerShell, aucun `msiexec` — les étapes (certificat de test, mode test,
-magasin de pilotes, périphérique `ROOT\ROOMEQVAD`, ASIO dans
-`C:\Program Files\RoomEq` + clés de registre) s'enchaînent dans la console
-avec un message par étape.
+quand il le propose, puis lancez `RoomEq-…-win-x64.exe` (portable) **ou**
+`RoomEqAppSetup` (installée). Aucune manipulation PowerShell, aucun
+`msiexec` — les étapes (certificat de test, mode test, magasin de pilotes,
+périphérique `ROOT\ROOMEQVAD`, ASIO dans `C:\Program Files\RoomEq` + clés
+de registre) s'enchaînent dans la console avec un message par étape.
 
 Options en ligne de commande de `RoomEqDriverSetup` :
 `--status` (état de la machine : Secure Boot, mode test, pilote, périphérique,
 ASIO — sans rien modifier) et `--uninstall` (retrait complet : périphérique,
 paquet, certificat, ASIO — non bloquant).
+
+**Version installable de l'application (`RoomEqAppSetup`)** : double-cliquez,
+répondez aux deux questions (raccourci Bureau, démarrage automatique — Oui
+par défaut) et c'est fini — l'application se retrouve dans le Menu Démarrer,
+« Applications & fonctionnalités » et, si accepté, se lance à chaque ouverture
+de session (visible et désactivable dans le Gestionnaire des tâches →
+« Applications au démarrage », ou via `RoomEqAppSetup --uninstall` qui retire
+raccourcis, démarrage auto et fichiers — les réglages et mesures dans
+`%APPDATA%\RoomEq` sont conservés). Options : `--status`, `--uninstall`,
+`--no-autostart`, `--no-desktop`, `--help`. Réinstallation sans risque : tout
+est écrasé proprement (mise à jour).
 
 **Limites inchangées** : le pilote reste signé-test → le **Secure Boot**
 doit être désactivé pour que le mode test puisse s'activer (le programme le

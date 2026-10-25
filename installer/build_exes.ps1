@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    Assemble la distribution « 2 executables » RoomEq (sans MSI).
+    Assemble la distribution « executables » RoomEq (sans MSI) :
+    application portable + setup applicatif + setup pilote.
 
 .DESCRIPTION
     Produit dans installer\build\ :
@@ -10,7 +11,13 @@
       - RoomEqDriverSetup-<version>.exe : installateur de la carte son
         virtuelle + ASIO en un seul fichier (les fichiers pilote sont
         embarques en ressource ; une invite UAC, sortie console detaillee,
-        --status / --uninstall disponibles).
+        --status / --uninstall disponibles) ;
+      - RoomEqAppSetup-<version>.exe : version INSTALLABLE de l'application
+        (l'exe portable est embarque en ressource). Installation par
+        utilisateur dans %LOCALAPPDATA%\Programs\RoomEq sans UAC : raccourcis
+        Menu Demarrer/Bureau, lancement automatique au demarrage de Windows
+        (cle HKCU Run), entree « Applications & fonctionnalites » avec
+        desinstalleur ; --status / --uninstall disponibles.
 
     Prerequis :
       - SDK .NET 8 (dotnet)
@@ -92,4 +99,23 @@ $setupExe = Join-Path $build "RoomEqDriverSetup-$version.exe"
 Copy-Item $setupSrc $setupExe -Force
 Write-Host "    setup pilote : $setupExe ($([Math]::Round((Get-Item $setupExe).Length / 1KB)) Ko)" -ForegroundColor Green
 
-Write-Host "==> Distribution 2 executables prete dans $build" -ForegroundColor Green
+# ── 5) version installable de l'application (payload = exe portable) ───────
+$appProj    = Join-Path $PSScriptRoot 'app-setup'
+$appPayload = Join-Path $appProj 'payload'
+New-Item -ItemType Directory -Force -Path $appPayload | Out-Null
+Get-ChildItem $appPayload -File -ErrorAction SilentlyContinue | Remove-Item -Force
+Copy-Item $appExe (Join-Path $appPayload 'RoomEq-portable.exe') -Force
+
+dotnet build $appProj -c Release
+if ($LASTEXITCODE -ne 0) { throw 'Compilation de RoomEqAppSetup a echoue.' }
+
+$appSetupSrc = Join-Path $appProj 'bin\Release\net472\RoomEqAppSetup.exe'
+if (-not (Test-Path $appSetupSrc)) { throw "RoomEqAppSetup.exe introuvable apres build : $appSetupSrc" }
+$appSetupExe = Join-Path $build "RoomEqAppSetup-$version.exe"
+Copy-Item $appSetupSrc $appSetupExe -Force
+if ((Get-Item $appSetupExe).Length -lt (Get-Item $appExe).Length) {
+    throw 'RoomEqAppSetup.exe semble ne pas embarquer l application portable (taille < payload).'
+}
+Write-Host "    setup appli  : $appSetupExe ($([Math]::Round((Get-Item $appSetupExe).Length / 1MB, 1)) Mo)" -ForegroundColor Green
+
+Write-Host "==> Distribution prete dans $build (app portable + setup appli + setup pilote)" -ForegroundColor Green

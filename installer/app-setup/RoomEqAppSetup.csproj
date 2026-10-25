@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>RoomEqAppSetup</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 64 bits : homogene avec le reste de la distribution (le contenu n'en
+         depend pas, mais on evite toute surprise WOW64 sur les chemins). -->
+    <PlatformTarget>x64</PlatformTarget>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <!-- icone partagee avec l'application -->
+    <ApplicationIcon>..\..\src\RoomEq.App\Assets\roomeq.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- assemblys de reference .NET Framework : permet de compiler sous
+         Linux/CI sans Mono (meme recette que driver-setup) -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Charge utile embarquee : build_exes.ps1 copie l'application portable
+       publiee (RoomEq-<version>-win-x64.exe) dans payload\RoomEq-portable.exe
+       AVANT dotnet build. Nom logique fixe : Program.cs le lit tel quel.
+       La condition permet de compiler le projet "a vide" (le programme
+       signale alors proprement l'absence de charge utile au lancement). -->
+  <ItemGroup>
+    <EmbeddedResource Include="payload\RoomEq-portable.exe" LogicalName="RoomEq-portable.exe"
+                      Condition="Exists('payload\RoomEq-portable.exe')" />
+  </ItemGroup>
+
+</Project>

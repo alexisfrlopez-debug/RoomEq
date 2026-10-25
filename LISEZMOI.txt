@@ -14,16 +14,28 @@ Plus AUCUNE application tierce (câble audio virtuel, console externe) :
     sort sur la vraie carte son (48 kHz stéréo).
   • INSTALLATEUR MSI complet (application + pilote + ASIO) : RoomEq-2.0.0-
     win-x64.msi — Programs and Features, désinstallation propre.
+  • Distribution « exécutables » sans MSI : application PORTABLE (un seul
+    fichier), application INSTALLABLE (RoomEqAppSetup : raccourcis +
+    lancement automatique au démarrage de Windows, sans UAC) et setup
+    pilote/ASIO (RoomEqDriverSetup) — voir INSTALLATION-PILOTE.md.
   • Boucle WASAPI conservée comme solution sans pilote (aucune installation).
 
 INSTALLATION
 ------------
-2 EXECUTABLES (recommande si Windows bloque le MSI) :
+EXECUTABLES (recommande si Windows bloque le MSI) :
     1) RoomEqDriverSetup-2.0.0.exe : la carte son + l'ASIO en un fichier
        (pilote embarque). Double-clic -> UAC -> chaque etape s'affiche en
        console, redemarrage propose a la fin. Options : --status / --uninstall.
     2) RoomEq-2.0.0-win-x64.exe : l'application PORTABLE en un seul fichier
        (~45 Mo) — aucune installation, aucun UAC.
+    3) RoomEqAppSetup-2.0.0.exe : la meme application en version INSTALLABLE
+       (l'exe portable est embarque dedans) — installation sans UAC dans
+       %LOCALAPPDATA%\Programs\RoomEq, raccourcis Menu Demarrer/Bureau,
+       LANCEMENT AUTOMATIQUE AU DEMARRAGE DE WINDOWS (propose, desactivable),
+       entree « Applications & fonctionnalites » avec desinstalleur.
+       Options : --status / --uninstall / --no-autostart / --no-desktop.
+       Reglages et mesures (%APPDATA%\RoomEq) partages avec la version
+       portable et conserves a la desinstallation.
 MSI (voie historique) : double-clic, acceptez l'invite administrateur — TOUT est
     automatique : certificat de test, mode test Windows (redémarrage proposé
     si nécessaire), pilote, périphérique « RoomEq Virtual Audio » et ASIO.

@@ -49,7 +49,8 @@ micprofiles/*.json
 .DS_Store
 Thumbs.db
 
-# ---- Distribution « 2 executables » ----
-# payload pilote copie dans installer/driver-setup/payload par build_exes.ps1
-# (jamais commite : provient de l'artefact CI ou d'un build local WDK)
+# ---- Distribution « executables » ----
+# payloads copies par build_exes.ps1 (jamais commites : proviennent des
+# artefacts CI ou de builds locaux ; l'exe portable embarque fait ~45 Mo)
 installer/driver-setup/payload/
+installer/app-setup/payload/
