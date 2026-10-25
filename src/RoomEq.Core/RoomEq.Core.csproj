@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- M-DSP-*, M-EQ-*, M-CAL-*, M-HPH-*, M-IO-* — cœur pur, ZÉRO dépendance
+       tierce (règle héritée v2, test NoThirdPartyReferences conservé). -->
+  <PropertyGroup>
+    <Description>RoomEq.Core v3 : DSP, égalisation, calibration acoustique — zéro dépendance tierce.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Calibration\MicLibrary.json" />
+    <EmbeddedResource Include="Headphones\headphone_presets.json" />
+    <InternalsVisibleTo Include="RoomEq.Core.Tests" />
+  </ItemGroup>
+
+</Project>

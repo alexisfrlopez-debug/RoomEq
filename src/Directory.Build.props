@@ -1,0 +1,17 @@
+<Project>
+
+  <!-- Gouvernance TRIADE : tout fichier de src/ appartient à un module de la
+       CARTE.md et à une spec I/. Version 3.0.0 = recodage complet (D6). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>3.0.0</Version>
+    <Authors>RoomEq</Authors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn)</NoWarn>
+  </PropertyGroup>
+
+</Project>

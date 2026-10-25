@@ -1,0 +1,329 @@
+{
+  "note": "Courbes typiques constructeur (approximation publiée, dB relatifs à 1 kHz) — à affiner avec le fichier de calibration individuel du micro si disponible.",
+  "profiles": [
+    {
+      "name": "miniDSP UMIK-1",
+      "brand": "miniDSP",
+      "technology": "Électret condensateur (USB)",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Micro de mesure USB de référence du marché. Courbe 0° typique : plat jusqu'à 5 kHz, léger affaiblissement au-dessus de 10 kHz.",
+      "points": [[20, 0.3], [30, 0.2], [50, 0.1], [100, 0.05], [200, 0.0], [500, 0.0], [1000, 0.0], [2000, 0.2], [3000, 0.3], [4000, 0.2], [6000, -0.3], [8000, -0.8], [10000, -1.2], [12500, -1.6], [16000, -2.2], [20000, -3.0]]
+    },
+    {
+      "name": "miniDSP UMIK-2",
+      "brand": "miniDSP",
+      "technology": "Condensateur vrai (USB)",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Successeur du UMIK-1, capsule plus étendue : réponse plus plate dans les aigus, bruit de fond réduit.",
+      "points": [[20, 0.2], [50, 0.1], [200, 0.0], [1000, 0.0], [2000, 0.1], [4000, 0.1], [6000, -0.2], [8000, -0.5], [10000, -0.7], [12500, -1.0], [16000, -1.5], [20000, -2.2]]
+    },
+    {
+      "name": "Dayton Audio EMM-6",
+      "brand": "Dayton Audio",
+      "technology": "Électret condensateur",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Micro de mesure très populaire, alimentation fantôme 48 V. Petite bosse de présence vers 5 kHz.",
+      "points": [[20, 0.5], [50, 0.2], [200, 0.0], [1000, 0.0], [2000, 0.2], [4000, 0.4], [5000, 0.5], [6000, 0.2], [8000, -0.6], [10000, -1.0], [12500, -1.6], [16000, -2.4], [20000, -3.5]]
+    },
+    {
+      "name": "Dayton Audio iMM-6",
+      "brand": "Dayton Audio",
+      "technology": "Électret condensateur (prise casque)",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Version économique pour smartphone (prise combinée). Précision correcte jusqu'à 8 kHz, calibrage individuel conseillé.",
+      "points": [[50, 0.8], [100, 0.3], [200, 0.0], [1000, 0.0], [2000, 0.4], [4000, 0.6], [6000, 0.3], [8000, -1.0], [10000, -1.8], [12500, -2.6], [16000, -3.8], [20000, -5.0]]
+    },
+    {
+      "name": "iSEMcon EMX-7150",
+      "brand": "iSEMcon",
+      "technology": "Condensateur vrai",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Micro de mesure professionnel compact, très plate et régulière, utilisé en sonorisation.",
+      "points": [[20, 0.4], [50, 0.1], [200, 0.0], [1000, 0.0], [2000, 0.1], [4000, 0.2], [6000, 0.1], [8000, -0.3], [10000, -0.5], [12500, -0.8], [16000, -1.3], [20000, -2.0]]
+    },
+    {
+      "name": "Behringer ECM8000",
+      "brand": "Behringer",
+      "technology": "Électret condensateur",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Le micro de mesure d'entrée de gamme le plus répandu. Douce baisse progressive au-dessus de 8 kHz.",
+      "points": [[20, 0.6], [50, 0.2], [200, 0.0], [1000, 0.0], [2000, 0.2], [4000, 0.3], [6000, 0.1], [8000, -0.5], [10000, -1.0], [12000, -1.5], [14000, -2.0], [16000, -2.6], [20000, -3.8]]
+    },
+    {
+      "name": "Superlux ECM999",
+      "brand": "Superlux",
+      "technology": "Électret condensateur",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Alternative économique à l'ECM8000, bosse légère vers 3 kHz et aigus plus doux.",
+      "points": [[20, 0.8], [50, 0.3], [200, 0.0], [1000, 0.0], [2000, 0.3], [3000, 0.5], [4000, 0.4], [6000, -0.2], [8000, -1.0], [10000, -1.6], [12500, -2.2], [16000, -3.0], [20000, -4.2]]
+    },
+    {
+      "name": "the t.bone EM 700",
+      "brand": "the t.bone",
+      "technology": "Électret condensateur",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Micro de mesure distribué en Europe, profil proche de l'ECM8000.",
+      "points": [[20, 0.7], [50, 0.2], [200, 0.0], [1000, 0.0], [2000, 0.2], [4000, 0.4], [6000, 0.0], [8000, -0.7], [10000, -1.2], [12500, -1.8], [16000, -2.6], [20000, -3.8]]
+    },
+    {
+      "name": "Audix TM1",
+      "brand": "Audix",
+      "technology": "Électret condensateur",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Micro de mesure premium livré avec certificat individuel, exceptionnellement régulier.",
+      "points": [[20, 0.3], [50, 0.1], [200, 0.0], [1000, 0.0], [2000, 0.15], [4000, 0.2], [6000, 0.1], [8000, -0.2], [10000, -0.4], [12500, -0.7], [16000, -1.2], [20000, -1.9]]
+    },
+    {
+      "name": "Earthworks M23",
+      "brand": "Earthworks",
+      "technology": "Condensateur vrai (polarisation externe)",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Référence haute de gamme : plat de 5 Hz à 23 kHz, transitoires exemplaires.",
+      "points": [[20, 0.2], [50, 0.1], [200, 0.0], [1000, 0.0], [2000, 0.0], [4000, 0.1], [6000, 0.1], [8000, 0.1], [10000, 0.1], [12500, 0.1], [16000, 0.0], [20000, -0.5]]
+    },
+    {
+      "name": "Earthworks M30",
+      "brand": "Earthworks",
+      "technology": "Condensateur vrai (polarisation externe)",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Micro de mesure 30 kHz pour laboratoire et studios d'exigence maximale.",
+      "points": [[20, 0.3], [50, 0.1], [200, 0.0], [1000, 0.0], [4000, 0.1], [8000, 0.1], [12500, 0.15], [16000, 0.1], [20000, -0.3]]
+    },
+    {
+      "name": "Earthworks QTC40",
+      "brand": "Earthworks",
+      "technology": "Condensateur vrai",
+      "active": true,
+      "usage": "mesure / studio",
+      "notes": "Capsule omnidirectionnelle très silencieuse, réponse quasi mathématique.",
+      "points": [[20, 0.4], [50, 0.1], [200, 0.0], [1000, 0.0], [4000, 0.1], [8000, 0.15], [12500, 0.2], [16000, 0.1], [20000, -0.4]]
+    },
+    {
+      "name": "dbx RTA-M",
+      "brand": "dbx",
+      "technology": "Électret condensateur",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Livré avec les processeurs DriveRack, calibré pour l'analyse temps réel dbx.",
+      "points": [[20, 0.8], [50, 0.3], [200, 0.0], [1000, 0.0], [2000, 0.3], [4000, 0.5], [6000, 0.2], [8000, -0.5], [10000, -1.1], [12500, -1.7], [16000, -2.5], [20000, -3.6]]
+    },
+    {
+      "name": "Sonarworks XREF 20",
+      "brand": "Sonarworks",
+      "technology": "Électret condensateur",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Micro de calibration fourni avec SoundID Reference, courbe contrôlée en usine.",
+      "points": [[20, 0.5], [50, 0.15], [200, 0.0], [1000, 0.0], [2000, 0.1], [4000, 0.2], [6000, 0.05], [8000, -0.4], [10000, -0.8], [12500, -1.2], [16000, -1.8], [20000, -2.6]]
+    },
+    {
+      "name": "Sennheiser MKH 8040",
+      "brand": "Sennheiser",
+      "technology": "Condensateur RF",
+      "active": true,
+      "usage": "studio / mesure",
+      "notes": "Technologie RF très insensible à l'humidité, réponse étendue avec légère montée d'aigus.",
+      "points": [[20, 1.0], [40, 0.4], [100, 0.1], [200, 0.0], [1000, 0.0], [2000, 0.2], [4000, 0.4], [6000, 0.5], [8000, 0.4], [10000, 0.2], [12500, 0.0], [16000, -0.8], [20000, -2.0]]
+    },
+    {
+      "name": "AKG C414 XLII",
+      "brand": "AKG",
+      "technology": "Condensateur vrai (grand diaphragme)",
+      "active": true,
+      "usage": "studio",
+      "notes": "Légende multi-motifs avec sonorité façon C12 : présence douce vers 3-5 kHz.",
+      "points": [[30, 0.8], [50, 0.4], [100, 0.1], [200, 0.0], [1000, 0.0], [2000, 0.5], [3000, 1.0], [4000, 1.2], [5000, 1.0], [6000, 0.6], [8000, 0.3], [10000, 0.5], [12500, 0.8], [16000, 0.2], [20000, -1.5]]
+    },
+    {
+      "name": "Neumann TLM 103",
+      "brand": "Neumann",
+      "technology": "Condensateur vrai (grand diaphragme)",
+      "active": true,
+      "usage": "studio",
+      "notes": "Bosse de présence caractéristique autour de 8-12 kHz, très faible bruit propre.",
+      "points": [[20, 0.6], [50, 0.2], [100, 0.05], [200, 0.0], [1000, 0.0], [2000, 0.4], [4000, 0.8], [6000, 1.2], [8000, 1.6], [10000, 1.8], [12000, 1.5], [14000, 0.8], [16000, 0.0], [20000, -2.0]]
+    },
+    {
+      "name": "Neumann KM 184",
+      "brand": "Neumann",
+      "technology": "Condensateur vrai (petit diaphragme)",
+      "active": true,
+      "usage": "studio",
+      "notes": "Cardioïde compact de référence, légère présence 4-6 kHz et pointe douce à 12 kHz.",
+      "points": [[20, 1.0], [50, 0.3], [200, 0.0], [1000, 0.0], [2000, 0.3], [3000, 0.6], [4000, 0.8], [5000, 0.6], [6000, 0.3], [8000, 0.2], [10000, 0.6], [12500, 0.8], [16000, -0.5], [20000, -2.5]]
+    },
+    {
+      "name": "Shure SM57",
+      "brand": "Shure",
+      "technology": "Dynamique (passif)",
+      "active": false,
+      "usage": "instrument / voix",
+      "notes": "Le micro dynamique le plus vendu au monde : atténuation des graves, bosse de présence 4-6 kHz.",
+      "points": [[50, -6.0], [100, -3.0], [200, -1.2], [400, -0.4], [1000, 0.0], [2000, 1.5], [3000, 2.8], [4000, 3.6], [5000, 4.0], [6000, 3.8], [8000, 2.5], [9000, 1.5], [10000, 0.5], [12000, -1.5], [15000, -4.0], [20000, -8.0]]
+    },
+    {
+      "name": "Shure SM58",
+      "brand": "Shure",
+      "technology": "Dynamique (passif)",
+      "active": false,
+      "usage": "voix",
+      "notes": "Standard vocal scénique : filtre anti-pop et bosse de présence légèrement adoucie par la grille.",
+      "points": [[50, -7.0], [100, -3.5], [200, -1.5], [400, -0.5], [1000, 0.0], [2000, 1.2], [3000, 2.4], [4000, 3.4], [5000, 3.8], [6000, 3.2], [8000, 1.8], [10000, 0.2], [12000, -2.0], [15000, -5.0], [20000, -9.0]]
+    },
+    {
+      "name": "Shure SM7B",
+      "brand": "Shure",
+      "technology": "Dynamique (passif)",
+      "active": false,
+      "usage": "voix / podcast",
+      "notes": "Dynamique de studio : réponse douce, présence contrôlée, très bon rejet des bruits mécaniques.",
+      "points": [[50, -8.0], [100, -4.0], [200, -1.5], [500, -0.3], [1000, 0.0], [2000, 0.8], [3000, 1.6], [4000, 2.6], [5000, 3.0], [6000, 2.6], [8000, 1.4], [10000, 0.5], [12000, -0.8], [15000, -3.0], [20000, -6.5]]
+    },
+    {
+      "name": "Sennheiser e945",
+      "brand": "Sennheiser",
+      "technology": "Dynamique (passif)",
+      "active": false,
+      "usage": "voix",
+      "notes": "Supercardioïde dynamique vocal : présence régulière, excellente inteligibilité.",
+      "points": [[50, -6.0], [100, -2.5], [200, -1.0], [400, -0.3], [1000, 0.0], [2000, 1.0], [3000, 1.8], [4000, 2.2], [5000, 1.8], [6000, 1.0], [8000, 0.4], [10000, -0.5], [12000, -2.0], [15000, -4.5], [20000, -8.5]]
+    },
+    {
+      "name": "Sennheiser MD 421 II",
+      "brand": "Sennheiser",
+      "technology": "Dynamique (passif)",
+      "active": false,
+      "usage": "instrument / studio",
+      "notes": "Classique d'ampli guitare et grosse caisse : média avant, 5 sélecteurs de basses.",
+      "points": [[40, -3.0], [80, -1.0], [160, 0.0], [400, 0.0], [1000, 0.0], [2000, 0.8], [3000, 1.5], [4000, 1.8], [5000, 1.5], [6000, 1.0], [8000, 0.4], [10000, -0.6], [12000, -2.0], [16000, -4.5], [20000, -7.5]]
+    },
+    {
+      "name": "Electro-Voice RE20",
+      "brand": "Electro-Voice",
+      "technology": "Dynamique (passif)",
+      "active": false,
+      "usage": "voix / broadcast",
+      "notes": "Variable-D sans effet de proximité : la dynamique la plus plate du marché.",
+      "points": [[40, -3.5], [100, -1.2], [200, -0.3], [400, 0.0], [1000, 0.0], [2000, 0.5], [3000, 0.8], [4000, 1.0], [5000, 0.9], [6000, 0.6], [8000, 0.2], [10000, -0.5], [12000, -1.6], [15000, -3.2], [20000, -6.0]]
+    },
+    {
+      "name": "Audio-Technica AT2020",
+      "brand": "Audio-Technica",
+      "technology": "Condensateur vrai (grand diaphragme)",
+      "active": true,
+      "usage": "studio",
+      "notes": "Entrée de gamme exemplaire : légère montée d'aigus au-dessus de 5 kHz.",
+      "points": [[30, 0.8], [60, 0.3], [200, 0.0], [1000, 0.0], [2000, 0.4], [4000, 0.8], [5000, 1.0], [6000, 0.8], [8000, 0.6], [10000, 0.8], [12500, 1.0], [15000, 0.2], [20000, -2.0]]
+    },
+    {
+      "name": "Audio-Technica AT4050",
+      "brand": "Audio-Technica",
+      "technology": "Condensateur vrai (double diaphragme)",
+      "active": true,
+      "usage": "studio",
+      "notes": "Multi-motifs transparent et régulier, aigus soignés.",
+      "points": [[30, 0.6], [60, 0.2], [200, 0.0], [1000, 0.0], [2000, 0.3], [4000, 0.5], [6000, 0.5], [8000, 0.4], [10000, 0.3], [12500, 0.2], [16000, -0.5], [20000, -2.2]]
+    },
+    {
+      "name": "Røde NT1-A",
+      "brand": "Røde",
+      "technology": "Condensateur vrai (grand diaphragme)",
+      "active": true,
+      "usage": "studio",
+      "notes": "Très faible bruit propre : pointe d'aigus douce vers 10-12 kHz.",
+      "points": [[30, 0.8], [60, 0.3], [200, 0.0], [1000, 0.0], [2000, 0.3], [4000, 0.5], [6000, 0.6], [8000, 0.8], [10000, 1.4], [11000, 1.6], [12500, 1.2], [14000, 0.4], [16000, -0.8], [20000, -3.0]]
+    },
+    {
+      "name": "Røde NT5",
+      "brand": "Røde",
+      "technology": "Condensateur vrai (petit diaphragme)",
+      "active": true,
+      "usage": "studio / prise de son",
+      "notes": "Cardioïde compact pour couple stéréo, réponse régulière avec aigus ouverts.",
+      "points": [[30, 0.7], [60, 0.2], [200, 0.0], [1000, 0.0], [2000, 0.3], [4000, 0.6], [6000, 0.6], [8000, 0.4], [10000, 0.3], [12500, 0.4], [16000, -0.6], [20000, -2.8]]
+    },
+    {
+      "name": "Lewitt LCT 440 Pure",
+      "brand": "Lewitt",
+      "technology": "Condensateur vrai (grand diaphragme)",
+      "active": true,
+      "usage": "studio",
+      "notes": "Grand diaphragme moderne très équilibré, aigus doux.",
+      "points": [[30, 0.6], [60, 0.2], [200, 0.0], [1000, 0.0], [2000, 0.3], [4000, 0.6], [6000, 0.7], [8000, 0.5], [10000, 0.4], [12500, 0.5], [16000, -0.4], [20000, -2.4]]
+    },
+    {
+      "name": "sE Electronics sE7",
+      "brand": "sE Electronics",
+      "technology": "Condensateur vrai (petit diaphragme)",
+      "active": true,
+      "usage": "studio",
+      "notes": "Petit condensateur économique au comportement très honnête.",
+      "points": [[40, 0.8], [100, 0.2], [200, 0.0], [1000, 0.0], [2000, 0.3], [4000, 0.5], [6000, 0.4], [8000, 0.2], [10000, 0.4], [12500, 0.6], [16000, -0.5], [20000, -2.8]]
+    },
+    {
+      "name": "beyerdynamic M 160",
+      "brand": "beyerdynamic",
+      "technology": "Ruban (hypercardioïde, passif)",
+      "active": false,
+      "usage": "studio / instrument",
+      "notes": "Ruban rare en hypercardioïde : sonorité sombre et douce, aigus roulés.",
+      "points": [[40, -4.0], [100, -1.5], [200, -0.5], [400, 0.0], [1000, 0.0], [2000, 0.4], [3000, 0.6], [4000, 0.5], [5000, 0.2], [6000, -0.4], [8000, -1.6], [10000, -3.0], [12500, -5.0], [16000, -7.5], [20000, -11.0]]
+    },
+    {
+      "name": "Royer R-121",
+      "brand": "Royer",
+      "technology": "Ruban (bidirectionnel, passif)",
+      "active": false,
+      "usage": "studio / ampli guitare",
+      "notes": "Ruban de référence : réponse naturelle vers le grave, montée douce et rolloff d'aigus marqué.",
+      "points": [[40, -4.5], [80, -2.0], [160, -0.6], [500, -0.1], [1000, 0.0], [2000, 0.3], [3000, 0.2], [4000, -0.4], [5000, -1.0], [6000, -1.8], [8000, -3.4], [10000, -5.5], [12500, -8.0], [16000, -11.0], [20000, -15.0]]
+    },
+    {
+      "name": "DPA 4006A",
+      "brand": "DPA",
+      "technology": "Condensateur vrai (référence)",
+      "active": true,
+      "usage": "mesure / prise de son",
+      "notes": "Omnidirectionnel de laboratoire danois : l'une des réponses les plus plates jamais mesurées.",
+      "points": [[20, 0.4], [50, 0.1], [200, 0.0], [1000, 0.0], [2000, 0.15], [4000, 0.3], [6000, 0.4], [8000, 0.35], [10000, 0.2], [12500, 0.0], [16000, -0.8], [20000, -2.4]]
+    },
+    {
+      "name": "IK Multimedia ARC Mic 2",
+      "brand": "IK Multimedia",
+      "technology": "Électret condensateur (USB)",
+      "active": true,
+      "usage": "mesure",
+      "notes": "Micro de calibration fourni avec ARC System, profil proche des UMIK.",
+      "points": [[20, 0.6], [50, 0.2], [200, 0.0], [1000, 0.0], [2000, 0.2], [4000, 0.3], [6000, 0.0], [8000, -0.6], [10000, -1.1], [12500, -1.6], [16000, -2.3], [20000, -3.2]]
+    },
+    {
+      "name": "Sennheiser MKH 416",
+      "brand": "Sennheiser",
+      "technology": "Condensateur RF (interférence)",
+      "active": true,
+      "usage": "cinéma / broadcast",
+      "notes": "Le canon RF le plus célèbre : présence marquée vers 5 kHz, directivité forte.",
+      "points": [[30, 1.2], [60, 0.5], [200, 0.0], [1000, 0.0], [2000, 0.6], [3000, 1.2], [4000, 1.6], [5000, 1.8], [6000, 1.4], [8000, 0.8], [10000, 0.5], [12500, 0.3], [16000, -1.0], [20000, -3.5]]
+    },
+    {
+      "name": "Micro plat (aucune correction)",
+      "brand": "RoomEq",
+      "technology": "Profil générique",
+      "active": false,
+      "usage": "profil de départ",
+      "notes": "Profil vierge parfaitement plat : point de départ pour créer un profil spécialisé ou pour un micro déjà calibré individuellement.",
+      "points": [[20, 0.0], [50, 0.0], [200, 0.0], [1000, 0.0], [4000, 0.0], [8000, 0.0], [16000, 0.0], [20000, 0.0]]
+    }
+  ]
+}
