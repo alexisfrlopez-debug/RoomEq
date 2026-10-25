@@ -21,11 +21,13 @@ dans la table ci-dessous, puis suivez la section correspondante.
 > logiciel inconnu téléchargé d'Internet : il met des garde-fous, mais
 > **tous se contournent en quelques clics** quand on sait où cliquer.
 
-> **Alternative sans MSI (oct. 2026)** : une distribution « 2 exécutables »
+> **Alternative sans MSI (oct. 2026)** : une distribution « exécutables »
 > existe désormais — `RoomEq-…-win-x64.exe` (application portable, un seul
-> fichier) + `RoomEqDriverSetup-….exe` (pilote + ASIO embarqués, une invite
-> UAC, aucune chaîne msiexec donc plus rien à débloquer de ce qui précède).
-> Voir `INSTALLATION-PILOTE.md`, section « 2 exécutables ». Seuls restent le
+> fichier), `RoomEqAppSetup-….exe` (même application en version installable :
+> raccourcis + lancement automatique au démarrage de Windows, sans UAC) et
+> `RoomEqDriverSetup-….exe` (pilote + ASIO embarqués, une invite UAC, aucune
+> chaîne msiexec donc plus rien à débloquer de ce qui précède).
+> Voir `INSTALLATION-PILOTE.md`, section « exécutables ». Seuls restent le
 > « Débloquer » du premier lancement (cas 1) et la contrainte Secure Boot
 > (cas 5), qui disparaîtront avec la signature Microsoft.
 
