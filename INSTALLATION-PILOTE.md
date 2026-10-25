@@ -19,7 +19,38 @@ Ce document couvre l'installation du pilote de la carte son virtuelle RoomEq
 
 ## 1. Installer le pilote sur une machine (application déjà installée)
 
-### Voie recommandée : le MSI fait tout (v2.0)
+### Nouvelle voie (oct. 2026) : la distribution « 2 exécutables », sans MSI
+
+Face aux blocages de la chaîne Windows Installer chez certains utilisateurs
+(SmartScreen, puis anti-ransomware « accès contrôlé aux dossiers » qui
+interceptait `msiexec.exe` et `SrTasks.exe`), une distribution alternative
+**sans MSI** est produite par la CI :
+
+| Fichier | Rôle | Privilèges |
+|---|---|---|
+| `RoomEq-<version>-win-x64.exe` | **L'application**, portable, auto-contenue en **un seul fichier** (~45 Mo) : aucun installateur, aucun UAC, lancez-la depuis n'importe où (Bureau, dossier, clé USB). | Aucun |
+| `RoomEqDriverSetup-<version>.exe` | **La carte son virtuelle + le pilote ASIO** en un seul fichier : les fichiers pilote sont embarqués à l'intérieur. Une invite UAC (unique), une console qui affiche chaque étape, puis propose le redémarrage. | Administrateur |
+
+**Installation** : exécutez `RoomEqDriverSetup` (acceptez l'UAC), redémarrez
+quand il le propose, puis lancez `RoomEq-…-win-x64.exe`. Aucune manipulation
+PowerShell, aucun `msiexec` — les étapes (certificat de test, mode test,
+magasin de pilotes, périphérique `ROOT\ROOMEQVAD`, ASIO dans
+`C:\Program Files\RoomEq` + clés de registre) s'enchaînent dans la console
+avec un message par étape.
+
+Options en ligne de commande de `RoomEqDriverSetup` :
+`--status` (état de la machine : Secure Boot, mode test, pilote, périphérique,
+ASIO — sans rien modifier) et `--uninstall` (retrait complet : périphérique,
+paquet, certificat, ASIO — non bloquant).
+
+**Limites inchangées** : le pilote reste signé-test → le **Secure Boot**
+doit être désactivé pour que le mode test puisse s'activer (le programme le
+détecte et l'explique avant même d'essayer) ; le téléchargement depuis
+Internet déclenche toujours l'avertissement SmartScreen sur le premier
+lancement (clic droit → Propriétés → « Débloquer »). Ces deux limites
+disparaîtront avec la signature Microsoft (voie B ci-dessous).
+
+### Voie historique : le MSI fait tout (v2.0)
 
 L'installateur **`RoomEq-<version>-win-x64.msi`** installe **tout en un
 clic** — application, carte virtuelle, ASIO — sans aucune étape manuelle :

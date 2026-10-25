@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>RoomEqDriverSetup</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 64 bits obligatoire : les cles HKLM de l'enregistrement ASIO et les
+         appels SetupAPI ne doivent pas passer par la vue WOW6432Node. -->
+    <PlatformTarget>x64</PlatformTarget>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <!-- icone partagee avec l'application -->
+    <ApplicationIcon>..\..\src\RoomEq.App\Assets\roomeq.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- assemblys de reference .NET Framework : permet de compiler sous
+         Linux/CI sans Mono (meme recette que RoomEq.Installer.CA) -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- X509Store (import du certificat de test) -->
+    <Reference Include="System.Security" />
+    <!-- pre-diagnostic Secure Boot via WMI (root\Microsoft\Windows\SecureBoot) -->
+    <Reference Include="System.Management" />
+  </ItemGroup>
+
+  <!-- Payload embarque : la CI (ou un dev) copie les fichiers pilote dans
+       payload\ AVANT dotnet build (voir installer/build_exes.ps1). Les noms
+       logiques sont fixes : Program.cs les lit tels quels.
+       Le .cer est OPTIONNEL : un build « officiellement signe » (Microsoft)
+       n'en embarque pas -> le setup saute certificat + mode test + reboot. -->
+  <ItemGroup>
+    <EmbeddedResource Include="payload\roomeqvad.inf" LogicalName="roomeqvad.inf" />
+    <EmbeddedResource Include="payload\roomeqvad.sys" LogicalName="roomeqvad.sys" />
+    <EmbeddedResource Include="payload\roomeqvad.cat" LogicalName="roomeqvad.cat" />
+    <EmbeddedResource Include="payload\RoomEqAsio64.dll" LogicalName="RoomEqAsio64.dll" />
+    <EmbeddedResource Include="payload\RoomEq-TestSigning.cer" LogicalName="RoomEq-TestSigning.cer"
+                      Condition="Exists('payload\RoomEq-TestSigning.cer')" />
+  </ItemGroup>
+
+</Project>

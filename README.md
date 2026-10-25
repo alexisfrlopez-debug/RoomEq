@@ -42,7 +42,16 @@ RoomEq est une application de bureau qui combine **égaliseur paramétrique**, *
 
 ## Installation et lancement
 
-### Installateur MSI (recommandé)
+### Distribution « 2 exécutables » (recommandée si Windows bloque le MSI)
+
+Deux fichiers, zéro manipulation PowerShell, zéro `msiexec` :
+
+1. **`RoomEqDriverSetup-2.0.0.exe`** — la carte son virtuelle + le pilote ASIO, pilote embarqué à l'intérieur du fichier. Double-clic → UAC → la console affiche chaque étape (certificat, mode test, pilote, périphérique, ASIO) puis propose le redémarrage. Options : `--status` (état), `--uninstall` (retrait complet).
+2. **`RoomEq-2.0.0-win-x64.exe`** — l'application entière en **un seul fichier portable** (~45 Mo) : aucune installation, aucun UAC, lancez-la depuis le Bureau ou une clé USB.
+
+> Premier lancement après téléchargement : clic droit → Propriétés → « Débloquer » (SmartScreen, voir `TROUBLESHOOT-INSTALLATION.md`). Le **Secure Boot** doit être désactivé tant que le pilote est signé-test (le setup le détecte et l'explique).
+
+### Installateur MSI (voie historique)
 
 1. Téléchargez `RoomEq-2.0.0-win-x64.msi` (GitHub → Actions/Releases) et double-cliquez.
 2. Acceptez l'invite administrateur — **c'est tout**. L'installateur déploie l'application dans `Program Files\RoomEq` (runtime .NET 8 embarqué, aucun logiciel tiers), puis installe la **carte son virtuelle RoomEq** de bout en bout : certificat de signature de test importé, mode test de Windows activé (redémarrage proposé si nécessaire), pilote `roomeqvad` ajouté au magasin Windows, périphérique virtuel créé, et **pilote ASIO « RoomEq ASIO »** enregistré pour vos DAW.

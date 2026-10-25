@@ -48,3 +48,8 @@ micprofiles/*.json
 # ---- Système ----
 .DS_Store
 Thumbs.db
+
+# ---- Distribution « 2 executables » ----
+# payload pilote copie dans installer/driver-setup/payload par build_exes.ps1
+# (jamais commite : provient de l'artefact CI ou d'un build local WDK)
+installer/driver-setup/payload/

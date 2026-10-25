@@ -210,6 +210,66 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   # ─────────────────────────────────────────────────────────────────────
+  # 3b. Executables « sans MSI » : application portable (fichier unique)
+  #      + setup pilote autonome (fichiers pilote embarques). Contourne
+  #      toute la chaine msiexec/Windows Installer (demande utilisateur
+  #      apres blocages CFA sur msiexec/SrTasks).
+  # ─────────────────────────────────────────────────────────────────────
+  exes:
+    name: Executables (app portable + pilote)
+    runs-on: windows-latest
+    needs: [tests, driver]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Récupérer l'artefact pilote + ASIO
+        uses: actions/download-artifact@v4
+        with:
+          name: roomeq-driver-${{ github.sha }}
+          path: ci-driver
+
+      - name: Assembler les 2 executables
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File installer\build_exes.ps1 `
+            -DriverDir ci-driver\driver `
+            -AsioDll ci-driver\RoomEqAsio64.dll
+
+      - name: Vérifier les executables
+        shell: pwsh
+        run: |
+          $exe1 = Get-Item 'installer\build\RoomEq-*-win-x64.exe' | Select-Object -First 1
+          $exe2 = Get-Item 'installer\build\RoomEqDriverSetup-*.exe' | Select-Object -First 1
+          if (-not $exe1 -or -not $exe2) { throw 'Un des executables est introuvable' }
+          Get-Item $exe1.FullName, $exe2.FullName | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roomeq-exes-${{ github.sha }}
+          path: |
+            installer/build/RoomEq-*-win-x64.exe
+            installer/build/RoomEqDriverSetup-*.exe
+          if-no-files-found: error
+
+      - name: Joindre au tag (Release) si présent
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = "${env:GITHUB_REF_NAME}"
+          $exe1 = Get-Item 'installer\build\RoomEq-*-win-x64.exe' | Select-Object -First 1
+          $exe2 = Get-Item 'installer\build\RoomEqDriverSetup-*.exe' | Select-Object -First 1
+          if (-not $exe1 -or -not $exe2) { throw 'Executables introuvables pour la publication' }
+          gh release create "$tag" --draft --title "RoomEq $tag" --notes "Distribution 2 executables (sans MSI) : l'application portable (aucune installation) puis RoomEqDriverSetup (pilote + ASIO, une invite UAC). Voir INSTALLATION-PILOTE.md." "$($exe1.FullName)" "$($exe2.FullName)" || `
+          gh release upload "$tag" "$($exe1.FullName)" "$($exe2.FullName)" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # ─────────────────────────────────────────────────────────────────────
   # 4. MSIX Store : scaffolding v2.1.0 (docs/SIGNATURE-ET-STORE.md).
   #    Paquet NON signé (la soumission Store est re-signée par Microsoft) ;
   #    pilote embarqué en donnée pour l'activation au premier lancement.

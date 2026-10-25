@@ -18,7 +18,13 @@ Plus AUCUNE application tierce (câble audio virtuel, console externe) :
 
 INSTALLATION
 ------------
-MSI (recommandé) : double-clic, acceptez l'invite administrateur — TOUT est
+2 EXECUTABLES (recommande si Windows bloque le MSI) :
+    1) RoomEqDriverSetup-2.0.0.exe : la carte son + l'ASIO en un fichier
+       (pilote embarque). Double-clic -> UAC -> chaque etape s'affiche en
+       console, redemarrage propose a la fin. Options : --status / --uninstall.
+    2) RoomEq-2.0.0-win-x64.exe : l'application PORTABLE en un seul fichier
+       (~45 Mo) — aucune installation, aucun UAC.
+MSI (voie historique) : double-clic, acceptez l'invite administrateur — TOUT est
     automatique : certificat de test, mode test Windows (redémarrage proposé
     si nécessaire), pilote, périphérique « RoomEq Virtual Audio » et ASIO.
 Zip portable     : décompressez puis lancez RoomEq.exe (pilote installable
