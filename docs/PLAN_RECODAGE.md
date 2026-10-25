@@ -13,13 +13,13 @@ tests ≥ couverture legacy, build 0 erreur 0 avertissement.
 
 ## Vagues
 
-### Vague 1 — Fondations Triade (cette session, en cours)
+### Vague 1 — Fondations Triade ✅ (session 1)
 - Dépôt `roomeq/` initialisé : `I/` `src/` `tests/` `docs/` `natif/` `scripts/`
 - `CARTE.md` (37 modules + 4 natifs scellés), `docs/DECISIONS.md` (D1–D7),
   ce plan, `PROTOCOLE-AGENT.md`, `REPRISE.md`
 - SDK .NET 8 installé, solution squelette qui compile
 
-### Vague 2 — RoomEq.Core : Dsp + Eq (cœur pur)
+### Vague 2 — RoomEq.Core : Dsp + Eq ✅ (session 1, 86 tests)
 Modules M-DSP-01..07, M-EQ-01..03 — algorithmes : FFT radix-2 Cooley-Tukey,
 fenêtres Hann/Blackman-Harris/rectangulaire, biquads RBJ (6 types), bruits
 blanc/rose(Kellet)/brun/violet + sinus, ESS logarithmique Farina, analyse
@@ -27,17 +27,17 @@ spectrale (octaves, SPL), chaîne EQ temps réel avec reconfiguration sans clic.
 Tests de référence : `CoreDspTests.cs` legacy (321 lignes) + `SweepTests` +
 `EqChainRateTests` + `ChannelMixerTests`.
 
-### Vague 3 — RoomEq.Core : Calibration + Headphones
+### Vague 3 — RoomEq.Core : Calibration + Headphones ✅ (session 1, 64 tests)
 M-CAL-01..08, M-HPH-01 — analyse de balayage (déconvolution), courbe cible,
 planificateur de bandes automatique, analyse multi-signaux, métriques de
 précision, design de correction, profils micro (MicLibrary.json embarqué),
 bibliothèque presets casque AutoEq (255 modèles, JSON embarqué).
 
-### Vague 4 — RoomEq.Core : Io
+### Vague 4 — RoomEq.Core : Io ✅ (session 1, 62 tests)
 M-IO-01..05 — saveur test/public, journal diagnostic, télémétrie Drive,
 magasin de signaux téléchargés (validation SHA-256), magasins de réglages.
 
-### Vague 5 — RoomEq.Audio
+### Vague 5 — RoomEq.Audio (PROCHAINE SESSION — reprendre ici)
 M-AUD-01..06 — capture WASAPI, lecture (WASAPI partagé/exclusif), routage
 mixeur virtuel→physique, pont ASIO (shared memory), pont macOS CoreAudio,
 moteur de mesure de pièce. Dépend des natifs scellés N-DRV-01/N-ASI-01.
