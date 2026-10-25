@@ -24,8 +24,10 @@
 //  ses donnees (reglages, mesures, presets) restent dans %APPDATA%\RoomEq,
 //  communes aux deux versions et CONSERVEES a la desinstallation.
 //
-//  Le pilote (carte son virtuelle + ASIO) reste installe separement par
-//  RoomEqDriverSetup.exe : il touche des zones systeme et reclame l'UAC.
+//  v2.1.0 : RoomEqDriverSetup.exe est AUSSI embarque et pose a cote de
+//  RoomEq.exe — le bouton « Installer le pilote » de l'application le lance
+//  (il touche des zones systeme et reclame l'UAC ; le mode test n'est jamais
+//  active sans accord explicite).
 // ============================================================================
 
 using System;
@@ -41,6 +43,7 @@ namespace RoomEqAppSetup
     {
         // ---- noms / chemins -------------------------------------------------
         private const string PayloadResName = "RoomEq-portable.exe";
+        private const string DriverSetupResName = "RoomEqDriverSetup.exe";
         private const string AppExeName     = "RoomEq.exe";
         private const string SetupCopyName  = "RoomEqAppSetup.exe";
         private const string ShortcutName   = "RoomEq.lnk";
@@ -166,8 +169,8 @@ namespace RoomEqAppSetup
                 return FailStep("extraction impossible (" + ex.Message + ")");
             }
 
-            // -- 3) copie du desinstalleur --------------------------------------
-            Step(3, 6, "Desinstalleur (Applications & fonctionnalites)");
+            // -- 3) copie du desinstalleur + installateur pilote ----------------
+            Step(3, 6, "Desinstalleur + installateur pilote embarque");
             try
             {
                 string here = Assembly.GetExecutingAssembly().Location;
@@ -185,6 +188,22 @@ namespace RoomEqAppSetup
             catch (Exception ex)
             {
                 return FailStep("copie du desinstalleur impossible (" + ex.Message + ")");
+            }
+
+            // v2.1.0 : l'installateur du pilote (RoomEqDriverSetup.exe) est aussi
+            // depose a cote de RoomEq.exe — le bouton « Installer le pilote » de
+            // l'onglet Mixage le lancera directement (creation du peripherique
+            // incluse). Best effort : son absence n'empeche pas l'installation.
+            try
+            {
+                string driverSetup = Path.Combine(TargetDir, "RoomEqDriverSetup.exe");
+                long dsSize = ExtractNamedResource(DriverSetupResName, driverSetup);
+                Console.WriteLine("       -> RoomEqDriverSetup.exe pose a cote de l'application ("
+                                  + FormatSize(dsSize) + ")");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("       [SAUT] installateur pilote non embarque (" + ex.Message + ")");
             }
 
             // -- 4) raccourcis ---------------------------------------------------
@@ -300,8 +319,11 @@ namespace RoomEqAppSetup
                                                                  : "desactive"));
             Console.WriteLine("  Desinstallation : Parametres > Applications > RoomEq");
             Console.WriteLine();
-            Console.WriteLine("Le pilote (carte son virtuelle + ASIO) s'installe separement");
-            Console.WriteLine("avec RoomEqDriverSetup.exe si ce n'est pas deja fait.");
+            Console.WriteLine("Le pilote (carte son virtuelle + ASIO) s'installe depuis");
+            Console.WriteLine("RoomEqDriverSetup.exe, pose a cote de RoomEq.exe ; le");
+            Console.WriteLine("bouton « Installer le pilote RoomEq » de l'onglet Mixage");
+            Console.WriteLine("le lance aussi (il demande l'accord explicite avant tout");
+            Console.WriteLine("passage en mode test de Windows).");
             Console.WriteLine();
             Console.Write("Appuyez sur Entree pour fermer...");
             try { Console.ReadLine(); } catch { }
@@ -464,6 +486,14 @@ namespace RoomEqAppSetup
                 Console.WriteLine("  Entree de desinstallation : " + (k != null ? "presente" : "absente"));
             }
 
+            bool dsBundled = Array.IndexOf(
+                Assembly.GetExecutingAssembly().GetManifestResourceNames(), DriverSetupResName) >= 0;
+            string dsOnDisk = Path.Combine(TargetDir, "RoomEqDriverSetup.exe");
+            Console.WriteLine("  Installateur pilote       : "
+                              + (File.Exists(dsOnDisk) ? "installe a cote de l'application"
+                                                       : (dsBundled ? "embarque (reinstallez pour le poser)"
+                                                                    : "non embarque dans ce build")));
+
             Console.WriteLine();
             Console.WriteLine("Etat du pilote (carte son virtuelle) : voir RoomEqDriverSetup.exe --status");
             Console.WriteLine();
@@ -505,15 +535,19 @@ namespace RoomEqAppSetup
         /// <summary>Extrait la ressource embarquee vers target (temporaire puis
         /// remplacement atomique). Retourne la taille ecrite.</summary>
         private static long ExtractPayloadTo(string target)
+            => ExtractNamedResource(PayloadResName, target);
+
+        /// <summary>Extrait une ressource embarquee nommee vers un fichier cible (taille ecrite).</summary>
+        private static long ExtractNamedResource(string resName, string target)
         {
             using (Stream src = Assembly.GetExecutingAssembly()
-                                        .GetManifestResourceStream(PayloadResName))
+                                        .GetManifestResourceStream(resName))
             {
                 if (src == null)
                 {
                     throw new InvalidOperationException(
-                        "cet executable ne contient pas l'application embarquee ("
-                        + PayloadResName + "). Build incomplet : utilisez installer\\build_exes.ps1.");
+                        "ressource embarquee absente : " + resName
+                        + ". Build incomplet : utilisez installer\\build_exes.ps1.");
                 }
                 string tmp = target + ".new";
                 if (File.Exists(tmp)) File.Delete(tmp);

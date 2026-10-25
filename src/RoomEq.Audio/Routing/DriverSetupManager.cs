@@ -119,8 +119,33 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
     // ---------------------------------------------------------------- exécution
 
     /// <summary>
-    /// Installe le pilote RoomEq (processus élevé) puis attend l'arrivée des
-    /// périphériques. Retourne un statut lisible ; jamais d'exception.
+    /// Cherche l'installateur autonome du pilote (RoomEqDriverSetup*.exe) à côté
+    /// de l'application — distributions « portable 2 exécutables » et version
+    /// installée (RoomEqAppSetup le dépose dans le dossier d'installation).
+    /// C'est LUI qui sait tout faire : certificat, mode test (avec accord
+    /// explicite), magasin PnP, CRÉATION du périphérique ROOT\ROOMEQVAD et ASIO
+    /// — pnputil seul n'installe que le paquet, jamais le périphérique.
+    /// </summary>
+    public static string? FindBundledSetupExe(string appDirectory)
+    {
+        try
+        {
+            return Directory.GetFiles(appDirectory, "RoomEqDriverSetup*.exe")
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Installe le pilote RoomEq, puis attend l'arrivée des périphériques.
+    /// Chemin préféré : RoomEqDriverSetup.exe embarqué (installation complète,
+    /// invite administrateur unique). Repli historique : pnputil seul (paquet
+    /// sans création de périphérique — dépôt MSI d'origine).
+    /// Retourne un statut lisible ; jamais d'exception.
     /// </summary>
     public async Task<InstallResult> InstallAsync(VirtualInstallerSpec spec,
                                                   string appDirectory,
@@ -128,25 +153,66 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
                                                   CancellationToken ct)
     {
         string? inf = FindInfFile(appDirectory, spec);
-        if (inf == null)
-            return Fail("Paquet pilote introuvable : réinstallez RoomEq (l'installateur copie le dossier « driver »).");
+        string? setupExe = FindBundledSetupExe(appDirectory);
+        if (inf == null && setupExe == null)
+            return Fail("Paquet pilote introuvable : réinstallez RoomEq (l'installateur copie le dossier « driver » ou RoomEqDriverSetup.exe à côté de l'application).");
 
-        Report("Installation du pilote RoomEq… (acceptez l'invite administrateur)");
-        var psi = new ProcessStartInfo
+        // ---- chemin complet : installateur autonome embarqué ----------------
+        if (setupExe != null)
+        {
+            Report("Lancement de l'installateur du pilote (RoomEqDriverSetup)… acceptez l'invite administrateur, puis suivez sa fenêtre console.");
+            var psi = new ProcessStartInfo
+            {
+                FileName = setupExe,
+                Arguments = "--install",
+                Verb = "runas",              // élévation UAC
+                UseShellExecute = true,
+            };
+            try
+            {
+                using var p = Process.Start(psi);
+                if (p == null)
+                    return Fail("Impossible de lancer RoomEqDriverSetup.exe.");
+                await p.WaitForExitAsync(ct);
+                if (p.ExitCode != 0)
+                    return new InstallResult(false,
+                        $"L'installateur du pilote s'est terminé sur un problème (code {p.ExitCode}) — " +
+                        "sa fenêtre console explique l'étape en cause (mode test refusé, Secure Boot…).");
+            }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                return Fail("Installation annulée : l'invite administrateur a été refusée.");
+            }
+            catch (Exception ex)
+            {
+                return Fail("Lancement impossible : " + ex.Message);
+            }
+
+            return await WaitForDevicesAsync(probeInstalled,
+                "Carte son virtuelle RoomEq installée et détectée.",
+                "Le pilote est installé mais les périphériques n'apparaissent pas — " +
+                "un redémarrage de Windows est probablement requis (mode test activé), puis cliquez « ⟳ ».",
+                ct);
+        }
+
+        // ---- repli historique : pnputil seul --------------------------------
+        Report("Installation du paquet pilote via pnputil… (acceptez l'invite administrateur)");
+        var psiPnputil = new ProcessStartInfo
         {
             FileName = "pnputil.exe",
-            Arguments = BuildInstallArguments(inf),
+            Arguments = BuildInstallArguments(inf!),
             Verb = "runas",              // élévation UAC
             UseShellExecute = true,
         };
         try
         {
-            using var p = Process.Start(psi);
+            using var p = Process.Start(psiPnputil);
             if (p == null)
                 return Fail("Impossible de lancer pnputil.");
             await p.WaitForExitAsync(ct);
             if (p.ExitCode != 0)
-                return Fail($"pnputil a échoué (code {p.ExitCode}).");
+                return Fail($"pnputil a échoué (code {p.ExitCode}) — pilote signé-test non approuvé ? " +
+                    "Utilisez RoomEqDriverSetup.exe (il importe le certificat et crée le périphérique).");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
@@ -157,25 +223,76 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
             return Fail("Lancement impossible : " + ex.Message);
         }
 
-        // sondage d'arrivée des périphériques (jusqu'à 5 minutes)
+        return await WaitForDevicesAsync(probeInstalled,
+            "Carte son virtuelle RoomEq installée et détectée.",
+            "Le paquet pilote est ajouté mais le PÉRIPHÉRIQUE n'a pas pu être créé par ce " +
+            "chemin de secours : lancez RoomEqDriverSetup.exe (installation complète en un fichier), " +
+            "puis cliquez « ⟳ ».",
+            ct);
+    }
+
+    /// <summary>Sonde l'arrivée des périphériques (jusqu'à 5 minutes).</summary>
+    private async Task<InstallResult> WaitForDevicesAsync(
+        Func<bool> probeInstalled, string okMessage, string timeoutMessage, CancellationToken ct)
+    {
         Report("Pilote installé — attente de l'apparition de « RoomEq Input / RoomEq Output »…");
         var sw = Stopwatch.StartNew();
         while (sw.Elapsed < ArrivalTimeout)
         {
             if (probeInstalled())
-                return new InstallResult(true,
-                    "Carte son virtuelle RoomEq installée et détectée.");
+                return new InstallResult(true, okMessage);
             try { await Task.Delay(2000, ct); }
             catch (OperationCanceledException) { break; }
         }
-        return new InstallResult(false,
-            "Le pilote est installé mais les périphériques n'apparaissent pas — "
-            + "redémarrez Windows puis cliquez « ⟳ ».");
+        return new InstallResult(false, timeoutMessage);
     }
 
     /// <summary>Désinstalle le pilote RoomEq (processus élevé). Jamais d'exception.</summary>
     public async Task<InstallResult> UninstallAsync(VirtualInstallerSpec spec, CancellationToken ct)
     {
+        // chemin préféré : l'installateur autonome sait retirer le périphérique,
+        // le paquet, l'ASIO ET le certificat, puis propose de couper le mode test
+        string? setupExe = null;
+        try
+        {
+            setupExe = FindBundledSetupExe(AppContext.BaseDirectory);
+        }
+        catch
+        {
+            // répertoire illisible : repli pnputil
+        }
+        if (setupExe != null)
+        {
+            Report("Lancement de la désinstallation (RoomEqDriverSetup --uninstall)… acceptez l'invite administrateur.");
+            var psi = new ProcessStartInfo
+            {
+                FileName = setupExe,
+                Arguments = "--uninstall",
+                Verb = "runas",
+                UseShellExecute = true,
+            };
+            try
+            {
+                using var p = Process.Start(psi);
+                if (p != null)
+                {
+                    await p.WaitForExitAsync(ct);
+                    return new InstallResult(p.ExitCode == 0,
+                        p.ExitCode == 0
+                            ? "Pilote RoomEq supprimé (périphérique, paquet, ASIO, certificat)."
+                            : $"La désinstallation s'est terminée sur un problème (code {p.ExitCode}) — voir sa fenêtre console.");
+                }
+            }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                return Fail("Désinstallation annulée : l'invite administrateur a été refusée.");
+            }
+            catch
+            {
+                // repli pnputil ci-dessous
+            }
+        }
+
         Report("Recherche du pilote dans le magasin Windows…");
         string? oemInf = null;
         try

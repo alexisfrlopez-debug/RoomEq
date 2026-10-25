@@ -160,6 +160,75 @@ public static class HeadphonePresetLibrary
             .ToList();
     }
 
+    /// <summary>
+    /// Reconnaît un casque / écouteur de la bibliothèque depuis le nom d'un
+    /// périphérique Windows (« Casque (JBL Tune Flex 2 Stereo) », « Écouteurs
+    /// (Beats Studio Pro) », « Headphones (WH-1000XM4) »…).
+    ///
+    /// Méthode : normalisation (minuscules, suppression de tout ce qui n'est
+    /// pas alphanumérique) puis recherche de « marque+modèle » dans le nom du
+    /// périphérique ; à défaut, le modèle seul s'il est assez long (≥ 8
+    /// caractères normalisés) pour éviter les faux positifs. Le candidat le
+    /// plus SPÉCIFIQUE (motif le plus long) gagne — « JBL Tune Flex 2 »
+    /// battant « JBL Tune Flex » sur le même périphérique.
+    /// </summary>
+    /// <returns>Le modèle reconnu, ou null si aucun ne correspond.</returns>
+    public static HeadphoneModel? MatchDeviceName(string? deviceFriendlyName)
+    {
+        if (string.IsNullOrWhiteSpace(deviceFriendlyName)) return null;
+        string hay = NormalizeDeviceName(deviceFriendlyName);
+        if (hay.Length < 4) return null;
+
+        HeadphoneModel? best = null;
+        int bestScore = int.MaxValue;
+        int bestLen = -1;
+
+        foreach (var m in LoadAll())
+        {
+            string full = NormalizeDeviceName(m.Brand + " " + m.Model);
+            int score;
+            int len;
+
+            if (full.Length >= 4 && hay.Contains(full))
+            {
+                score = 0;                 // marque + modèle : correspondance sûre
+                len = full.Length;
+            }
+            else
+            {
+                string modelOnly = NormalizeDeviceName(m.Model);
+                if (modelOnly.Length < 8 || !hay.Contains(modelOnly))
+                    continue;              // modèle seul trop court ou absent
+                score = 1;                 // correspondance moins sûre
+                len = modelOnly.Length;
+            }
+
+            // meilleur candidat : correspondance la plus sûre, puis la plus
+            // longue (le plus grand nombre de caractères reconnus du nom)
+            if (score < bestScore || (score == bestScore && len > bestLen))
+            {
+                best = m;
+                bestScore = score;
+                bestLen = len;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>Normalisation commune : minuscules latines + chiffres uniquement.</summary>
+    private static string NormalizeDeviceName(string s)
+    {
+        var sb = new System.Text.StringBuilder(s.Length);
+        foreach (char c in s.ToLowerInvariant())
+        {
+            // décomposer les accents (É → e) avant de filtrer
+            foreach (char d in c.ToString().Normalize(System.Text.NormalizationForm.FormD))
+                if (d is (>= 'a' and <= 'z') or (>= '0' and <= '9'))
+                    sb.Append(d);
+        }
+        return sb.ToString();
+    }
+
     /// <summary>Convertit un modèle en preset d'égaliseur prêt à charger.</summary>
     public static EqPreset ToEqPreset(HeadphoneModel model)
     {

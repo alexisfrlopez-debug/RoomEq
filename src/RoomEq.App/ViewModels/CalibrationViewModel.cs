@@ -234,6 +234,9 @@ public partial class CalibrationViewModel : ObservableObject
     }
 
     [RelayCommand]
+    /// <summary>Recharge la liste des micros (branchement à chaud).</summary>
+    public void RefreshAudioDevices() => RefreshMics();
+
     private void RefreshMics()
     {
         using var cap = new CaptureEngine();

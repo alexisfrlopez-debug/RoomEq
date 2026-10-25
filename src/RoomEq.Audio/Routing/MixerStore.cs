@@ -27,6 +27,8 @@ public sealed class StoredMixer
     public double MasterFader { get; set; } = 1.0;
     public bool MasterMute { get; set; }
     public bool AutoStart { get; set; }
+    /// <summary>Adapter automatiquement le preset de l'égaliseur à la sortie master (calibration &gt; usine reconnue &gt; rien).</summary>
+    public bool AutoOutputPreset { get; set; } = true;
     /// <summary>Protocole de carte son virtuelle sélectionné (roomeq, loopback).</summary>
     public string? VirtualProviderId { get; set; }
     /// <summary>Après une installation réussie : Windows bascule vers la carte virtuelle et le routage démarre.</summary>

@@ -77,6 +77,9 @@
                               IsVisible="{Binding !IsMacOS}"
                               VerticalAlignment="Center" FontSize="11"
                               ToolTip.Tip="Après une installation réussie : Windows bascule automatiquement vers la carte virtuelle (sortie par défaut), la piste câble est ajoutée et le routage démarre"/>
+                    <CheckBox Content="Preset auto par sortie" IsChecked="{Binding AutoOutputPreset}"
+                              VerticalAlignment="Center" FontSize="11"
+                              ToolTip.Tip="Adapte automatiquement l'égaliseur au périphérique master : preset de calibration s'il en existe un pour cette sortie, sinon correction usine si le casque/écouteur est reconnu dans la bibliothèque intégrée"/>
 
                     <Separator Width="1" Height="24" Background="#2A2F3A" Margin="4,0"/>
 
@@ -277,6 +280,28 @@
                                 <TextBlock Text="{Binding OutputInfoText}" FontSize="9"
                                            Foreground="#8B93A7" TextWrapping="Wrap" MaxHeight="26"
                                            TextTrimming="CharacterEllipsis"/>
+
+                                <!-- Preset de la sortie (v2.1.0 : adaptation au périphérique écouté) -->
+                                <StackPanel Spacing="3">
+                                    <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                                        <TextBlock Text="Preset de la sortie" FontSize="9" FontWeight="Bold"
+                                                   Foreground="#22D3EE" VerticalAlignment="Center"/>
+                                        <controls:HelpButton HelpTitle="Preset de la sortie"
+                                                             HelpText="RoomEq adapte l'égaliseur au périphérique de cette tranche MASTER :&#10;• preset de calibration mesuré sur cette sortie → réappliqué ;&#10;• casque/écouteurs reconnu dans la bibliothèque (ex. « Casque (JBL Tune Flex 2 Stereo) ») → correction usine appliquée automatiquement ;&#10;• sinon : rien ne change.&#10;&#10;Le sélecteur force un choix pour CETTE sortie, mémorisé d'une session à l'autre : Auto (politique ci-dessus), Aucun, un de vos presets, ou le modèle reconnu. L'onglet Égaliseur propose aussi « Lier ce preset à la sortie ».&#10;&#10;La case « Preset auto par sortie » de la barre de routage coupe toute application automatique."/>
+                                    </StackPanel>
+                                    <ComboBox ItemsSource="{Binding OutputPresetOptions}"
+                                              SelectedItem="{Binding SelectedOutputPresetOption}"
+                                              FontSize="10" MinHeight="24">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Label}" FontSize="10"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <TextBlock Text="{Binding OutputPresetText}" FontSize="8.5" Foreground="#8B93A7"
+                                               TextWrapping="Wrap" MaxHeight="24" TextTrimming="CharacterEllipsis"
+                                               TextAlignment="Center"/>
+                                </StackPanel>
 
                                 <!-- Volume WINDOWS de la sortie physique (Ctrl+Alt+↑/↓/M) -->
                                 <StackPanel Spacing="3">

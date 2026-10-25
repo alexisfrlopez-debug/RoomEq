@@ -14,6 +14,8 @@ dans la table ci-dessous, puis suivez la section correspondante.
 | Message RoomEq : « **Impossible d'activer le mode de signature de test** de Windows (bcdedit…) » | Secure Boot actif dans le BIOS/UEFI | [Cas 5](#cas-5--secure-boot-actif-mode-test-impossible) |
 | « Cette application est bloquée par la **stratégie de votre organisation** » | PC géré (entreprise/école) ou mode S | [Cas 6](#cas-6--pc-géré-par-une-organisation) |
 | « **L'installation a été interrompue prématurément** » ou code **1603 / 1625 / 1730** | Échec en cours d'installation | [Cas 7](#cas-7--échec-en-cours-dinstallation--journal-détaillé) |
+| **La carte son virtuelle n'apparaît pas** après installation du pilote (ou bouton « Installer le pilote » de l'application) | Périphérique non créé / mode test absent ou refusé / Secure Boot | [Cas 8](#cas-8--la-carte-son-virtuelle-napparaît-pas) |
+| **Revenir au mode normal** de Windows (supprimer le filigrane « Mode de test ») | Mode test actif, à couper | [Revenir au mode normal](#revenir-au-mode-normal-de-windows) |
 
 > **Rappel** : le MSI RoomEq actuel est un build de **test** : il embarque un
 > pilote signé-test (pas encore signé Microsoft) et l'installateur lui-même
@@ -328,3 +330,63 @@ Tous ces garde-fous disparaissent quand :
 
 D'ici là, ce guide est la référence : un utilisateur qui lit la table en
 haut s'en sort en moins d'une minute.
+
+---
+
+## Cas 8 — La carte son virtuelle n'apparaît pas
+
+Après `RoomEqDriverSetup.exe` (ou le bouton « Installer le pilote RoomEq » de
+l'onglet Mixage), **« RoomEq Input » / « RoomEq Output »** ne figurent pas
+dans les périphériques audio. Dans l'ordre des fréquences :
+
+1. **Lancez le diagnostic automatique** (invite administrateur, ne modifie
+   rien) :
+
+   ```
+   RoomEqDriverSetup.exe --status
+   ```
+
+   Depuis la v2.1.0, il affiche l'état complet (Secure Boot, mode test,
+   magasin de pilotes, périphérique avec son **code de problème PnP**,
+   service, ASIO) puis un **VERDICT** qui désigne la cause et l'action.
+
+2. **Causes typiques** (le verdict les distingue pour vous) :
+
+   | Verdict | Cause | Action |
+   |---|---|---|
+   | « Windows n'est PAS en mode test… refuse de charger ce pilote signé-test (code 52) » | Mode test absent ou refusé à l'installation — c'est le comportement **voulu** si vous avez répondu non | Trois voies : relancer `--install` et accepter le mode test ; rester sans carte virtuelle (lecteur, calibration et boucle WASAPI fonctionnent) ; attendre le pilote signé Microsoft (`docs/SIGNATURE-ET-STORE.md`) |
+   | « le paquet est dans le magasin mais le PÉRIPHÉRIQUE n'existe pas » | Installation partielle : `pnputil` seul ne crée jamais le périphérique d'un pilote `ROOT\…` (ancien bouton de l'application avant v2.1.0) | Relancer `RoomEqDriverSetup.exe --install` (étape 5 = création du périphérique) |
+   | « le mode test est actif mais le Secure Boot l'ignore » | Secure Boot actif : Windows refuse le mode test **par conception** | Désactiver Secure Boot dans le BIOS/UEFI puis redémarrer ; ou `--mode-normal` pour faire marche arrière |
+   | « tout semble correct » | La carte existe mais est masquée ou désactivée | `mmsys.cpl` → clic droit dans la liste → **« Afficher les périphériques désactivés »** → clic droit sur RoomEq → **Activer** |
+
+3. **Le bouton de l'application** : depuis la v2.1.0, il lance
+   `RoomEqDriverSetup.exe` quand celui-ci est présent à côté de l'application
+   (cas de la version installable, qui le dépose automatiquement, ou des deux
+   exécutables dans le même dossier). Avant cette version, il ne faisait
+   qu'un `pnputil /add-driver` — d'où des installations « réussies » sans
+   carte.
+
+## Revenir au mode normal de Windows
+
+Vous avez activé le mode test (directement ou via une installation
+antérieure) et voulez le couper — y compris le filigrane « Mode de test » en
+bas à droite du bureau :
+
+1. **Le plus simple** : `RoomEqDriverSetup.exe --mode-normal`
+   - coupe le mode test (`bcdedit /set testsigning off`) ;
+   - propose le redémarrage (le filigrane disparaît ensuite définitivement) ;
+   - propose le retrait complet du pilote signe-test, devenu inutilisable en
+     mode normal.
+
+2. **À la main** (invite de commandes administrateur) :
+
+   ```
+   bcdedit /set testsigning off
+   ```
+
+   puis redémarrez. Sans le mode test, la carte virtuelle RoomEq ne peut pas
+   charger (pilote signé-test) : c'est normal, voir le Cas 8 pour les trois
+   voies possibles.
+
+3. La désinstallation du pilote (`--uninstall`) **propose** désormais de couper
+   le mode test à la fin.

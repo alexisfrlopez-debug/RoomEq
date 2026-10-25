@@ -30,6 +30,12 @@
   <ItemGroup>
     <EmbeddedResource Include="payload\RoomEq-portable.exe" LogicalName="RoomEq-portable.exe"
                       Condition="Exists('payload\RoomEq-portable.exe')" />
+    <!-- v2.1.0 : l'installateur du pilote est aussi embarque — depose a cote de
+         RoomEq.exe, le bouton « Installer le pilote RoomEq » de l'onglet Mixage
+         le lance directement (installation complete, y compris la creation du
+         peripherique racine). Condition : compilation "a vide" toleratee. -->
+    <EmbeddedResource Include="payload\RoomEqDriverSetup.exe" LogicalName="RoomEqDriverSetup.exe"
+                      Condition="Exists('payload\RoomEqDriverSetup.exe')" />
   </ItemGroup>
 
 </Project>

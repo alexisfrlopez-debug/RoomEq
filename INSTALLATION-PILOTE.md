@@ -30,23 +30,36 @@ interceptait `msiexec.exe` et `SrTasks.exe`), une distribution alternative
 |---|---|---|
 | `RoomEq-<version>-win-x64.exe` | **L'application**, portable, auto-contenue en **un seul fichier** (~45 Mo) : aucun installateur, aucun UAC, lancez-la depuis n'importe où (Bureau, dossier, clé USB). | Aucun |
 | `RoomEqAppSetup-<version>.exe` | **La même application, en version installable** (l'exe portable est embarqué à l'intérieur, ~45 Mo) : installe dans `%LOCALAPPDATA%\Programs\RoomEq` **sans UAC**, crée les raccourcis Menu Démarrer/Bureau, propose le **lancement automatique au démarrage de Windows** et s'ajoute à « Applications & fonctionnalités » avec désinstalleur intégré. | Aucun |
-| `RoomEqDriverSetup-<version>.exe` | **La carte son virtuelle + le pilote ASIO** en un seul fichier : les fichiers pilote sont embarqués à l'intérieur. Une invite UAC (unique), une console qui affiche chaque étape, puis propose le redémarrage. | Administrateur |
+| `RoomEqDriverSetup-<version>.exe` | **La carte son virtuelle + le pilote ASIO** en un seul fichier : les fichiers pilote sont embarqués à l'intérieur. Une invite UAC (unique), une console qui affiche chaque étape, puis propose le redémarrage. **v2.1.0** : le passage en mode test n'est plus automatique — il est **proposé explicitement** (réponse par défaut : non), `--status` livre un **verdict** expliquant pourquoi la carte apparaît ou non, et `--mode-normal` ramène Windows en mode normal. | Administrateur |
 
-**Installation** : exécutez `RoomEqDriverSetup` (acceptez l'UAC), redémarrez
-quand il le propose, puis lancez `RoomEq-…-win-x64.exe` (portable) **ou**
-`RoomEqAppSetup` (installée). Aucune manipulation PowerShell, aucun
-`msiexec` — les étapes (certificat de test, mode test, magasin de pilotes,
-périphérique `ROOT\ROOMEQVAD`, ASIO dans `C:\Program Files\RoomEq` + clés
-de registre) s'enchaînent dans la console avec un message par étape.
+**Installation** : exécutez `RoomEqDriverSetup` (acceptez l'UAC). **v2.1.0 :
+le mode test est proposé explicitement AVANT toute modification** — le pilote
+distribué est signé-test, Windows ne peut le charger qu'en « mode test »
+(filigrane sur le bureau) ; répondre **non** n'installe rien et laisse Windows
+en mode normal (l'application reste utilisable : lecteur + égaliseur,
+calibration au micro, boucle WASAPI). Si vous acceptez, les étapes
+(certificat de test, mode test, magasin de pilotes, périphérique
+`ROOT\ROOMEQVAD`, ASIO dans `C:\Program Files\RoomEq` + clés de registre)
+s'enchaînent dans la console avec un message par étape, puis le redémarrage
+est proposé. Ensuite, lancez `RoomEq-…-win-x64.exe` (portable) **ou**
+`RoomEqAppSetup` (installée).
 
 Options en ligne de commande de `RoomEqDriverSetup` :
-`--status` (état de la machine : Secure Boot, mode test, pilote, périphérique,
-ASIO — sans rien modifier) et `--uninstall` (retrait complet : périphérique,
-paquet, certificat, ASIO — non bloquant).
+
+| Option | Effet |
+|---|---|
+| `--status` | État complet de la machine (Secure Boot, mode test, build signé-test ou officiel, magasin, périphérique **avec son code de problème PnP**, service, ASIO) suivi d'un **VERDICT** : « la carte n'apparaît pas parce que… → voici quoi faire ». Ne modifie rien. |
+| `--uninstall` | Retrait complet (périphérique, paquet, certificat, ASIO — non bloquant), puis **propose de couper le mode test** s'il est actif. |
+| `--mode-normal` | **Retour au mode normal de Windows** : coupe le mode test (le filigrane « Mode de test » disparaît au redémarrage), puis propose le retrait propre du pilote signé-test (inutilisable en mode normal). |
+| `--install --accept-testmode` | Installation sans la question du mode test (pour l'automatisation — active le mode test). |
+| `--install --no-testmode` | Installation annulée proprement sans mode test ni question (rien n'est modifié). |
 
 **Version installable de l'application (`RoomEqAppSetup`)** : double-cliquez,
 répondez aux deux questions (raccourci Bureau, démarrage automatique — Oui
-par défaut) et c'est fini — l'application se retrouve dans le Menu Démarrer,
+par défaut) et c'est fini. **v2.1.0** : l'installateur dépose AUSSI
+`RoomEqDriverSetup.exe` à côté de `RoomEq.exe` — le bouton « Installer le
+pilote RoomEq » de l'onglet Mixage lance alors l'installation complète
+(création du périphérique incluse) — l'application se retrouve dans le Menu Démarrer,
 « Applications & fonctionnalités » et, si accepté, se lance à chaque ouverture
 de session (visible et désactivable dans le Gestionnaire des tâches →
 « Applications au démarrage », ou via `RoomEqAppSetup --uninstall` qui retire
@@ -118,14 +131,27 @@ de l'erreur, auto-élévation UAC).
 1. Ouvrez RoomEq → onglet **Mixage & routage**.
 2. Vérifiez que le protocole « **Carte virtuelle RoomEq** » est sélectionné.
 3. Cliquez **« Installer le pilote RoomEq… »** et acceptez l'invite
-   administrateur. Le paquet (`roomeqvad.inf` / `.sys` / `.cat`) est installé
-   par `pnputil` — **rien n'est téléchargé**.
+   administrateur. **v2.1.0** : si `RoomEqDriverSetup.exe` est présent à côté
+   de l'application (cas de la version installée, ou des deux exécutables
+   posés dans le même dossier), c'est LUI qui est lancé — installation
+   complète : certificat, mode test **proposé explicitement**, magasin de
+   pilotes, **création du périphérique `ROOT\ROOMEQVAD`**, ASIO.
 4. Les périphériques **« RoomEq Input »** et **« RoomEq Output »** apparaissent
    dans le panneau son (Windows les groupe sous « RoomEq Virtual Audio »).
 
+> **Pourquoi le bouton ne suffisait pas avant** : l'ancien chemin interne ne
+> faisait qu'un `pnputil /add-driver` — il ajoute le paquet au magasin de
+> pilotes mais ne crée JAMAIS le périphérique racine d'un pilote
+> `ROOT\…` : la carte ne pouvait pas apparaître. Le repli `pnputil` reste
+> disponible (dépôt MSI d'origine avec dossier `driver/`) et le message final
+> l'explique s'il aboutit.
+
 Si l'installation réussit mais que **les périphériques n'apparaissent pas**,
-le pilote est probablement signé-test et bloqué : passez à la voie A
-ci-dessous. Le bouton « Supprimer le pilote » retire proprement le paquet.
+le pilote est probablement signé-test et bloqué : lancez
+`RoomEqDriverSetup.exe --status` — son verdict désigne la cause exacte (mode
+test absent, Secure Boot, périphérique non créé…) et l'action à mener. Le
+bouton « Supprimer le pilote » retire proprement le paquet (il lance
+`RoomEqDriverSetup.exe --uninstall` quand il est présent).
 
 ---
 

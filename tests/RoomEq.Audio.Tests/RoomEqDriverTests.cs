@@ -172,4 +172,49 @@ public class RoomEqDriverTests : IDisposable
             Assert.DoesNotContain("vb-audio", line, StringComparison.OrdinalIgnoreCase);
         }
     }
+
+    // ------------------------------------------------------------ setup embarque (v2.1.0)
+
+    [Fact]
+    public void FindBundledSetupExe_LocatesVersionedAndPlainNames()
+    {
+        string a = Path.Combine(_tmp, "RoomEqDriverSetup-2.1.0.exe");
+        string b = Path.Combine(_tmp, "RoomEqDriverSetup.exe");
+        File.WriteAllText(a, "x");
+        File.WriteAllText(b, "x");
+
+        string? found = DriverSetupManager.FindBundledSetupExe(_tmp);
+        Assert.NotNull(found);
+        Assert.True(File.Exists(found));
+        // n'importe lequel des deux : le nom du fichier importe peu,
+        // l'important est qu'un installateur complet soit trouve
+        string name = Path.GetFileName(found!);
+        Assert.True(name.StartsWith("RoomEqDriverSetup", StringComparison.OrdinalIgnoreCase));
+
+        // un dossier sans installateur -> null (repli pnputil)
+        string empty = Path.Combine(_tmp, "vide");
+        Directory.CreateDirectory(empty);
+        Assert.Null(DriverSetupManager.FindBundledSetupExe(empty));
+        Assert.Null(DriverSetupManager.FindBundledSetupExe(Path.Combine(_tmp, "inexistant")));
+    }
+
+    [Fact]
+    public void FindBundledSetupExe_IgnoresUnrelatedExes()
+    {
+        File.WriteAllText(Path.Combine(_tmp, "RoomEq.exe"), "x");
+        File.WriteAllText(Path.Combine(_tmp, "UnTruc.exe"), "x");
+        Assert.Null(DriverSetupManager.FindBundledSetupExe(_tmp));
+    }
+
+    [Fact]
+    public void AudioDeviceWatcher_IsInertOnNonWindowsOrGracefullyConstructed()
+    {
+        // macOS/Linux : le constructeur ne doit JAMAIS lever (surveilleillant
+        // inerte) ; Windows sans service audio : idem (catch interne)
+        using var watcher = new AudioDeviceWatcher();
+        if (!OperatingSystem.IsWindows())
+            Assert.False(watcher.IsWatching);
+        // aucun crash a la destruction double
+        watcher.Dispose();
+    }
 }

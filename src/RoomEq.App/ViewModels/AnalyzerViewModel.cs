@@ -89,6 +89,9 @@ public partial class AnalyzerViewModel : ObservableObject
         }
     }
 
+    /// <summary>Recharge la liste des périphériques d'entrée (branchement à chaud).</summary>
+    public void RefreshAudioDevices() => RefreshMics();
+
     private void RefreshMics()
     {
         var list = _capture.EnumerateDevices();

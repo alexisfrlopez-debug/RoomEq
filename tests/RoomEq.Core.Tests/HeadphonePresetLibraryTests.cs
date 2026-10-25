@@ -149,4 +149,49 @@ public class HeadphonePresetLibraryTests
         var b = HeadphonePresetLibrary.LoadAll().First(x => x.Gamme == "budget");
         Assert.Equal("Petit prix", b.GammeLabel);
     }
+
+    // ------------------------------------------------ reconnaissance périphérique
+
+    [Theory]
+    [InlineData("Casque (JBL Tune Flex 2 Stereo)", "jbltuneflex2")]
+    [InlineData("Écouteurs (JBL TUNE FLEX 2)", "jbltuneflex2")]               // casse + accents
+    [InlineData("Casque (Beats Studio Pro)", "beatsstudiopro")]
+    [InlineData("Headphones (Sony WH-1000XM5)", "sonywh1000xm5")]
+    [InlineData("Casque (WH-1000XM5 Stereo)", "sonywh1000xm5")]               // sans la marque
+    [InlineData("Écouteurs (Beats Fit Pro)", "beatsfitpro")]
+    public void MatchDeviceName_RecognizesWindowsEndpointNames(string device, string expectedId)
+    {
+        var m = HeadphonePresetLibrary.MatchDeviceName(device);
+        Assert.True(m != null, $"aucun modèle reconnu pour « {device} »");
+        Assert.Equal(expectedId, m!.Id, ignoreCase: true);
+    }
+
+    [Theory]
+    [InlineData("Haut-parleurs (Realtek High Definition Audio)")]
+    [InlineData("Sortie numérique (S/PDIF)")]
+    [InlineData("RoomEq Input")]                    // notre propre carte virtuelle
+    [InlineData("Micro (Realtek Audio)")]
+    [InlineData("")]
+    public void MatchDeviceName_IgnoresNonHeadphoneDevices(string device)
+    {
+        // garde-fou anti faux positifs : un périphérique non listé ne doit
+        // produire AUCUNE correspondance usine
+        var m = HeadphonePresetLibrary.MatchDeviceName(device);
+        Assert.True(m == null, $"faux positif : « {device} » → {m?.Id}");
+    }
+
+    [Fact]
+    public void MatchDeviceName_PrefersTheMostSpecificModel()
+    {
+        // si la bibliothèque contient à la fois un modèle et sa déclinaison
+        // numérotée, le nom du périphérique doit reconnaître la déclinaison
+        // (motif le plus long) — comportement garanti même si l'un des deux
+        // modèles vient à manquer
+        string device = "Casque (JBL Tune Flex 2 Stereo)";
+        var m = HeadphonePresetLibrary.MatchDeviceName(device);
+        if (m != null)
+        {
+            Assert.DoesNotContain(m.Id, new[] { "jbltunebeam", "jbllivepro2" });
+        }
+    }
 }

@@ -313,11 +313,133 @@ W = [
     ("FiiO", "FF1", "earbud", "budget", ["fiio ff1"]),
     ("TGXear", "Serratus", "earbud", "moyenne", ["tgxear serratus"]),
     ("Smabat", "ST10s", "earbud", "budget", ["smabat st10s"]),
+
+    # ------------------------------------------------------------------
+    # Extension v2.1.0 (demandes utilisateur : JBL Tune Flex 2, Beats Pro,
+    # + élargissement TWS/nomades 2023-2025 et audiophile).
+    # Placée EN FIN de liste : les 255 entrées historiques réservent leurs
+    # correspondances en premier, leurs id ne peuvent pas changer.
+    # ------------------------------------------------------------------
+    # --- JBL ---
+    ("JBL", "Tune Flex 2", "in-ear", "budget", ["jbl tune flex 2", "jbl tune flex2"]),
+    ("JBL", "Tune Flex", "in-ear", "budget", ["jbl tune flex"]),
+    ("JBL", "Tune Beam 2", "in-ear", "budget", ["jbl tune beam 2", "jbl tune beam"]),
+    ("JBL", "Wave Beam", "in-ear", "budget", ["jbl wave beam"]),
+    ("JBL", "Vibe Beam", "in-ear", "budget", ["jbl vibe beam"]),
+    ("JBL", "Live Flex", "in-ear", "moyenne", ["jbl live flex"]),
+    ("JBL", "Live Pro+", "in-ear", "moyenne", ["jbl live pro plus", "jbl live pro+ tws"]),
+    ("JBL", "Tour Pro 2", "in-ear", "premium", ["jbl tour pro 2", "jbl tour pro2"]),
+    ("JBL", "Tour One M2", "over-ear", "premium", ["jbl tour one m2"]),
+    ("JBL", "Live 770NC", "over-ear", "moyenne", ["jbl live 770nc"]),
+    ("JBL", "Live 670NC", "over-ear", "moyenne", ["jbl live 670nc"]),
+    ("JBL", "Tune 720BT", "over-ear", "budget", ["jbl tune 720bt"]),
+    ("JBL", "Endurance Peak 3", "in-ear", "budget", ["jbl endurance peak 3"]),
+    ("JBL", "Live Free 2", "in-ear", "moyenne", ["jbl live free 2"]),
+    # --- Beats ---
+    ("Beats", "Studio Pro", "over-ear", "premium", ["beats studio pro"]),
+    ("Beats", "Solo 4", "over-ear", "moyenne", ["beats solo 4", "beats solo4"]),
+    ("Beats", "Studio Buds+", "in-ear", "moyenne", ["beats studio buds plus", "beats studio buds+"]),
+    ("Beats", "Studio Buds", "in-ear", "moyenne", ["beats studio buds"]),
+    ("Beats", "Solo Pro", "over-ear", "moyenne", ["beats solo pro"]),
+    ("Beats", "Pro", "over-ear", "moyenne", ["beats pro"]),
+    # --- Apple ---
+    ("Apple", "AirPods 4", "earbud", "moyenne",
+     ["apple airpods 4", "apple airpods 4 with anc", "apple airpods 4 with hearing aid feature"]),
+    # --- Sony ---
+    ("Sony", "WH-1000XM6", "over-ear", "premium", ["sony wh-1000xm6"]),
+    ("Sony", "ULT Wear", "over-ear", "moyenne", ["sony ult wear"]),
+    ("Sony", "WH-CH720N", "over-ear", "budget", ["sony wh-ch720n"]),
+    ("Sony", "WH-CH700N", "over-ear", "budget", ["sony wh-ch700n"]),
+    ("Sony", "WH-CH520", "over-ear", "budget", ["sony wh-ch520"]),
+    ("Sony", "WF-C700N", "in-ear", "budget", ["sony wf-c700n"]),
+    ("Sony", "WF-C500", "in-ear", "budget", ["sony wf-c500"]),
+    ("Sony", "LinkBuds", "in-ear", "moyenne", ["sony linkbuds"]),
+    ("Sony", "LinkBuds Open", "in-ear", "moyenne", ["sony linkbuds open"]),
+    # --- Samsung / Google / Huawei / Xiaomi ---
+    ("Samsung", "Galaxy Buds3", "in-ear", "moyenne", ["samsung galaxy buds3"]),
+    ("Samsung", "Galaxy Buds3 Pro", "in-ear", "premium", ["samsung galaxy buds3 pro"]),
+    ("Google", "Pixel Buds Pro", "in-ear", "moyenne", ["google pixel buds pro"]),
+    ("Google", "Pixel Buds Pro 2", "in-ear", "premium", ["google pixel buds pro 2"]),
+    ("Google", "Pixel Buds A-Series", "in-ear", "budget",
+     ["google pixel buds a-series", "google pixel buds a series"]),
+    ("Huawei", "FreeBuds Pro 3", "in-ear", "premium",
+     ["huawei freebuds pro 3", "huawei freebuds pro 3 (devialet gemini tuning)"]),
+    ("Huawei", "FreeBuds Pro 2", "in-ear", "premium", ["huawei freebuds pro 2"]),
+    ("Huawei", "FreeBuds 5", "in-ear", "moyenne", ["huawei freebuds 5"]),
+    ("Xiaomi", "Redmi Buds 5 Pro", "in-ear", "budget", ["xiaomi redmi buds 5 pro"]),
+    ("Xiaomi", "Buds 4 Pro", "in-ear", "moyenne", ["xiaomi buds 4 pro"]),
+    # --- Bose / Jabra / Technics / Nothing / Devialet ---
+    ("Bose", "QuietComfort Ultra Earbuds", "in-ear", "premium",
+     ["bose quietcomfort ultra earbuds"]),
+    ("Bose", "Ultra Open", "in-ear", "premium", ["bose ultra open"]),
+    ("Jabra", "Elite 10", "in-ear", "premium", ["jabra elite 10"]),
+    ("Jabra", "Elite 8 Active", "in-ear", "moyenne", ["jabra elite 8 active"]),
+    ("Jabra", "Elite 5", "in-ear", "budget", ["jabra elite 5"]),
+    ("Technics", "AZ80", "in-ear", "premium", ["technics eah-az80", "technics az80"]),
+    ("Technics", "AZ70", "in-ear", "premium", ["technics eah-az70", "technics az70"]),
+    ("Technics", "AZ60M2", "in-ear", "premium", ["technics eah-az60m2", "technics az60m2"]),
+    ("Nothing", "Ear (1)", "in-ear", "budget", ["nothing ear 1", "nothing one"]),
+    ("Nothing", "Ear (2)", "in-ear", "moyenne", ["nothing ear 2"]),
+    ("Nothing", "Ear (a)", "in-ear", "budget", ["nothing ear a"]),
+    ("Nothing", "Ear (open)", "in-ear", "moyenne", ["nothing ear open"]),
+    ("Nothing", "Ear (stick)", "in-ear", "budget", ["nothing ear stick"]),
+    ("Devialet", "Gemini II", "in-ear", "premium", ["devialet gemini ii", "devialet gemini 2"]),
+    # --- Anker / Soundcore ---
+    ("Anker", "Soundcore Liberty 4 NC", "in-ear", "budget",
+     ["soundcore liberty 4 nc", "anker soundcore liberty 4 nc"]),
+    ("Anker", "Soundcore P20i", "in-ear", "budget", ["soundcore p20i", "anker soundcore p20i"]),
+    ("Anker", "Soundcore Space One", "over-ear", "budget", ["soundcore space one"]),
+    ("Anker", "Soundcore Life Q35", "over-ear", "budget", ["soundcore life q35"]),
+    # --- Marshall / B&W ---
+    ("Marshall", "Major IV", "over-ear", "budget", ["marshall major iv", "marshall major 4"]),
+    ("Marshall", "Major V", "over-ear", "budget", ["marshall major v", "marshall major 5"]),
+    ("Marshall", "Monitor II ANC", "over-ear", "moyenne",
+     ["marshall monitor ii a.n.c.", "marshall monitor ii anc"]),
+    ("Marshall", "Motif II A.C.", "in-ear", "moyenne",
+     ["marshall motif ii a.n.c.", "marshall motif ii anc"]),
+    ("Bowers & Wilkins", "Px7 S2e", "over-ear", "premium",
+     ["b&w px7 s2e", "bw px7 s2e"]),
+    ("Bowers & Wilkins", "Px7 S2", "over-ear", "premium", ["b&w px7 s2", "bw px7 s2"]),
+    ("Bowers & Wilkins", "Px8", "over-ear", "premium", ["b&w px8", "bw px8"]),
+    # --- Sennheiser / Focal / Audeze / FiiO / HiFiMan ---
+    ("Sennheiser", "Momentum 4 Wireless", "over-ear", "premium",
+     ["sennheiser momentum 4 wireless (wired)", "sennheiser momentum 4 wireless", "sennheiser momentum 4"]),
+    ("Sennheiser", "Accentum Plus", "over-ear", "moyenne", ["sennheiser accentum plus"]),
+    ("Sennheiser", "Accentum True Wireless", "in-ear", "moyenne",
+     ["sennheiser accentum true wireless"]),
+    ("Sennheiser", "HD 490 Pro", "over-ear", "premium", ["sennheiser hd 490 pro"]),
+    ("Audeze", "MM-100", "over-ear", "premium", ["audeze mm-100"]),
+    ("FiiO", "FT1", "over-ear", "moyenne", ["fiio ft1"]),
+    ("HiFiMan", "Sundara", "over-ear", "moyenne",
+     ["hifiman sundara (2020 revised earpads)", "hifiman sundara 2020", "hifiman sundara"]),
+    ("HiFiMan", "HE400se", "over-ear", "budget",
+     ["hifiman he400se (paliopolis rev a)", "hifiman he400se"]),
+    ("HiFiMan", "Edition XS", "over-ear", "premium",
+     ["hifiman edition xs", "hifiman edition xs (dumble cof.", "hifiman edition xs ananda-style"]),
+    ("HiFiMan", "Ananda", "over-ear", "premium", ["hifiman ananda"]),
+    ("HiFiMan", "Arya", "over-ear", "premium", ["hifiman arya (2021)", "hifiman arya"]),
+    # --- Gaming ---
+    ("HyperX", "Cloud III", "gaming", "moyenne", ["hyperx cloud iii"]),
+    ("Razer", "Barracuda", "gaming", "moyenne", ["razer barracuda"]),
+    # --- Chi-Fi complément ---
+    ("Truthear", "Gate", "in-ear", "budget", ["truthear gate"]),
+    ("Truthear", "Zero 2", "in-ear", "budget",
+     ["truthear x crinacle zero 2", "truthear zero 2", "truthear zero2"]),
+    ("Moondrop", "Blessing 3", "in-ear", "moyenne", ["moondrop blessing 3"]),
+    ("Simgot", "EW200", "in-ear", "moyenne", ["simgot audio ew200", "simgot ew200"]),
 ]
 
 TYPE_MAP = {"PK": "peaking", "P": "peaking",
             "LSC": "low-shelf", "LS": "low-shelf", "LOW_SHELF": "low-shelf",
             "HSC": "high-shelf", "HS": "high-shelf", "HIGH_SHELF": "high-shelf"}
+
+# Modèles demandés mais absents d'AutoEq : on clone la mesure du modèle le plus
+# proche (famille/génération précédente) en étiquetant EXPLICITEMENT la source —
+# l'utilisateur sait que la correction est dérivée, pas mesurée sur ce modèle.
+FALLBACKS = {
+    ("JBL", "Tune Flex 2"): ("jbl tune flex",
+        "Rtings — dérivée du JBL Tune Flex (2021), génération précédente"),
+}
 
 PRE_RE = re.compile(r"Preamp:\s*(-?[\d.]+)\s*dB", re.I)
 FLT_RE = re.compile(
@@ -414,6 +536,17 @@ def main() -> int:
     for brand, model, typ, gamme, alts in W:
         patterns = [f"{brand} {model}"] + alts
         b = best_for(patterns, taken)
+        if b is None and (brand, model) in FALLBACKS:
+            # absent d'AutoEq : cloner la mesure du modèle de repli (source étiquetée)
+            alt_pattern, alt_source = FALLBACKS[(brand, model)]
+            ref = best_for([alt_pattern], taken | {"__allow_reuse__"})
+            if ref is not None:
+                _, rank, model_dir, path = ref
+                src = path.split("/")[1]
+                selected.append(dict(brand=brand, model=model, type=typ, gamme=gamme,
+                                     source=alt_source, path=path, clone=True))
+                print(f"   CLONAGE : {brand} {model} <- mesure {model_dir} ({alt_source})")
+                continue
         if b is None:
             missing.append(f"{brand} {model}")
             continue
@@ -446,8 +579,14 @@ def main() -> int:
                 t = TYPE_MAP.get(ftype.upper())
                 if t is None:
                     continue
-                filters.append({"type": t, "f": round(float(fc), 1),
-                                "g": round(float(gain), 2), "q": round(float(q), 3)})
+                # Bornage aux plages du moteur RoomEq (mêmes limites que les
+                # tests HeadphonePresetLibraryTests) : les données AutoEq
+                # extrêmes sont ramenées dans les bornes plutôt que rejetées.
+                f = min(max(float(fc), 10.0), 20000.0)
+                g = min(max(float(gain), -24.0), 24.0)
+                qq = min(max(float(q), 0.1), 12.0)
+                filters.append({"type": t, "f": round(f, 1),
+                                "g": round(g, 2), "q": round(qq, 3)})
             if pm is None or not (1 <= len(filters) <= 20):
                 errors.append(f"{item['path']} : format inattendu "
                               f"({len(filters)} filtres, preamp={bool(pm)})")

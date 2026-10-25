@@ -1,5 +1,31 @@
-RoomEq 2.0.0 — 100 % autonome : pilote de carte virtuelle et ASIO intégrés
+RoomEq 2.1.0 — 100 % autonome : pilote de carte virtuelle et ASIO intégrés
 =============================================================================
+
+NOUVEAUTES 2.1.0
+----------------
+  • PRESET AUTOMATIQUE PAR PERIPHERIQUE : l'egaliseur s'adapte seul a la
+    sortie master ecoutee — preset de calibration si une mesure existe pour
+    cette sortie, sinon correction usine si le casque est reconnu dans son
+    nom Windows (« Casque (JBL Tune Flex 2 Stereo) »…). Choix manuel par
+    sortie (selecteur « Preset de la sortie » / bouton « Lier ce preset a
+    la sortie ») MEMORISE d'une session a l'autre.
+  • PERIPHERIQUES A CHAUD : brancher un casque Bluetooth ou une carte USB
+    pendant que RoomEq tourne met a jour toutes les listes automatiquement
+    (surveillance WASAPI + anti-rebond) ; les boutons « Rafraichir » / « ⟳ » restent disponibles
+    restent disponibles.
+  • BIBLIOTHEQUE CASEQUES ETENDUE : 321 modeles (au lieu de 255), dont JBL
+    Tune Flex 2 (derivee de la mesure Tune Flex, source indiquee), Beats
+    Studio Pro, Solo 4, Solo Pro, Beats Pro, Sony WH-1000XM6 / ULT Wear /
+    CH720N, AirPods 4, Galaxy Buds3, HiFiMAN Sundara/HE400se, Nothing Ear,
+    Technics AZ80, Marshall, B&W Px7/Px8…
+  • MODE TEST JAMAIS ACTIF SANS ACCORD : RoomEqDriverSetup pose la question
+    AVANT toute modification (defaut : NON) ; --mode-normal ramene Windows
+    au mode normal (fin du filigrane « Mode de test ») ; --status livre un
+    VERDICT expliquant pourquoi la carte apparait ou n'apparait pas.
+  • BOUTON « INSTALLER LE PILOTE » REPARÉ (application) : il lance desormais
+    RoomEqDriverSetup.exe quand il est present a cote de l'appli — creation
+    du peripherique incluse (l'ancien chemin pnputil seul n'en etait pas
+    capable). La version installable depose ce fichier automatiquement.
 
 ROOMEQ EST MAINTENANT AUTONOME (2.0.0)
 --------------------------------------
@@ -23,13 +49,18 @@ Plus AUCUNE application tierce (câble audio virtuel, console externe) :
 INSTALLATION
 ------------
 EXECUTABLES (recommande si Windows bloque le MSI) :
-    1) RoomEqDriverSetup-2.0.0.exe : la carte son + l'ASIO en un fichier
-       (pilote embarque). Double-clic -> UAC -> chaque etape s'affiche en
-       console, redemarrage propose a la fin. Options : --status / --uninstall.
-    2) RoomEq-2.0.0-win-x64.exe : l'application PORTABLE en un seul fichier
+    1) RoomEqDriverSetup-2.1.0.exe : la carte son + l'ASIO en un fichier
+       (pilote embarque). Double-clic -> UAC -> le mode test est PROPOSE
+       explicitement (jamais active en silence, defaut : NON), puis chaque
+       etape s'affiche en console, redemarrage propose a la fin.
+       Options : --status (etat + VERDICT si la carte manque) /
+       --uninstall / --mode-normal (retour au mode normal de Windows) /
+       --accept-testmode / --no-testmode.
+    2) RoomEq-2.1.0-win-x64.exe : l'application PORTABLE en un seul fichier
        (~45 Mo) — aucune installation, aucun UAC.
-    3) RoomEqAppSetup-2.0.0.exe : la meme application en version INSTALLABLE
-       (l'exe portable est embarque dedans) — installation sans UAC dans
+    3) RoomEqAppSetup-2.1.0.exe : la meme application en version INSTALLABLE
+       (l'exe portable ET le setup pilote sont embarques dedans) —
+       installation sans UAC dans
        %LOCALAPPDATA%\Programs\RoomEq, raccourcis Menu Demarrer/Bureau,
        LANCEMENT AUTOMATIQUE AU DEMARRAGE DE WINDOWS (propose, desactivable),
        entree « Applications & fonctionnalites » avec desinstalleur.

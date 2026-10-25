@@ -53,6 +53,30 @@ public partial class EqViewModel : ObservableObject
 
     private CorrectionResult? _calibrationSource;
 
+    // ----- liaison preset → sortie master (politique par périphérique) -----
+
+    /// <summary>Nom de la sortie master routée, affiché par le bouton de liaison.</summary>
+    [ObservableProperty] private string linkTargetText = "";
+    /// <summary>Statut de la liaison preset → sortie (confirmation ou erreur explicite).</summary>
+    [ObservableProperty] private string linkPresetStatus = "";
+
+    /// <summary>Demande de liaison du preset courant à la sortie master (traitée par MainViewModel).</summary>
+    public event Action<string>? LinkPresetRequested;
+
+    /// <summary>Un preset usine vient d'être appliqué (MainViewModel peut le lier à la sortie).</summary>
+    public event Action<HeadphoneModel>? HeadphonePresetApplied;
+
+    [RelayCommand]
+    private void LinkPresetToOutput()
+    {
+        if (string.IsNullOrWhiteSpace(PresetName) || PresetName == "Personnalisé")
+        {
+            LinkPresetStatus = "Appliquez d'abord un preset nommé (casque de la bibliothèque ou preset sauvegardé) avant de le lier.";
+            return;
+        }
+        LinkPresetRequested?.Invoke(PresetName);
+    }
+
     [ObservableProperty] private ObservableCollection<CorrectionPrecisionOption> precisionOptions =
         new(CorrectionPrecisionCatalog.All);
 
@@ -141,9 +165,10 @@ public partial class EqViewModel : ObservableObject
 
         var preset = HeadphonePresetLibrary.ToEqPreset(model);
         LoadPreset(preset);
+        HeadphonePresetApplied?.Invoke(model);
         HeadphoneStatus = $"Correction « {model.DisplayName} » appliquée : " +
             $"{preset.Bands.Count} bandes · préampli {preset.PreampDb:0.0} dB · source {model.Source}. " +
-            "Ajustez le niveau d'écoute avec le préampli si besoin.";
+            "Elle est aussi mémorisée pour la sortie master actuelle — réglez le préampli si besoin.";
     }
 
     public void LoadPreset(EqPreset preset)

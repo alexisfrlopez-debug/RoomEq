@@ -105,6 +105,9 @@ $appPayload = Join-Path $appProj 'payload'
 New-Item -ItemType Directory -Force -Path $appPayload | Out-Null
 Get-ChildItem $appPayload -File -ErrorAction SilentlyContinue | Remove-Item -Force
 Copy-Item $appExe (Join-Path $appPayload 'RoomEq-portable.exe') -Force
+# v2.1.0 : le setup pilote est aussi embarque (le bouton « Installer le pilote »
+# de l'onglet Mixage le lance ; installation complete avec creation du peripherique)
+Copy-Item $setupExe (Join-Path $appPayload 'RoomEqDriverSetup.exe') -Force
 
 dotnet build $appProj -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Compilation de RoomEqAppSetup a echoue.' }

@@ -55,6 +55,28 @@ public partial class MixerViewModel : ObservableObject
 
     [ObservableProperty] private OutputDeviceInfo? selectedOutput;
 
+    // ----- preset automatique par sortie (politique pilotée par MainViewModel) -----
+
+    /// <summary>Options du sélecteur « Preset de la sortie » (rempli par MainViewModel).</summary>
+    public ObservableCollection<OutputPresetOption> OutputPresetOptions { get; } = new();
+
+    [ObservableProperty] private OutputPresetOption? selectedOutputPresetOption;
+
+    /// <summary>Application automatique du preset adapté à la sortie master (calibration > usine reconnue).</summary>
+    [ObservableProperty] private bool autoOutputPreset = true;
+
+    /// <summary>Texte d'état du preset de la sortie ( affiché sous le sélecteur ).</summary>
+    [ObservableProperty] private string outputPresetText = "";
+
+    /// <summary>La sortie master a changé (MainViewModel réévalue le preset).</summary>
+    public event Action<OutputDeviceInfo?>? MasterOutputChanged;
+
+    /// <summary>L'utilisateur a choisi une option du sélecteur « Preset de la sortie ».</summary>
+    public event Action<OutputPresetOption>? OutputPresetOptionPicked;
+
+    /// <summary>Drapeau anti-boucle pendant le remplissage programmatique du sélecteur.</summary>
+    private bool _loadingPresetOptions;
+
     /// <summary>Protocoles de carte son virtuelle pris en charge (sélecteur).</summary>
     public ObservableCollection<IVirtualAudioProvider> VirtualProviders { get; } =
         new(VirtualAudioCatalog.All);
@@ -341,7 +363,7 @@ public partial class MixerViewModel : ObservableObject
     // ================================================================ périphériques
 
     [RelayCommand]
-    private void RefreshDevices()
+    public void RefreshDevices()
     {
         if (IsMacOS)
         {
@@ -420,6 +442,29 @@ public partial class MixerViewModel : ObservableObject
         OnPropertyChanged(nameof(RoutedVolumeTarget));
         OnPropertyChanged(nameof(HasRoutedVolume));
         SaveConfig();
+        MasterOutputChanged?.Invoke(value);   // réévaluation du preset de la sortie
+    }
+
+    partial void OnSelectedOutputPresetOptionChanged(OutputPresetOption? value)
+    {
+        if (!_loadingPresetOptions && value != null)
+            OutputPresetOptionPicked?.Invoke(value);
+    }
+
+    /// <summary>Remplit le sélecteur « Preset de la sortie » sans déclencher l'événement utilisateur.</summary>
+    public void SetOutputPresetOptions(IEnumerable<OutputPresetOption> options, OutputPresetOption? selected)
+    {
+        _loadingPresetOptions = true;
+        try
+        {
+            OutputPresetOptions.Clear();
+            foreach (var o in options) OutputPresetOptions.Add(o);
+            SelectedOutputPresetOption = selected;
+        }
+        finally
+        {
+            _loadingPresetOptions = false;
+        }
     }
 
     // ================================================================ volume carte physique
@@ -536,6 +581,8 @@ public partial class MixerViewModel : ObservableObject
     partial void OnMasterMuteChanged(bool value) => Mixer.MasterMute = value;
 
     partial void OnAutoStartChanged(bool value) => SaveConfig();
+
+    partial void OnAutoOutputPresetChanged(bool value) => SaveConfig();
 
     partial void OnAutoRouteOnInstallChanged(bool value) => SaveConfig();
 
@@ -919,6 +966,7 @@ public partial class MixerViewModel : ObservableObject
                 MasterFader = MasterFader,
                 MasterMute = MasterMute,
                 AutoStart = AutoStart,
+                AutoOutputPreset = AutoOutputPreset,
                 VirtualProviderId = SelectedProvider.Id,
                 AutoRouteOnInstall = AutoRouteOnInstall,
                 SwitchDefaultCapture = SwitchDefaultCapture,
@@ -963,6 +1011,7 @@ public partial class MixerViewModel : ObservableObject
         {
             var cfg = _store.Load();
             AutoStart = cfg.AutoStart;
+            AutoOutputPreset = cfg.AutoOutputPreset;
             AutoRouteOnInstall = cfg.AutoRouteOnInstall;
             SwitchDefaultCapture = cfg.SwitchDefaultCapture;
             _savedRenderId = cfg.SavedDefaultRenderId;
@@ -1013,4 +1062,14 @@ public partial class MixerViewModel : ObservableObject
             _initializing = false;
         }
     }
+}
+
+/// <summary>
+/// Une entrée du sélecteur « Preset de la sortie » (onglet Mixage, tranche MASTER).
+/// Clés : "auto" (politique automatique), "none" (aucun preset, même automatique),
+/// "user:&lt;nom&gt;" (preset sauvegardé), "factory:&lt;id&gt;" (bibliothèque usine).
+/// </summary>
+public sealed record OutputPresetOption(string Key, string Label, string Group)
+{
+    public override string ToString() => Label;
 }

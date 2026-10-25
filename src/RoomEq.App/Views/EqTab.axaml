@@ -38,6 +38,18 @@
                 <TextBlock Text="{Binding PresetStatus}" Classes="muted" FontSize="10"
                            TextWrapping="Wrap" MinHeight="14"/>
 
+                <!-- Liaison preset → périphérique de sortie (v2.1.0) -->
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Lier ce preset à la sortie" Command="{Binding LinkPresetToOutputCommand}"
+                            ToolTip.Tip="Mémorise le preset courant pour le périphérique master de l'onglet Mixage : il sera réappliqué automatiquement à chaque session sur cette sortie."/>
+                    <controls:HelpButton HelpTitle="Lier un preset à une sortie"
+                                         HelpText="RoomEq peut adapter SEUL l'égaliseur au périphérique écouté (v2.1.0) : preset de calibration s'il en existe un pour cette sortie, sinon correction usine si le casque est reconnu dans la bibliothèque.&#10;&#10;« Lier ce preset à la sortie » mémorise le preset ACTUEL pour la sortie master actuelle — appliqué aussi bien immédiatement qu'aux prochaines sessions (dossier %APPDATA%\RoomEq\devicepresets.json).&#10;&#10;Le sélecteur « Preset de la sortie » de la tranche MASTER (onglet Mixage) liste et modifie ces liaisons."/>
+                </StackPanel>
+                <TextBlock Text="{Binding LinkTargetText}" Classes="muted" FontSize="10"
+                           TextWrapping="Wrap" MinHeight="12"/>
+                <TextBlock Text="{Binding LinkPresetStatus}" Foreground="#4ADE80" FontSize="10"
+                           TextWrapping="Wrap" MinHeight="12"/>
+
                 <Separator Background="#2A2F3A" Height="1"/>
 
                 <StackPanel Orientation="Horizontal" Spacing="6">
