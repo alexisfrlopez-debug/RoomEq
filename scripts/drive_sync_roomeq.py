@@ -45,7 +45,8 @@ def drive_api(path, token, params=None, method="GET", data=None, content_type="a
                                  headers={"Authorization": f"Bearer {token}",
                                           "Content-Type": content_type})
     with urllib.request.urlopen(req, timeout=120) as r:
-        return json.load(r) if r.length else {}
+        body = r.read()
+        return json.loads(body) if body else {}
 
 
 def list_children(folder_id, token):
