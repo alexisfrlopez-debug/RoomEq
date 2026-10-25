@@ -63,6 +63,17 @@ public class RoomEqDriverTests : IDisposable
         // cas vécu (v2.2.0) où le parse échouait en silence.
         "Nom du fichier publi\u201a : oem8.inf\r\nNom du fichier INF d'origine : roomeqvad.inf\r\n",
         "oem8.inf")]
+    [InlineData("fr-win11-court",
+        // v2.2.2 : libellé RÉEL de Win11 FR (vécu) — « Nom d'origine » sans
+        // « INF » ni « Name » : l'ancien suffixe exigé donnait un faux absent.
+        "Nom publié : oem128.inf\r\nNom d'origine : roomeqvad.inf\r\n",
+        "oem128.inf")]
+    [InlineData("fr-win11-court-pilote",
+        "Nom du pilote publié : oem3.inf\r\nNom d'origine : roomeqvad.inf\r\n",
+        "oem3.inf")]
+    [InlineData("fr-win11-court-absent",
+        "Nom publié : oem1.inf\r\nNom d'origine : autre.inf\r\n",
+        null)]
     [InlineData("absent",
         "Published Name: oem12.inf\r\nOriginal Name: autre.inf\r\n",
         null)]

@@ -1170,7 +1170,54 @@ namespace RoomEqDriverSetup
         {
             string output;
             RunHidden("pnputil.exe", "/enum-drivers", out output);
-            return ParseDriverStoreName(output, InfName);
+            string oem = ParseDriverStoreName(output, InfName);
+            // v2.2.2 : repli independant des libelles de pnputil.
+            if (oem == null) oem = ScanWindowsInfFolder();
+            return oem;
+        }
+
+        /// <summary>
+        /// v2.2.2 : repli independant de la langue et des libelles de pnputil
+        /// (traduits ET changeants selon les builds de Windows). Le « nom
+        /// publie » oemNN.inf correspond a un fichier C:\Windows\INF\oemNN.inf
+        /// dont le contenu reference notre pilote (« roomeqvad ») ; on balaye
+        /// les plus recents d'abord (le paquet vient normalement d'etre ajoute).
+        /// </summary>
+        private static string ScanWindowsInfFolder()
+        {
+            try
+            {
+                var dir = new DirectoryInfo(Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Windows), "INF"));
+                if (!dir.Exists) return null;
+                var files = dir.GetFiles("oem*.inf");
+                Array.Sort(files, (a, b) => b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc));
+                byte[] ascii = Encoding.ASCII.GetBytes("roomeqvad");
+                byte[] utf16 = Encoding.Unicode.GetBytes("roomeqvad");
+                foreach (var f in files)
+                {
+                    try
+                    {
+                        byte[] data = File.ReadAllBytes(f.FullName);
+                        if (IndexOfBytes(data, ascii) >= 0 || IndexOfBytes(data, utf16) >= 0)
+                            return f.Name;
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private static int IndexOfBytes(byte[] haystack, byte[] needle)
+        {
+            for (int i = 0; i <= haystack.Length - needle.Length; i++)
+            {
+                int j = 0;
+                while (j < needle.Length && haystack[i + j] == needle[j]) j++;
+                if (j == needle.Length) return i;
+            }
+            return -1;
         }
 
         /// <summary>
@@ -1210,15 +1257,19 @@ namespace RoomEqDriverSetup
                 string value = line.Substring(i + 1).Trim();
                 // v2.2.1 : cles tolérantes aux accents et aux libellés
                 // (EN "published name"/"original name", FR "nom du fichier
-                // publié"/"nom du pilote publié"/"nom inf d'origine"...) :
+                // publié"/"nom du pilote publié"/"nom INF d'origine"...) :
                 // les sorties pnputil passent par la page OEM CP850 et le "é"
-                // peut arriver mal décodé ; "publi" et "orig" matchent tout.
+                // peut arriver mal décodé ; "publi" matche toutes les variantes.
+                // v2.2.2 : le libellé RÉEL de Win11 FR est « Nom d'origine »
+                // (sans « INF » ni « Name ») : exiger un suffixe supplémentaire
+                // donnait un faux « Pilote magasin : Absent » après un ajout
+                // réussi — « orig » seul suffit (aucune autre clé ne le contient).
                 string k = key.ToLowerInvariant();
                 if (k.Contains("publi"))
                 {
                     published = value;
                 }
-                else if (k.Contains("orig") && (k.Contains("inf") || k.Contains("name")))
+                else if (k.Contains("orig"))
                 {
                     if (published != null
                         && string.Equals(value, originalInfName, StringComparison.OrdinalIgnoreCase))
@@ -1328,14 +1379,22 @@ namespace RoomEqDriverSetup
         internal const uint INSTALLFLAG_FORCE = 0x00000001;
         internal const uint INSTALLFLAG_NONINTERACTIVE = 0x00000004;
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        // v2.2.2 : structure EXACTE de SP_DEVINFO_DATA (recette devcon) :
+        // cbSize + ClassGuid + DevInst + Reserved (ULONG_PTR = IntPtr).
+        // L'ancienne declaration portait un champ DeviceDescription
+        // ByValTStr(200) (= 400 octets) a la place de Reserved : cbSize
+        // valait 424 au lieu des 32 octets attendus sur x64, et TOUTES les
+        // fonctions SetupDi refusaient la structure avec
+        // ERROR_INVALID_USER_BUFFER (0x6F8 = 1784) — l'erreur v2.2.1 de
+        // l'etape 5 (SetupDiCreateDeviceInfo) et le faux « Peripherique :
+        // Absent » de SetupDiEnumDeviceInfo venaient de la.
+        [StructLayout(LayoutKind.Sequential)]
         internal struct SP_DEVINFO_DATA
         {
             public int cbSize;
             public Guid ClassGuid;
             public uint DevInst;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 200)]
-            public string DeviceDescription;
+            public IntPtr Reserved;
         }
 
         [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]

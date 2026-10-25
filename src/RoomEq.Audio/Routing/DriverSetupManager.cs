@@ -95,15 +95,19 @@ public sealed class DriverSetupManager(IProgress<InstallProgress>? progress = nu
 
             // v2.2.1 : clés tolérantes aux accents et libellés (EN
             // "published name"/"original name", FR "nom du fichier publié"/
-            // "nom du pilote publié"/"nom inf d'origine"…) : les sorties
+            // "nom du pilote publié"/"nom INF d'origine"…) : les sorties
             // pnputil passent par la page OEM CP850 et le « é » peut arriver
-            // mal décodé ; « publi » et « orig » matchent toutes les variantes.
+            // mal décodé ; « publi » matche toutes les variantes.
+            // v2.2.2 : le libellé RÉEL de Win11 FR est « Nom d'origine »
+            // (sans « INF » ni « Name ») : exiger un suffixe supplémentaire
+            // donnait un faux « pilote absent du magasin » après un ajout
+            // réussi — « orig » seul suffit (aucune autre clé ne le contient).
             string k = key.ToLowerInvariant();
             if (k.Contains("publi"))
             {
                 published = value;   // toujours suivre le dernier nom publié vu
             }
-            else if (k.Contains("orig") && (k.Contains("inf") || k.Contains("name")))
+            else if (k.Contains("orig"))
             {
                 if (published != null
                     && string.Equals(value, originalInfName, StringComparison.OrdinalIgnoreCase))

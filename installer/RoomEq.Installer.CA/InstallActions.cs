@@ -586,15 +586,19 @@ namespace RoomEq.Installer.CA
                 string key = line.Substring(0, i).Trim();
                 string value = line.Substring(i + 1).Trim();
 
-                if (key.EndsWith("published name", StringComparison.OrdinalIgnoreCase)
-                    || key.EndsWith("nom du fichier publié", StringComparison.OrdinalIgnoreCase)
-                    || key.EndsWith("nom du fichier publie", StringComparison.OrdinalIgnoreCase))
+                // v2.2.2 : cles tolérantes (même recette que driver-setup et
+                // DriverSetupManager) : « publi » et « orig » matchent toutes
+                // les langues/variantes (EN "Published Name"/"Original Name",
+                // FR Win10 "Nom du fichier publié"/"Nom INF d'origine",
+                // FR Win11 "Nom publié"/"Nom d'origine"...) ; les sorties
+                // pnputil passant par la page OEM, le « é » peut arriver mal
+                // décodé — les anciens EndsWith exacts rataient Win11 FR.
+                string k = key.ToLowerInvariant();
+                if (k.Contains("publi"))
                 {
                     published = value;
                 }
-                else if (key.EndsWith("original name", StringComparison.OrdinalIgnoreCase)
-                         || key.EndsWith("nom inf d'origine", StringComparison.OrdinalIgnoreCase)
-                         || key.EndsWith("nom du fichier inf d'origine", StringComparison.OrdinalIgnoreCase))
+                else if (k.Contains("orig"))
                 {
                     if (published != null
                         && string.Equals(value, originalInfName, StringComparison.OrdinalIgnoreCase))
@@ -713,14 +717,19 @@ namespace RoomEq.Installer.CA
         internal const uint INSTALLFLAG_FORCE = 0x00000001;
         internal const uint INSTALLFLAG_NONINTERACTIVE = 0x00000004;
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        // v2.2.2 : structure EXACTE de SP_DEVINFO_DATA (recette devcon) :
+        // cbSize + ClassGuid + DevInst + Reserved (ULONG_PTR = IntPtr).
+        // L'ancienne declaration (champ DeviceDescription ByValTStr(200) a la
+        // place de Reserved) rendait cbSize = 424 au lieu de 32 sur x64 :
+        // toutes les fonctions SetupDi refusaient la structure avec
+        // ERROR_INVALID_USER_BUFFER (0x6F8 = 1784).
+        [StructLayout(LayoutKind.Sequential)]
         internal struct SP_DEVINFO_DATA
         {
             public int cbSize;
             public Guid ClassGuid;
             public uint DevInst;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 200)]
-            public string DeviceDescription;
+            public IntPtr Reserved;
         }
 
         [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
