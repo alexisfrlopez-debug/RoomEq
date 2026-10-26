@@ -54,6 +54,26 @@
 | M-APP-04 | Onglet EQ | `I/app/I-onglet-eq.md` | `…/Views/EqTab…` + `ViewModels/EqViewModel.cs` + `HeadphonePickerViewModel.cs` + `BandViewModel.cs` | `…/EqViewModelTests.cs` + `…/HeadphonePickerTests.cs` | 🔒 |
 | M-APP-05 | Onglets micro / analyseur / ASIO | `I/app/I-onglets-secondaires.md` | `…/Views/MicTab…` + `AnalyzerTab…` + `AsioTab…` + `ViewModels/MicViewModel.cs` + `.Curve` + `AnalyzerViewModel.cs` + `AsioViewModel.cs` + `RollingBuffer.cs` + `Controls/` (PlotControl, VuMeter, EqControl, MicCurveEditor, dialogues) | `…/MicViewModelTests.cs` + `…/RollingBufferTests.cs` + `…/SecondaryTabsTests.cs` | 🔒 |
 
+## Modules installateur — specs prêtes, code futur (vague 8, D11)
+
+> Specs I rédigées par rétro-ingénierie de l'installateur scellé v2.2.2
+> (D11) : le contrat est figé et testable AVANT le recodage. Le binaire
+> `RoomEqDriverSetup-2.2.2.exe` reste la référence exploitable jusqu'à
+> l'exécution de la vague 8 (uniquement après validation Windows de la v3
+> et décision de signature). Les invariants verrouillent les trois défauts
+> historiques : 0xE0000205 (INF), 0x6F8 (interop), libellés pnputil FR.
+
+| ID | Module | Spec I | Code | Statut |
+|----|--------|--------|------|--------|
+| M-INS-01 | Séquence d'installation | `I/installateur/I-sequence-installation.md` | futur `src/RoomEq.Installer/InstallSequence.cs` | ⬜ spec prête |
+| M-INS-02 | Contrat Win32 PnP | `I/installateur/I-contrat-win32.md` | futur `…/Win32Pnp.cs` | ⬜ spec prête |
+| M-INS-03 | Contrat INF du pilote | `I/installateur/I-contrat-inf.md` | futur `…/InfContract.cs` | ⬜ spec prête |
+| M-INS-04 | Contrat outils externes | `I/installateur/I-contrat-outils.md` | futur `…/ToolContract.cs` | ⬜ spec prête |
+| M-INS-05 | Consentement mode test | `I/installateur/I-consentement-mode-test.md` | futur `…/TestModePolicy.cs` | ⬜ spec prête |
+| M-INS-06 | Désinstallation / mode normal | `I/installateur/I-desinstallation-mode-normal.md` | futur `…/UninstallSequence.cs` | ⬜ spec prête |
+| M-INS-07 | Charge utile + ASIO | `I/installateur/I-charge-utile-asio.md` | futur `…/Payload.cs` + `AsioRegistration.cs` | ⬜ spec prête |
+| M-INS-08 | Interface graphique / affichage | `I/installateur/I-interface-graphique.md` | futur `…/UiSink.cs` + `Gui/` | ⬜ spec prête |
+
 ## Blocs natifs scellés (hors périmètre de recodage — D1)
 
 | ID | Composant | Version scellée | Référence |
@@ -61,7 +81,7 @@
 | N-DRV-01 | Pilote audio virtuel Windows (roomeqvad.sys + INF + CAT) | v2.2.2 | `natif/REFERENCE-NATIF.md` |
 | N-ASI-01 | DLL ASIO (RoomEqAsio64.dll + bridge_core) | v2.2.2 | idem |
 | N-MAC-01 | Greffon HAL CoreAudio macOS (RoomEqHAL.driver + pkg) | v2.2.2 | idem |
-| N-INS-01 | Installateurs (MSI WiX, DriverSetup GUI, AppSetup) | v2.2.2 | idem |
+| N-INS-01 | Installateurs (MSI WiX, DriverSetup GUI, AppSetup) | v2.2.2 | idem — **contrats reverse-spec : `I/installateur/` (M-INS-01..08, vague 8 future)** |
 
 ## Convention de statut
 

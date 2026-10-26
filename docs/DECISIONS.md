@@ -180,3 +180,45 @@ terrain ; (b) pas de tag : le dépôt reste sans point de restauration nommé, l
 convention 🔒 de la Carte ne peut pas s'appliquer ; (c) réécrire les scripts
 d'installateurs : hors périmètre D1, risque sans gain.
 
+
+## D11 — Reverse-specs de l'installateur scellé v2.2.2 (préparation vague 8)
+
+**Décision.** Les contrats de l'installateur de pilote (RoomEqDriverSetup +
+custom actions MSI, scellés v2.2.2, D1) sont désormais spécifiés sous forme
+de specs I diffables : **`I/installateur/`**, 8 modules M-INS-01..08, statut
+Carte « ⬜ spec prête » — code futur, éventuelle vague 8. Le binaire v2.2.2
+reste LA référence exploitable ; ces specs figent le comportement validé et
+verrouillent par des critères de test les trois défauts historiques qui ont
+fait les versions : 0xE0000205 (INF legacy NT4 → validateur bloquant
+M-INS-03), 0x6F8 (SP_DEVINFO_DATA 424 octets → invariant Marshal.SizeOf==32,
+M-INS-02), libellés pnputil FR/mojibake (→ fragments « publi »/« orig » +
+CP850 + repli scan, M-INS-04). M-INS-04 impose en outre le partage des
+fixtures de parsing avec l'application (M-AUD-03 DriverSetupManager),
+supprimant contractuellement la triple duplication code qui a laissé les
+défauts vivre en trois copies.
+
+**Pourquoi.** L'analyse des incidents d'installation (v2.0.x blocages
+CFA/SmartScreen/Secure Boot, v2.2.1/v2.2.2 bugs interop et parsing) montre
+que les défauts de CODE étaient tous de classe « contrat non écrit » :
+structure Win32 déclarée de mémoire, format INF non validé, sortie d'outil
+externe parsée sur libellés. La spécification anticipée est précisément le
+remède TRIADE (R2, intention d'abord) : au moment du recodage, chaque
+invariant sera déjà un test. Écrire les specs MAINTENANT fige aussi la
+connaissance (elles dérivent du code v2.2.2 relu ligne à ligne, pas d'une
+mémoire de session), ce qui protège le projet contre toute perte de contexte.
+
+**Conditions de lancement de la vague 8** : validation Windows de la v3
+effectuée ; décision prise sur la signature du pilote (EV/attestation,
+SIGNATURE-ET-STORE.md phase A — elle détermine si les étapes certificat et
+mode test survivent) ; environnement de build/test Windows disponible pour
+R5. Le pilote noyau N-DRV-01 reste scellé dans TOUS les cas : stable, testé
+terrain, jamais en cause dans les incidents, et invérifiable ici (pas de
+WDK ni de machine de test — recoder sans pouvoir vérifier contredirait R5).
+
+**Alternatives rejetées.** (a) Recoder l'installateur tout de suite : deux
+chantiers non validés en parallèle, et la forme du code dépend de la décision
+de signature ; (b) recoder aussi le pilote .sys : risque BSOD neuf sans
+aucun gain — aucun incident ne lui est imputable ; (c) ne rien documenter :
+la connaissance des contrats resterait dans le binaire et la mémoire des
+sessions, exactement ce qui a permis aux trois bugs de survivre trois
+versions.

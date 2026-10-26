@@ -56,6 +56,10 @@ Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
 - Puis **ouverture v3.0.0 finale** : retirer le suffixe `-dev.1` dans
   `src/Directory.Build.props`, `LISEZMOI.txt` et `scripts/package_v3.sh`, tag
   `v3.0.0`, re-sauvegarde.
+- **Vague 8 (installateur) PRÉPARÉE mais non lancée** (D11) : specs
+  `I/installateur/` (M-INS-01..08, verrous 0x6F8 / 0xE0000205 / libellés
+  pnputil) — lancement conditionné à la validation v3 + décision de
+  signature + environnement Windows pour R5.
 
 ## 2. Méthode de travail (protocole TRIADE appliqué ici)
 

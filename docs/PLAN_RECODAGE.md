@@ -101,6 +101,35 @@ utilisateur sur machine Windows réelle (checklist § 1 de
 `docs/PARITE-v2.2.2.md`) → tag `v3.0.0` final (retrait du suffixe `-dev.1`
 dans `src/Directory.Build.props`, `LISEZMOI.txt` et `scripts/package_v3.sh`).
 
+### Vague 8 — Installateur (PRÉPARÉE, non lancée — D11)
+
+Specs I écrites AVANT le code (R2 appliquée à l'envers du temps : le contrat
+précède la décision même de recoder) : **`I/installateur/`** — 8 modules
+M-INS-01..08, statut Carte « ⬜ spec prête ». Contenu :
+
+- M-INS-01 séquence d'installation (6 étapes immuables, idempotence,
+  modèle d'échec standardisé « rien n'a été cassé ») ;
+- M-INS-02 contrat Win32 SetupAPI/newdev/cfgmgr32 — **verrou 0x6F8** :
+  `SP_DEVINFO_DATA` = 32 octets x64, testé par `Marshal.SizeOf` ;
+- M-INS-03 contrat INF — **verrou 0xE0000205** : `Signature="$CHICAGO$"`,
+  validateur bloquant au build ET à l'installation ;
+- M-INS-04 contrat outils externes (pnputil/sc/bcdedit) — **verrou
+  libellés FR** : fragments `publi`/`orig`, décodage CP850, repli scan
+  `C:\Windows\INF\oem*.inf` ; fixtures partagées avec l'application
+  (suppression de la triple duplication historique) ;
+- M-INS-05 politique de consentement du mode test (jamais silencieux,
+  défaut NON, pré-diagnostic Secure Boot, trois voies) ;
+- M-INS-06 désinstallation best-effort + retour au mode normal ;
+- M-INS-07 charge utile embarquée (5 ressources) + ASIO (CLSID constant) ;
+- M-INS-08 couche d'affichage rebranchable (logique testable sans GUI).
+
+**Conditions de lancement** (D11) : (1) validation Windows de la v3
+effectuée ; (2) décision prise sur la signature (EV/attestation —
+`docs/SIGNATURE-ET-STORE.md` du legacy, phase A) car elle détermine si les
+étapes certificat/mode test restent nécessaires ; (3) environnement de
+build et de test Windows disponible (R5 applicable). Le pilote noyau
+N-DRV-01 reste scellé dans tous les cas.
+
 ## Règles de travail (extraites du protocole)
 
 1. **Jamais de B nu** : aucun fichier de `src/` sans module cartographié et spec I.

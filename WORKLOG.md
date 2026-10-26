@@ -259,3 +259,56 @@ Stage Summary:
   régénérable hors git (gen_telemetrie.py).
 - Prochaine étape (hors recodage) : validation utilisateur sur machine
   Windows réelle (checklist PARITE § 1) → ouverture v3.0.0 finale.
+
+---
+Session : 5 — 2026-10-26
+Agent : main (Z.ai)
+Task : Préparation de la future vague « installateur » (demande du
+développeur après analyse des avantages) : rédaction des specs I de contrat
+de l'installateur scellé v2.2.2 — le binaire reste intact, le contrat est
+figé (D11).
+
+Work Log:
+- Incident d'environnement : bac à sable réinitialisé (roomeq/,
+  roomeq-git-ref/, roomeq-legacy/ effacés, worklog principal remis à un
+  instantané antérieur, SDK .NET absent). Restauration complète : clones
+  GitHub (roomeq @ 92bd36b branche v3-recodage + tags ; roomeq-git-ref @
+  deff25c = v2.2.2), jetons intacts dans triade/.gdrive/, zips livrables
+  restitués depuis Drive/Livrables.
+- Analyse historique des incidents d'installation (worklogs legacy + commits
+  v2.2.1/v2.2.2) : les défauts de code étaient tous de classe « contrat non
+  écrit » — SP_DEVINFO_DATA déclarée de mémoire (0x6F8, dupliquée en 2
+  copies), INF non validé (0xE0000205), parsing pnputil sur libellés (FR
+  Win11 « Nom d'origine », dupliqué en 3 copies). Le pilote .sys n'est en
+  cause dans AUCUN incident ; les blocages v2.0.x venaient de la signature
+  de test (CFA/SmartScreen/Secure Boot).
+- Lecture intégrale des sources scellées : Program.cs (1455 lignes),
+  GuiRunner.cs, Ui.cs, InstallActions.cs (MSI), roomeqvad.inx,
+  DriverSetupManager.cs v3.
+- 8 specs I écrites dans I/installateur/ (M-INS-01..08, statut « ⬜ spec
+  prête ») : séquence d'installation (6 étapes immuables, idempotence,
+  modèle d'échec standardisé), contrat Win32 (verrou Marshal.SizeOf==32),
+  contrat INF (validateur bloquant $CHICAGO$), contrat outils externes
+  (publi/orig + CP850 + repli scan, fixtures partagées avec l'app),
+  consentement mode test (jamais silencieux, défaut NON, Secure Boot),
+  désinstallation best-effort + mode normal, charge utile 5 ressources +
+  ASIO (CLSID constant), couche d'affichage rebranchable (UiSink).
+- Gouvernance : D11 consignée (reverse-specs, conditions de lancement,
+  alternatives rejetées) ; CARTE.md (section « Modules installateur —
+  specs prêtes, code futur » + renvoi depuis N-INS-01) ; PLAN_RECODAGE.md
+  (vague 8 préparée, conditions) ; REPRISE.md (reste-à-faire).
+- Vérification R5 : aucun code source modifié — build + tests re-confirmés
+  via sync_backup (437/437 verts après réinstallation du SDK).
+- Sauvegarde systématique (D7) : commit + push GitHub (branche v3-recodage)
+  + miroir Drive + livrables.
+
+Stage Summary:
+- Contrats de l'installateur scellé v2.2.2 figés en 8 specs I diffables :
+  le recodage éventuel (vague 8) partira de contrats testés, et les trois
+  défauts historiques (0x6F8, 0xE0000205, libellés pnputil) sont
+  verrouillés par des critères de test explicites.
+- Le pilote noyau reste scellé dans tous les cas (stable, hors de cause,
+  invérifiable ici) ; la vague 8 attend la validation Windows v3 + la
+  décision de signature (phase A : EV/attestation).
+- Prochaine étape inchangée : validation utilisateur Windows réelle de la
+  v3.0.0-dev.1 (checklist PARITE § 1) → ouverture v3.0.0.
