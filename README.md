@@ -8,12 +8,12 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
 `CARTE.md`).
 
 - **Base fonctionnelle** : v2.2.2 (`alexisfrlopez-debug/RoomEq` @ deff25c)
-- **État** : recodage **terminé et cristallisé** au tag `v3.0.0-dev.1` —
-  42 modules 🔒, 437 tests verts, parité v2.2.2 établie point par point
-  (`docs/PARITE-v2.2.2.md`) ; reste la validation utilisateur Windows réelle
-  avant l'ouverture de v3.0.0 finale
+- **État** : recodage **terminé et cristallisé** au tag `v3.0.0` (pré-version
+  `v3.0.0-dev.1`) — 42 modules 🔒, 437 tests verts, parité v2.2.2 établie point
+  par point (`docs/PARITE-v2.2.2.md`) ; les écarts terrain éventuels seront
+  traités en patchs 3.0.x à contrat stable
 - **Reprise** : lire `REPRISE.md` en premier
-- **Décisions** : `docs/DECISIONS.md` (D1-D10) · **Carte** : `CARTE.md`
+- **Décisions** : `docs/DECISIONS.md` (D1-D12) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
 
 ## Structure

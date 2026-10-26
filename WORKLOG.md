@@ -312,3 +312,48 @@ Stage Summary:
   décision de signature (phase A : EV/attestation).
 - Prochaine étape inchangée : validation utilisateur Windows réelle de la
   v3.0.0-dev.1 (checklist PARITE § 1) → ouverture v3.0.0.
+
+---
+
+Session : 6 — 2026-10-26
+Agent : main (Z.ai)
+Task : Cristallisation finale v3.0.0 (ordre du développeur :
+« cristallise la v3.0.0 ») — retrait du suffixe -dev.1, tag, livrables,
+sauvegarde complète.
+
+Work Log:
+- Pré-verrous : aucun test n'asserte la chaîne « 3.0.0-dev.1 » ; la CI
+  déclenche la release sur `tags: ['v*']` → le tag v3.0.0 publiera la
+  release GitHub Actions.
+- Suffixe `-dev.1` retiré des 3 fichiers prévus :
+  `src/Directory.Build.props` (Version 3.0.0), `LISEZMOI.txt` (titre),
+  `scripts/package_v3.sh` (VERSION=3.0.0) + commentaire de
+  `scripts/sync_backup.sh` mis en cohérence (D10/D12).
+- D12 consignée dans `docs/DECISIONS.md` : cristallisation sur ordre du
+  développeur, écarts terrain → patchs 3.0.x à contrat stable (R4),
+  immuabilité des tags (dev.1 conservé pour traçabilité).
+- Docs d'état mis à jour : `CARTE.md` (en-têtes + convention de statut —
+  dégel réservé aux patchs 3.0.x ou à la vague 8), `REPRISE.md` (résumé,
+  état fin session 6, reste-à-faire reformulé, D11/D12 ajoutées),
+  `README.md` (état, D1-D12), `docs/PARITE-v2.2.2.md` (conclusion),
+  `docs/PLAN_RECODAGE.md` (étape finale marquée faite).
+- R5 verify-then-commit : build 0 erreur 0 avertissement, 437/437 tests
+  verts (220 Core + 142 Audio + 75 App).
+- Commit de cristallisation + **tag annoté `v3.0.0`** + push GitHub
+  (branche v3-recodage + tags → release CI) + miroir Drive (dépôt +
+  bundle + livrables).
+- `scripts/package_v3.sh` : zips `RoomEq-3.0.0-win-x64-test.zip`,
+  `RoomEq-3.0.0-win-x64-public.zip`, `RoomEq-3.0.0-source.zip`
+  régénérés (contrôles de contenu 12/12) et téléversés dans
+  `Equalizer/RoomEq-v3/Livrables` ; les zips `-dev.1` sont conservés
+  (historique, téléversement idempotent MD5).
+
+Stage Summary:
+- **RoomEq v3.0.0 FINALE cristallisée** : 42 modules 🔒, 437 tests verts,
+  build 0/0, parité v2.2.2 établie — le recodage TRIADE est complet et
+  publié (tag + release CI + livrables).
+- Convention de dégel posée : patchs 3.0.x à contrat stable uniquement ;
+  le tag n'est jamais déplacé.
+- Prochaines étapes : validation terrain Windows (écarts → 3.0.x) ;
+  vague 8 installateur (specs M-INS prêtes, conditions D11) ; décision
+  signature phase A (EV/attestation).

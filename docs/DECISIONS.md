@@ -222,3 +222,35 @@ aucun gain — aucun incident ne lui est imputable ; (c) ne rien documenter :
 la connaissance des contrats resterait dans le binaire et la mémoire des
 sessions, exactement ce qui a permis aux trois bugs de survivre trois
 versions.
+
+## D12 — Cristallisation finale v3.0.0 (retrait du suffixe -dev.1)
+
+**Décision.** Le dépôt est cristallisé au tag annoté **`v3.0.0`** : le
+suffixe `-dev.1` est retiré de `src/Directory.Build.props`,
+`LISEZMOI.txt` et `scripts/package_v3.sh` ; les livrables sont régénérés
+sous les noms `RoomEq-3.0.0-win-x64-test.zip`,
+`RoomEq-3.0.0-win-x64-public.zip` et `RoomEq-3.0.0-source.zip` (contrôles
+de contenu inchangés) et téléversés dans `Equalizer/RoomEq-v3/Livrables`.
+La cristallisation est ordonnée par le développeur le 2026-10-26
+(« cristallise la v3.0.0 »), après livraison et prise en main des zips
+`3.0.0-dev.1`. La validation Windows sur machine réelle reste du ressort
+du développeur : tout écart constaté a posteriori sera traité en **patch
+3.0.x à contrat stable** (specs I inchangées, R4) — jamais par déplacement
+du tag.
+
+**Pourquoi.** L'état `dev.1` (D10) avait pour seul objet de marquer
+l'absence de validation terrain ; l'ordre explicite du développeur lève
+cette réserve. Le tag `v3.0.0` déclenche la release CI
+(`.github/workflows/build.yml`, déclencheur `tags: ['v*']`) et fournit le
+point de restauration nommé que la convention 🔒 de la Carte exige pour
+la version finale. Les 437 tests verts et le build 0/0 (R5 re-vérifiée
+au moment du commit) maintiennent la garantie de non-régression.
+
+**Alternatives rejetées.** (a) Attendre un compte-rendu formel écrit de
+validation Windows : l'ordre du développeur fait foi, et la validation
+terrain reste possible a posteriori via les patchs 3.0.x ; (b) intercaler
+un tag `3.0.0-rc.N` : étape intermédiaire sans gain, la pré-version
+`v3.0.0-dev.1` a déjà joué ce rôle ; (c) déplacer ou retirer le tag
+`v3.0.0` ultérieurement : interdit — un tag publié est immuable, les
+correctifs passent par 3.0.x (le précédent `v3.0.0-dev.1` reste
+également en place pour la traçabilité).

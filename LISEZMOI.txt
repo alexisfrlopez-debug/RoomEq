@@ -1,4 +1,4 @@
-RoomEq 3.0.0-dev.1 — recodage intégral sous protocole TRIADE (parité 2.2.2)
+RoomEq 3.0.0 — recodage intégral sous protocole TRIADE (parité 2.2.2)
 ===========================================================================
 
 CE QU'EST CETTE VERSION

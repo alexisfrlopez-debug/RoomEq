@@ -96,10 +96,12 @@ testable sans périphérique. Vérification R5 : build 0/0, 436 tests verts
 - Vérification R5 finale : build 0 erreur 0 avertissement, 437/437 tests
   verts (220 Core + 142 Audio + 75 App).
 
-**RECODAGE TERMINÉ.** Prochaine étape (hors recodage) : validation
-utilisateur sur machine Windows réelle (checklist § 1 de
-`docs/PARITE-v2.2.2.md`) → tag `v3.0.0` final (retrait du suffixe `-dev.1`
-dans `src/Directory.Build.props`, `LISEZMOI.txt` et `scripts/package_v3.sh`).
+**RECODAGE TERMINÉ ET CRISTALLISÉ v3.0.0** (D12, 2026-10-26) : suffixe
+`-dev.1` retiré des trois fichiers, tag annoté `v3.0.0`, livrables
+`RoomEq-3.0.0-*` régénérés et téléversés. La validation utilisateur sur
+machine Windows réelle (checklist § 1 de `docs/PARITE-v2.2.2.md`) se
+poursuit sur la version finale ; tout écart donnera un patch 3.0.x à
+contrat stable.
 
 ### Vague 8 — Installateur (PRÉPARÉE, non lancée — D11)
 

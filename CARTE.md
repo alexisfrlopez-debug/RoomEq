@@ -2,16 +2,16 @@
 
 > Couche C du protocole TRIADE pour ce dépôt. Index de navigation à adresses
 > stables. **Règle : toute modification de `src/` doit mettre à jour la ligne
-> correspondante de la Carte.** Dernière mise à jour : vague 7 (cristallisation
-> `v3.0.0-dev.1`).
+> correspondante de la Carte.** Dernière mise à jour : cristallisation
+> finale `v3.0.0` (D12).
 
 | En-tête | Valeur |
 |---|---|
-| projet | RoomEq v3.0.0-dev.1 — égaliseur acoustique temps réel |
+| projet | RoomEq v3.0.0 — égaliseur acoustique temps réel |
 | profil de cible | x86-64-pc-windows-msvc (.NET 8 + Avalonia 11) + macOS (greffon scellé) |
 | base de référence | v2.2.2 (GitHub alexisfrlopez-debug/RoomEq @ `deff25c`, tag v2.2.2) |
 | empreinte legacy | clone git `roomeq-git-ref` (code, CI verte) + miroir Drive `roomeq-legacy` (docs, 284 fichiers) |
-| statut | 🔒 cristallisé au tag `v3.0.0-dev.1` (D10) — 42 modules 🔒, 437 tests verts, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
+| statut | 🔒 cristallisé au tag `v3.0.0` (D12 ; pré-version `v3.0.0-dev.1` D10) — 42 modules 🔒, 437 tests verts, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
 
 ## Modules — couche I (intention) / B (code)
 
@@ -90,6 +90,6 @@
 - Un module passe en 🔒 uniquement par tag de version mineure, ou par
   pré-version de cristallisation (`-dev.N`, D10) — les contrats I restent
   gelés jusqu'à l'ouverture de la version finale.
-- **Vague 7 (D10)** : les 42 modules applicatifs sont 🔒 au tag
-  `v3.0.0-dev.1` — dégel prévu uniquement pour la validation utilisateur
-  Windows réelle et l'ouverture v3.0.0.
+- **Cristallisation finale (D12)** : les 42 modules applicatifs sont 🔒 au tag
+  `v3.0.0` (pré-version `v3.0.0-dev.1`, D10) — dégel réservé aux patchs
+  3.0.x à contrat stable (R4) ou à la vague 8.

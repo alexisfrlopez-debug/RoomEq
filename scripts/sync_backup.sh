@@ -32,7 +32,7 @@ else
 fi
 
 # 3) push GitHub (HEAD → branche distante v3-recodage, puis tags de
-#    cristallisation — ex. v3.0.0-dev.1 déclenche la release CI, D10)
+#    cristallisation — ex. v3.0.0 déclenche la release CI, D10/D12)
 TOKEN=$(cut -d: -f2 ../triade/.gdrive/token_git.txt | tr -d ' \r')
 GITURL="https://alexisfrlopez-debug:${TOKEN}@github.com/alexisfrlopez-debug/RoomEq.git"
 if git push -q "$GITURL" HEAD:v3-recodage 2>&1; then
