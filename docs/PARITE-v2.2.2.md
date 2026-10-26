@@ -96,8 +96,9 @@ La parité fonctionnelle v2.2.2 est **établie** : les 14 familles de
 fonctionnalités du README sont couvertes, les données embarquées sont
 identiques en volume (après comblement D9), la suite de tests dépasse la
 legacy (437 vs 228) et les seuls écarts sont des correctifs documentés.
-L'état est cristallisé au tag **`v3.0.0`** (pré-version `v3.0.0-dev.1`,
-D10 ; ouverture finale D12, sur ordre du développeur le 2026-10-26). La
-validation utilisateur sur machine Windows réelle se poursuit sur la
-version finale : tout écart constaté sera traité en **patch 3.0.x à
-contrat stable** (specs I inchangées, R4).
+L'état est cristallisé aux tags **`v3.0.0`** (ouverture finale D12, sur
+ordre du développeur le 2026-10-26) puis **`v3.0.1`** (correctif
+tests-only de la CI Windows, D13 — binaire identique, specs I
+inchangées). La validation utilisateur sur machine Windows réelle se
+poursuit sur la version publiée : tout écart constaté sera traité en
+**patch 3.0.x à contrat stable** (R4).

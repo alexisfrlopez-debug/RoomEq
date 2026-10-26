@@ -72,6 +72,20 @@ public class DiagnosticsTests : IDisposable
     private string TodayPath() => Path.Combine(_dir,
         "roomeq-" + DateTime.Now.ToString("yyyy-MM-dd") + ".log");
 
+    /// <summary>
+    /// Lecture d'un fichier de journal POSSIBLEMENT encore ouvert par le logger
+    /// (porté de la legacy v2.2.2 — connaissances Windows). File.ReadAllText
+    /// exige FileShare.Read et échoue avec « being used by another process »
+    /// si un writer détient le fichier : FileShare.ReadWrite est la lecture
+    /// tolérante standard d'un log vivant.
+    /// </summary>
+    private static string ReadLogShared(string path)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var sr = new StreamReader(fs);
+        return sr.ReadToEnd();
+    }
+
     [Fact]
     public void InfoWarnError_AreWrittenWithFormat()
     {
@@ -79,7 +93,7 @@ public class DiagnosticsTests : IDisposable
         DiagnosticsLog.Warn("attention");
         DiagnosticsLog.Error("échec");
 
-        string content = File.ReadAllText(TodayPath());
+        string content = ReadLogShared(TodayPath());
         Assert.Contains("[INFO] phase un", content);
         Assert.Contains("[WARN] attention", content);
         Assert.Contains("[ERREUR] échec", content);
@@ -95,7 +109,7 @@ public class DiagnosticsTests : IDisposable
         Exception middle = new("cause intermédiaire", inner);
         DiagnosticsLog.Error("opération", middle);
 
-        string content = File.ReadAllText(TodayPath());
+        string content = ReadLogShared(TodayPath());
         Assert.Contains("opération", content);
         Assert.Contains(middle.GetType().Name, content);
         Assert.Contains("cause intermédiaire", content);
@@ -107,7 +121,7 @@ public class DiagnosticsTests : IDisposable
     public void NewlinesInMessage_AreFlattened()
     {
         DiagnosticsLog.Info("ligne 1\nligne 2");
-        string content = File.ReadAllText(TodayPath());
+        string content = ReadLogShared(TodayPath());
         Assert.DoesNotContain("ligne 1\nligne 2", content);
         Assert.Contains("ligne 1 ⏎ ligne 2", content);
     }

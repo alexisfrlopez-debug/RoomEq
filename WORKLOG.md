@@ -357,3 +357,47 @@ Stage Summary:
 - Prochaines étapes : validation terrain Windows (écarts → 3.0.x) ;
   vague 8 installateur (specs M-INS prêtes, conditions D11) ; décision
   signature phase A (EV/attestation).
+
+Suite (même session) — incident CI Windows, publication 3.0.1 (D13) :
+
+- Vérification post-push : le run CI du tag `v3.0.0` ÉCHOUE sur
+  windows-latest — 3 tests `DiagnosticsTests` en
+  `IOException: being used by another process` (job Packaging besoin de
+  `tests` → skip → aucune release créée). Recensement complet : la CI v3
+  n'avait jamais été verte (6 runs rouges depuis D10 ; la CI v2.x
+  l'était).
+- Diagnostic : les tests relisaient le journal vivant via
+  `File.ReadAllText` (FileShare.Read) pendant que `DiagnosticsLog` détient
+  le writer (FileAccess.Write) — verrouillage obligatoire sur Windows,
+  invisible sur Linux/macOS (tests locaux verts). La production est
+  saine : `DriveLogUploader` v3 est un portage à l'identique de la v2.2.2
+  validée terrain ; la connaissance manquante était dans les TESTS — la
+  legacy portait déjà `ReadLogShared` (FileShare.ReadWrite) avec son
+  commentaire explicite, perdu au portage v3.
+- Correctif **tests-only** : `ReadLogShared` re-porté tel quel dans
+  `tests/RoomEq.Core.Tests/IoTests.cs`, 3 lectures remplacées, assertions
+  inchangées, zéro fichier de production modifié.
+- Publication : version 3.0.1 posée (props/LISEZMOI/package_v3.sh), D13
+  consignée (tags immuables — v3.0.0 reste le marqueur historique de la
+  cristallisation initiale à CI rouge ; 3.0.1 = patch à contrat stable
+  qui déclenche la release CI), docs d'état ré-alignés (CARTE, REPRISE,
+  README, PARITE, PLAN_RECODAGE).
+- R5 re-vérifiée (build 0/0, 437/437), commit + tag annoté `v3.0.1` +
+  push + packaging `RoomEq-3.0.1-*` (télémétrie réelle régénérée via
+  `gen_telemetrie.py` pour le zip test) + miroir Drive.
+- Vérification finale : CI verte sur les 3 OS pour la branche ET le tag
+  `v3.0.1`, release GitHub publiée avec les 3 zips.
+
+Stage Summary (final) :
+- **RoomEq v3.0.1 publié** : cristallisation conforme au protocole —
+  l'échec CI de v3.0.0 a été honoré (tag conservé, jamais déplacé) et
+  corrigé en patch à contrat stable. Le binôme D12/D13 documente
+  l'intégralité de l'incident.
+- Enseignement consigné : la CI 3-OS est le seul vérificateur de la
+  dimension Windows (R5 locale = Linux) ; la connaissance legacy perdue
+  (« lire un log vivant en FileShare.ReadWrite ») illustre la valeur des
+  commentaires diffables — écrite dans les tests v2.2.2, elle avait
+  survécu trois versions.
+- Prochaines étapes : validation terrain Windows (écarts → 3.0.x) ;
+  vague 8 installateur (specs M-INS prêtes, conditions D11) ; décision
+  signature phase A (EV/attestation).

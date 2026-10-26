@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.0.0 finale** — recodage complet de l'application sous protocole TRIADE, **cristallisé** |
+| **Projet** | RoomEq **v3.0.1** — recodage complet de l'application sous protocole TRIADE, **cristallisé et publié** |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/roomeq` — branche `main` (recodage), miroirs Drive + GitHub `v3-recodage` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
@@ -16,7 +16,7 @@
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 6 — recodage TERMINÉ, cristallisé v3.0.0 finale)
+## 1. État (fin session 6 — recodage TERMINÉ, cristallisé et publié v3.0.1)
 
 **Les trois projets sont intégralement recodés sous TRIADE** (vagues 1-7 du
 plan) :
@@ -53,8 +53,10 @@ Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
 - **Validation utilisateur sur machine Windows réelle** (checklist des 14
   familles, `docs/PARITE-v2.2.2.md` § 1) : installer le pilote scellé
   (`RoomEqDriverSetup-2.2.2.exe`), lancer `RoomEq.exe` / `RoomEq-test.exe`
-  du zip 3.0.0. Tout écart constaté est traité en **patch 3.0.x à contrat
-  stable** (D12) — le tag n'est jamais déplacé.
+  du zip 3.0.1. Tout écart constaté est traité en **patch 3.0.x à contrat
+  stable** (D12/D13) — les tags ne sont jamais déplacés (v3.0.0 : CI Windows
+  rouge, marqueur historique ; v3.0.1 : correctif tests-only, binaire
+  identique, release CI publiée).
 - **Vague 8 (installateur) PRÉPARÉE mais non lancée** (D11) : specs
   `I/installateur/` (M-INS-01..08, verrous 0x6F8 / 0xE0000205 / libellés
   pnputil) — lancement conditionné à la validation v3 + décision de
@@ -91,6 +93,9 @@ Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
 - **D12** cristallisation finale `v3.0.0` (ordre du développeur, 2026-10-26) :
   retrait du suffixe `-dev.1`, livrables `RoomEq-3.0.0-*` ; les écarts terrain
   éventuels passent en patchs 3.0.x à contrat stable.
+- **D13** CI Windows rouge sur v3.0.0 (3 tests DiagnosticsTests, verrou
+  fichier) : correctif tests-only (portage du `ReadLogShared` legacy),
+  publication `v3.0.1` — tags immuables, specs I inchangées.
 
 ## 4. Pièges et découvertes de la session 1
 

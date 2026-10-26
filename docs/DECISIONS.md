@@ -254,3 +254,49 @@ un tag `3.0.0-rc.N` : étape intermédiaire sans gain, la pré-version
 `v3.0.0` ultérieurement : interdit — un tag publié est immuable, les
 correctifs passent par 3.0.x (le précédent `v3.0.0-dev.1` reste
 également en place pour la traçabilité).
+
+## D13 — CI Windows rouge sur v3.0.0 : correctif tests-only, publication 3.0.1
+
+**Décision.** Le premier push du tag `v3.0.0` (commit bb40fb5) a échoué
+en CI sur **windows-latest** : 3 tests `DiagnosticsTests`
+(`InfoWarnError_AreWrittenWithFormat`,
+`ErrorWithNestedException_IncludesAllLevelsAndStack`,
+`NewlinesInMessage_AreFlattened`) levaient `IOException: The process
+cannot access the file … because it is being used by another process`.
+Cause racine : les tests relisaient le journal vivant via
+`File.ReadAllText` (ouverture `FileShare.Read`, incompatible avec le
+writer `FileAccess.Write` détenu par `DiagnosticsLog` — verrouillage
+obligatoire sur Windows, transparent sur Linux/macOS, d'où des tests
+locaux verts). La legacy v2.2.2 portait déjà la solution dans ses
+propres tests (`ReadLogShared` : `FileStream` en
+`FileAccess.Read, FileShare.ReadWrite`, avec commentaire explicite) ;
+le portage v3 des tests avait perdu cette connaissance. Le correctif
+est **tests-only** : remise en place de `ReadLogShared` (porté tel quel
+avec son commentaire), assertions inchangées, **aucun fichier de
+production modifié** — le binaire applicatif de 3.0.1 est identique à
+celui de 3.0.0. Conformément à D12(c), le tag `v3.0.0` n'est PAS
+déplacé : il reste le marqueur historique de la cristallisation initiale
+(CI rouge, aucun livrable publié). Le correctif est publié en
+**`v3.0.1`, patch à contrat stable** (R4 : specs I inchangées), qui
+déclenche la release CI.
+
+**Pourquoi.** La CI 3-OS est précisément le vérificateur de la dimension
+Windows (R5 n'est exécutable localement que sur Linux) : son verdict
+rouge doit être honoré, pas contourné. Réécrire l'historique (déplacer
+le tag) ou publier manuellement une release hors CI contours le
+protocole que ce projet existe pour démontrer ; un patch versionné,
+documenté et testé est la voie conforme. La perte de la connaissance
+legacy (« lire un log vivant en FileShare.ReadWrite ») illustre au
+passage la valeur des specs et commentaires diffables : elle était
+écrite dans les tests v2.2.2 et a survécu trois versions — c'est son
+non-portage qui a failli.
+
+**Alternatives rejetées.** (a) Déplacer le tag `v3.0.0` sur le commit
+correcteur : viole D12(c), quitte à écrire une règle pour la transgresser
+dix minutes plus tard ; (b) créer la release manuellement depuis les
+artefacts locaux en contournant la CI : publie un tag dont la CI reste
+rouge pour toujours — mauvaise hygiène ; (c) « corriger » le code de
+production (par exemple un writer en `FileShare.ReadWrite`) : le
+production code est un portage à l'identique de la v2.2.2 validée
+terrain (parité D6), le défaut est dans la batterie de tests, pas dans
+le binaire ; (d) rouvrir les specs I : aucun contrat ne change.
