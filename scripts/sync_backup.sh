@@ -15,6 +15,7 @@ if [ "$FORCE" != "--force" ]; then
   FAIL=0
   dotnet test tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj -c Debug --nologo -v q 2>&1 | tail -3 || FAIL=1
   dotnet test tests/RoomEq.Audio.Tests/RoomEq.Audio.Tests.csproj -c Debug --nologo -v q 2>&1 | tail -3 || FAIL=1
+  dotnet test tests/RoomEq.App.Tests/RoomEq.App.Tests.csproj -c Debug --nologo -v q 2>&1 | tail -3 || FAIL=1
   if [ "$FAIL" != "0" ]; then
     echo "ÉCHEC DES TESTS — commit refusé (utiliser --force pour outrepasser)."
     exit 1

@@ -1,0 +1,131 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:RoomEq.App.Controls"
+             x:Class="RoomEq.App.Views.MicTab">
+
+    <Grid ColumnDefinitions="340,*">
+
+        <ScrollViewer Grid.Column="0" Margin="0,0,8,0">
+            <StackPanel Spacing="8">
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Mes profils" Classes="h2" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Profils micro"
+                                         HelpText="Un profil = la courbe de réponse de VOTRE micro (gain en dB par fréquence). Pendant la calibration et l'analyse, RoomEq la soustrait au signal capté : l'égaliseur corrige la pièce, pas les défauts du micro.&#10;&#10;• Importer : fichier .cal REW, CSV ou TXT (fréquence ; gain).&#10;• Bibliothèque : courbes typiques de micros du marché à importer puis affiner.&#10;• Éditeur à droite : points déplaçables à la souris, ajout/suppression, lissage.&#10;• Cochez « Utiliser le profil micro » dans Calibration pour l'activer."/>
+                </StackPanel>
+
+                <Button Content="Importer un fichier de calibration…"
+                        Click="OnImportClick" Classes="accent"/>
+
+                <TextBlock Classes="muted" FontSize="10"
+                           Text="Formats acceptés : .cal REW (fréquence,gain), CSV point-virgule ou virgule, TXT. Première colonne = fréquence (Hz), seconde = gain du micro (dB)."/>
+
+                <ListBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
+                         Height="150">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Spacing="1">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding PointCount, StringFormat={}{0} pts}"
+                                               Foreground="#8B93A7" FontSize="11"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Technology}" FontSize="10" Foreground="#8B93A7"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Supprimer" Command="{Binding DeleteSelectedCommand}"/>
+                    <Button Content="Aplatir (0 dB)" Command="{Binding FlattenCurveCommand}"/>
+                </StackPanel>
+
+                <Separator Background="#2A2F3A" Height="1"/>
+
+                <TextBlock Text="Créer un profil spécialisé" Classes="h3"/>
+                <TextBox Watermark="Nom du nouveau profil…" Text="{Binding NewProfileName}"/>
+                <Button Content="Créer un profil vierge (plat)" Command="{Binding CreateNewProfileCommand}"/>
+
+                <TextBlock Text="Renommer le profil sélectionné" Classes="h3"/>
+                <TextBox Watermark="Nouveau nom…" Text="{Binding NewProfileName}"/>
+                <Button Content="Renommer le profil" Command="{Binding RenameProfileCommand}"/>
+
+                <Separator Background="#2A2F3A" Height="1"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Bibliothèque de micros" Classes="h2" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Bibliothèque de micros"
+                                         HelpText="Courbes constructeur typiques de micros de mesure et de studio.&#10;Importez le modèle correspondant dans « Mes profils », puis affinez avec l'éditeur ou votre fichier de calibration individuel (.cal) — les tolérances de fabrication rendent chaque exemplaire unique."/>
+                </StackPanel>
+                <TextBox Watermark="Rechercher (marque, modèle, technologie…)"
+                         Text="{Binding LibrarySearch}"/>
+                <ListBox ItemsSource="{Binding LibraryProfiles}" SelectedItem="{Binding SelectedLibraryProfile}"
+                         Height="200">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Spacing="1">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="11"/>
+                                    <TextBlock Text="{Binding Brand}" FontSize="10" Foreground="#22D3EE"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Technology}" FontSize="10" Foreground="#8B93A7"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Content="Importer ce profil dans « Mes profils »"
+                        Command="{Binding ImportLibraryProfileCommand}"/>
+                <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap"
+                           Text="36 micros du marché : mesure (UMIK, ECM8000, Earthworks…), studio (Neumann, AKG…), scène (SM57/SM58…) — électret, condensateur vrai, RF, dynamique, ruban, USB. Courbes typiques constructeur : importez le profil puis affinez-le avec l'éditeur ou votre fichier .cal individuel."/>
+
+                <TextBlock Text="À quoi sert ce profil ?" Classes="h3"/>
+                <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap"
+                           Text="Chaque micro de mesure a sa propre coloration (+2 dB à 8 kHz, creux à 12 kHz…). Pendant la calibration, RoomEq soustrait cette courbe au spectre capturé : l'égaliseur corrige alors uniquement la pièce, pas les défauts du micro."/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="0,0,0,0">
+            <Border Grid.Row="0" Background="#181B23" CornerRadius="6"
+                    BorderBrush="#2A2F3A" BorderThickness="1" ClipToBounds="True">
+                <controls:MicCurveEditor x:Name="Editor"/>
+            </Border>
+
+            <!-- Barre d'édition -->
+            <Border Grid.Row="1" Background="#1B1F28" CornerRadius="6" Margin="0,6,0,0"
+                    BorderBrush="#2A2F3A" BorderThickness="1" Padding="8,6">
+                <StackPanel Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="+ Ajouter un point" Command="{Binding AddPointCommand}"/>
+                        <Button Content="Supprimer le point" Command="{Binding RemovePointCommand}"
+                                IsEnabled="{Binding HasSelectedPoint}"/>
+                        <Button Content="Lisser la courbe" Command="{Binding SmoothCurveCommand}"/>
+                        <Separator Width="8" Background="Transparent"/>
+                        <TextBlock Text="Point sélectionné :" VerticalAlignment="Center"
+                                   Foreground="#8B93A7" FontSize="11"/>
+                        <TextBlock Text="Fréq (Hz)" FontSize="10" Foreground="#8B93A7"
+                                   VerticalAlignment="Center"/>
+                        <NumericUpDown Value="{Binding SelectedPointFreq}" Minimum="20" Maximum="20000"
+                                       Increment="10" Width="100" FormatString="0.#" MinHeight="26"/>
+                        <TextBlock Text="Gain (dB)" FontSize="10" Foreground="#8B93A7"
+                                   VerticalAlignment="Center"/>
+                        <NumericUpDown Value="{Binding SelectedPointGain}" Minimum="-20" Maximum="20"
+                                       Increment="0.5" Width="88" FormatString="0.0" MinHeight="26"/>
+                        <Button Content="Appliquer" Command="{Binding ApplySelectedPointCommand}"
+                                IsEnabled="{Binding HasSelectedPoint}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="Enregistrer le profil" Classes="accent"
+                                Command="{Binding SaveEditsCommand}"/>
+                        <Button Content="Annuler les modifications" Command="{Binding RevertEditsCommand}"
+                                IsEnabled="{Binding IsDirty}"/>
+                        <TextBlock Text="● modifié" Foreground="#FF9F1C" FontSize="11"
+                                   VerticalAlignment="Center" IsVisible="{Binding IsDirty}"/>
+                        <TextBlock Text="{Binding EditStatus}" Foreground="#8B93A7" FontSize="11"
+                                   VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

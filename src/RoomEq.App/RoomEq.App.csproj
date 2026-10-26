@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- manifest + icône Windows uniquement : les RIDs macOS n'ont pas
+         app.manifest (ignoré sinon avec un avertissement) ni d'icône .exe -->
+    <_IsMacRid Condition="'$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64'">true</_IsMacRid>
+    <ApplicationManifest Condition="'$(_IsMacRid)' != 'true'">app.manifest</ApplicationManifest>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationIcon Condition="'$(_IsMacRid)' != 'true'">Assets\roomeq.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>fr;en</SatelliteResourceLanguages>
+    <!-- MainWindow est construite par App avec son ViewModel : aucun constructeur
+         sans paramètre n'existe (volontaire), le chargeur XAML runtime n'est pas
+         utilisé pour cette fenêtre. -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RoomEq.Core\RoomEq.Core.csproj" />
+    <ProjectReference Include="..\RoomEq.Audio\RoomEq.Audio.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.2" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+
+</Project>

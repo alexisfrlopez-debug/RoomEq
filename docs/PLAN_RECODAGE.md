@@ -53,12 +53,28 @@ test de plateforme (plus de catch PlatformNotSupportedException), Volume/Loop
 du PlaybackEngine atomiques (Volatile), PlaybackStopped levé par la sortie
 CoreAudio à l'arrêt.
 
-### Vague 6 — RoomEq.App (PROCHAINE SESSION — reprendre ici)
-M-APP-01..05 — shell Avalonia, onglets Calibration/Mixage/EQ/Micro/Analyseur/
-ASIO, ViewModels découplés (taille cible < 300 lignes par ViewModel), contrôles
-personnalisés (courbes, VU-mètres, éditeur EQ).
+### Vague 6 — RoomEq.App ✅ (session 3, 75 tests)
+M-APP-01..05 + comblement M-EQ-04 (DevicePresetStore, oublié des vagues 2-4) :
+specs I écrites AVANT le code (6 nouvelles : 1 eq + 5 app), puis recodage
+complet du projet Avalonia 11 (csproj, thème sombre, assets, manifest) :
+shell + MainWindow (barre supérieure, onglets, OSD volume, raccourcis
+Ctrl+Alt+↑/↓/M), ViewModels décomposés par concern (chaque fichier < 300
+lignes : MainViewModel + OutputPresetCoordinator + TestSignalMenu extraits du
+shell ; MixerViewModel en 5 partiels Routing/Volume/Driver/Persist ;
+ChannelViewModel/TrackEqViewModel séparés ; CalibrationOptions +
+LiveMicMonitor extraits de la calibration ; HeadphonePickerViewModel extrait
+de l'EQ ; MicViewModel en 2 partiels), contrôles personnalisés (PlotControl
+log/dB, VuMeter, EqControl à poignées, MicCurveEditor, dialogues d'aide/
+saveur/catalogue), vues des 6 onglets. Améliorations v3 documentées :
+fichier de la tranche Lecteur restauré au démarrage (StoredChannel.FilePath),
+message d'aide ASIO affiché même sans pilote (bogue v2 : SelectedDriver null
+→ pas de PropertyChanged → Info vide), garde-fou « Lier le preset » étendu au
+preset plat (« Plat » échappait au contrôle v2), interfaces étroites
+IOutputPresetEqView/IOutputPresetMixerView rendant la politique preset↔sortie
+testable sans périphérique. Vérification R5 : build 0/0, 436 tests verts
+(219 Core + 142 Audio + 75 App).
 
-### Vague 7 — Finalisation
+### Vague 7 — Finalisation (PROCHAINE SESSION — reprendre ici)
 - Solution complète 0 erreur 0 avertissement, suite complète verte
 - Tag `v3.0.0-dev.1`, marqueurs Carte 🔒
 - Parité v2.2.1 vérifiée point par point (checklist README legacy)

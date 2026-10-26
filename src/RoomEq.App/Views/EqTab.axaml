@@ -1,0 +1,185 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:RoomEq.App.Controls"
+             x:Class="RoomEq.App.Views.EqTab">
+
+    <Grid ColumnDefinitions="*,320">
+
+        <!-- Graphe d'égalisation interactif -->
+        <Border Grid.Column="0" Margin="0,0,8,0" Background="#181B23"
+                CornerRadius="6" BorderBrush="#2A2F3A" BorderThickness="1"
+                ClipToBounds="True">
+            <controls:EqControl x:Name="EqPlot"/>
+        </Border>
+
+        <!-- Panneau latéral -->
+        <ScrollViewer Grid.Column="1">
+            <StackPanel Spacing="10" Margin="2,0,0,0">
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Presets" Classes="h2" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Presets"
+                                         HelpText="Bibliothèque de réglages enregistrés dans %APPDATA%\RoomEq\presets.&#10;&#10;• Charger : applique le preset sélectionné (bandes + préampli).&#10;• Enregistrer : mémorise l'état courant.&#10;• Renommer : tapez le nouveau nom puis « Renommer » (le fichier est déplacé, l'ancien supprimé).&#10;• Supprimer : efface définitivement le preset sélectionné."/>
+                </StackPanel>
+                <ComboBox ItemsSource="{Binding SavedPresets}"
+                          SelectedItem="{Binding SelectedSavedPreset}"
+                          HorizontalAlignment="Stretch"/>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Charger" Command="{Binding LoadSelectedPresetCommand}"/>
+                    <Button Content="Enregistrer" Command="{Binding SavePresetCommand}"/>
+                    <Button Content="Supprimer" Command="{Binding DeleteSelectedPresetCommand}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBox Watermark="Nouveau nom du preset…" Text="{Binding NewPresetName}"
+                             Width="190" MinHeight="30"/>
+                    <Button Content="Renommer" Command="{Binding RenamePresetCommand}"/>
+                </StackPanel>
+                <TextBlock Text="{Binding PresetStatus}" Classes="muted" FontSize="10"
+                           TextWrapping="Wrap" MinHeight="14"/>
+
+                <!-- Liaison preset → périphérique de sortie -->
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Lier ce preset à la sortie" Command="{Binding LinkPresetToOutputCommand}"
+                            ToolTip.Tip="Mémorise le preset courant pour le périphérique master de l'onglet Mixage : il sera réappliqué automatiquement à chaque session sur cette sortie."/>
+                    <controls:HelpButton HelpTitle="Lier un preset à une sortie"
+                                         HelpText="RoomEq peut adapter SEUL l'égaliseur au périphérique écouté : preset de calibration s'il en existe un pour cette sortie, sinon correction usine si le casque est reconnu dans la bibliothèque.&#10;&#10;« Lier ce preset à la sortie » mémorise le preset ACTUEL pour la sortie master actuelle — appliqué aussi bien immédiatement qu'aux prochaines sessions (dossier %APPDATA%\RoomEq\devicepresets.json).&#10;&#10;Le sélecteur « Preset de la sortie » de la tranche MASTER (onglet Mixage) liste et modifie ces liaisons."/>
+                </StackPanel>
+                <TextBlock Text="{Binding LinkTargetText}" Classes="muted" FontSize="10"
+                           TextWrapping="Wrap" MinHeight="12"/>
+                <TextBlock Text="{Binding LinkPresetStatus}" Foreground="#4ADE80" FontSize="10"
+                           TextWrapping="Wrap" MinHeight="12"/>
+
+                <Separator Background="#2A2F3A" Height="1"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Casques &amp; écouteurs" Classes="h2" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Corrections casques intégrées"
+                                         HelpText="Pour un casque ou des écouteurs, la correction par capture au micro n'a pas de sens : le micro mesurerait le couple casque-micro, pas le casque.&#10;&#10;RoomEq embarque donc une bibliothèque de corrections prêtes à l'emploi, couvrant toutes les gammes (petit prix → haut de gamme), tous les usages (circum-aural, intra-aural, gaming, sans fil) et les modèles les plus répandus.&#10;&#10;Chaque correction = préampli + filtres paramétriques, dérivée de mesures sur tête artificielle publiées et vérifiées (projet AutoEq, licence MIT, cible Harman).&#10;&#10;Marque puis modèle (ou tapez quelques lettres pour chercher dans tout le catalogue), puis « Appliquer » : les bandes de l'égaliseur sont remplacées. Vous pouvez ensuite les affiner, et enregistrer le résultat comme preset perso."/>
+                </StackPanel>
+                <TextBlock Text="{Binding Headphone.HeadphoneCatalogText}" Classes="muted" FontSize="10"
+                           TextWrapping="Wrap"/>
+                <TextBox Watermark="Rechercher un modèle (ex. « hd 650 », « xm5 »)…"
+                         Text="{Binding Headphone.HeadphoneSearch}" MinHeight="30"/>
+                <ComboBox ItemsSource="{Binding Headphone.HeadphoneBrands}"
+                          SelectedItem="{Binding Headphone.SelectedHeadphoneBrand}"
+                          IsEnabled="{Binding !Headphone.HeadphoneSearch}"
+                          HorizontalAlignment="Stretch"
+                          ToolTip.Tip="Marque (ignorée pendant une recherche : la recherche couvre tout le catalogue)."/>
+                <ComboBox ItemsSource="{Binding Headphone.HeadphoneModels}"
+                          SelectedItem="{Binding Headphone.SelectedHeadphoneModel}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Label}"/>
+                                <TextBlock Text="{Binding SubLabel}" FontSize="10" Opacity="0.6"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Content="Appliquer la correction casque" Classes="accent"
+                        Command="{Binding ApplyHeadphonePresetCommand}"
+                        IsEnabled="{Binding Headphone.CanApplyHeadphone}"
+                        ToolTip.Tip="Remplace les bandes actuelles par la correction du modèle sélectionné (préampli compris)."/>
+                <TextBlock Text="{Binding Headphone.HeadphoneStatus}" Foreground="#4ADE80" FontSize="10"
+                           TextWrapping="Wrap" MinHeight="14"/>
+
+                <Separator Background="#2A2F3A" Height="1"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Import calibration" Classes="h2" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Import calibration"
+                                         HelpText="Régénère les bandes de l'égaliseur depuis la dernière courbe mesurée dans l'onglet Calibration (disponible tant que la courbe n'a pas été réinitialisée).&#10;&#10;La PRÉCISION détermine le plan de correction :&#10;• Douce : max 8 bandes, larges — correction discrète, idéale en première écoute.&#10;• Standard : max 14 bandes.&#10;• Fine : max 20 bandes — reprend les résonances étroites.&#10;• Ultra : max 30 bandes très étroites — correction chirurgicale.&#10;&#10;Dans tous les cas : aucune bande en doublon, fréquences/gains optimisés, préampli de sécurité recalculé."/>
+                </StackPanel>
+                <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap"
+                           Text="Importe la courbe mesurée dans l'onglet Calibration et régénère les bandes : le nombre, les fréquences et les largeurs (Q) dépendent de la précision choisie."/>
+                <ComboBox ItemsSource="{Binding PrecisionOptions}"
+                          SelectedItem="{Binding SelectedPrecision}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="{Binding SelectedPrecision.Description}" Classes="muted"
+                           FontSize="10" TextWrapping="Wrap"/>
+                <Button Content="Importer la courbe de calibration" Classes="accent"
+                        Command="{Binding ImportCalibrationCurveCommand}"
+                        IsEnabled="{Binding HasCalibrationCurve}"
+                        ToolTip.Tip="Remplace les bandes actuelles par la correction optimisée depuis la dernière courbe mesurée dans l'onglet Calibration."/>
+                <TextBlock Text="{Binding ImportStatus}" Foreground="#4ADE80" FontSize="10"
+                           TextWrapping="Wrap" MinHeight="14"/>
+
+                <Separator Background="#2A2F3A" Height="1"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Préamplification" Classes="h2" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Préamplification"
+                                         HelpText="Réduction globale appliquée AVANT l'égaliseur pour libérer la marge consommée par les boosts : sans elle, un boost de 6 dB ferait écrêter le signal sur les passages forts.&#10;&#10;La calibration la règle automatiquement (−boost max). Vous pouvez l'ajuster : plus négative = plus de marge, moins fort ; 0 dB = aucun recul."/>
+                </StackPanel>
+                <Slider Minimum="-12" Maximum="0" Value="{Binding PreampDb}"/>
+                <TextBlock Text="{Binding PreampDb, StringFormat=Préampli : {0:0.0} dB}"
+                           Foreground="#8B93A7" FontSize="11"/>
+                <TextBlock Text="Libère la marge nécessaire aux boosts pour éviter l'écrêtage."
+                           Classes="muted"/>
+
+                <Separator Background="#2A2F3A" Height="1"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Bandes" Classes="h2" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding CurveInfo}" Foreground="#8B93A7" FontSize="11"
+                               VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Bandes de l'égaliseur"
+                                         HelpText="Chaque bande = un filtre paramétrique :&#10;• Fréquence : position du filtre (20 Hz – 20 kHz).&#10;• Gain : + (boost) ou − (coupe) en dB.&#10;• Q : étroitesse — Q élevé = filtre chirurgical sur une résonance précise ; Q faible = retouche large et naturelle.&#10;• Type : peaking (cloche), shelves (bas/haut), passes (coupe-bas/haut), notch (anti-sifflement).&#10;• X : supprime la bande ; cochée = active.&#10;&#10;Dans le graphe : glissez une poignée (fréquence + gain), molette = Q."/>
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding Bands}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#20242E" CornerRadius="4" Padding="6,4" Margin="0,2">
+                                <StackPanel Spacing="4">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <CheckBox IsChecked="{Binding Enabled}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding FreqText}" Width="70"
+                                                   VerticalAlignment="Center" Foreground="#22D3EE"
+                                                   FontWeight="Bold"/>
+                                        <ComboBox ItemsSource="{Binding Types}"
+                                                  SelectedItem="{Binding Type}" Width="104"
+                                                  FontSize="11" MinHeight="26"/>
+                                        <Button Content="X" FontSize="10" Padding="6,2" MinHeight="24"
+                                                Command="{Binding $parent[UserControl].DataContext.RemoveBandCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Fréq" Width="36" FontSize="10"
+                                                   Foreground="#8B93A7" VerticalAlignment="Center"/>
+                                        <NumericUpDown Value="{Binding Frequency}" Minimum="20" Maximum="20000"
+                                                       Increment="10" Width="104" FormatString="0" MinHeight="26"/>
+                                        <TextBlock Text="Gain" Width="34" FontSize="10"
+                                                   Foreground="#8B93A7" VerticalAlignment="Center"/>
+                                        <NumericUpDown Value="{Binding GainDb}" Minimum="-24" Maximum="24"
+                                                       Increment="0.5" Width="88" FormatString="0.0" MinHeight="26"/>
+                                        <TextBlock Text="Q" Width="12" FontSize="10"
+                                                   Foreground="#8B93A7" VerticalAlignment="Center"/>
+                                        <NumericUpDown Value="{Binding Q}" Minimum="0.1" Maximum="20"
+                                                       Increment="0.1" Width="82" FormatString="0.00" MinHeight="26"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="+ Bande" Command="{Binding AddBandCommand}"/>
+                    <Button Content="Aplatir" Command="{Binding FlattenCommand}"/>
+                    <Button Content="Retirer" Command="{Binding RemoveSelectedCommand}"/>
+                </StackPanel>
+
+                <TextBlock Classes="muted"
+                           Text="Glissez les poignées dans le graphe : horizontal = fréquence, vertical = gain. Molette sur une poignée = largeur (Q)."/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

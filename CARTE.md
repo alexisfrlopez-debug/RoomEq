@@ -2,15 +2,16 @@
 
 > Couche C du protocole TRIADE pour ce dépôt. Index de navigation à adresses
 > stables. **Règle : toute modification de `src/` doit mettre à jour la ligne
-> correspondante de la Carte.** Dernière mise à jour : session de recodage 1.
+> correspondante de la Carte.** Dernière mise à jour : vague 6 (session de
+> recodage 3).
 
 | En-tête | Valeur |
 |---|---|
 | projet | RoomEq v3.0.0 — égaliseur acoustique temps réel |
-| profil de cible | x86-64-pc-windows-msvc (.NET 8) + macOS (greffon scellé) |
+| profil de cible | x86-64-pc-windows-msvc (.NET 8 + Avalonia 11) + macOS (greffon scellé) |
 | base de référence | v2.2.1 (GitHub alexisfrlopez-debug/RoomEq @ 79c2c95) |
 | empreinte legacy | miroir local `roomeq-legacy/src-drive/RoomEq` (284 fichiers) |
-| statut | 🚧 vagues 2-5 terminées (RoomEq.Core + RoomEq.Audio, 354 tests verts) — reste App |
+| statut | 🚧 vagues 2-6 terminées (Core + Audio + App, 436 tests verts) — reste finalisation |
 
 ## Modules — couche I (intention) / B (code)
 
@@ -26,6 +27,7 @@
 | M-EQ-01 | Bandes EQ | `I/eq/I-bandes.md` | `src/RoomEq.Core/Eq/EqBand.cs` | `…/EqTests.cs` | ✅ |
 | M-EQ-02 | Chaîne EQ temps réel | `I/eq/I-chaine-eq.md` | `…/Eq/EqChain.cs` | `…/EqChainTests.cs` | ✅ |
 | M-EQ-03 | Presets EQ | `I/eq/I-presets.md` | `…/Eq/EqPreset.cs` | `…/EqTests.cs` | ✅ |
+| M-EQ-04 | Liaisons preset ↔ périphérique | `I/eq/I-presets-peripherique.md` | `…/Eq/DevicePresetStore.cs` | `…/DevicePresetStoreTests.cs` | ✅ |
 | M-CAL-01 | Courbe cible | `I/calibration/I-courbe-cible.md` | `…/Calibration/TargetCurve.cs` | `…/TargetCurveTests.cs` | ✅ |
 | M-CAL-02 | Analyse de balayage | `I/calibration/I-analyse-balayage.md` | `…/Calibration/SweepAnalyzer.cs` | `…/SweepAnalyzerTests.cs` | ✅ |
 | M-CAL-03 | Planificateur de bandes | `I/calibration/I-plan-bandes.md` | `…/Calibration/AutoBandPlanner.cs` | `…/AutoBandPlannerTests.cs` | ✅ |
@@ -46,11 +48,11 @@
 | M-AUD-04 | Pont ASIO | `I/audio/I-pont-asio.md` | `…/Asio/AsioBridgeInterop.cs` + `AsioBridgeHost.cs` + `AsioManager.cs` | `…/AsioBridgeTests.cs` | ✅ |
 | M-AUD-05 | Pont macOS | `I/audio/I-pont-macos.md` | `…/Mac/CoreAudioApi.cs` + `CoreAudioCatalog.cs` + `CoreAudioOutput.cs` + `CoreAudioCapture.cs` + `MacAudioBridge.cs` | `…/DeviceBridgeTests.cs` | ✅ |
 | M-AUD-06 | Moteur de mesure | `I/audio/I-moteur-mesure.md` | `…/Measurement/RoomMeasurementEngine.cs` | `…/MeasurementEngineTests.cs` | ✅ |
-| M-APP-01 | Shell + MVVM | `I/app/I-shell.md` | `src/RoomEq.App/…` | — | ⬜ |
-| M-APP-02 | Onglet calibration | `I/app/I-onglet-calibration.md` | `…/Views/CalibrationTab…` | — | ⬜ |
-| M-APP-03 | Onglet mixage | `I/app/I-onglet-mixage.md` | `…/Views/MixerTab…` | — | ⬜ |
-| M-APP-04 | Onglet EQ | `I/app/I-onglet-eq.md` | `…/Views/EqTab…` | — | ⬜ |
-| M-APP-05 | Onglets micro / analyseur / ASIO | `I/app/I-onglets-secondaires.md` | `…/Views/MicTab…` etc. | — | ⬜ |
+| M-APP-01 | Shell + MVVM | `I/app/I-shell.md` | `src/RoomEq.App/…` (Program, App, MainWindow, MainViewModel, TestSignalMenu, OutputPresetCoordinator) | `…/OutputPresetCoordinatorTests.cs` + `…/SecondaryTabsTests.cs` | ✅ |
+| M-APP-02 | Onglet calibration | `I/app/I-onglet-calibration.md` | `…/Views/CalibrationTab…` + `ViewModels/CalibrationViewModel.cs` + `CalibrationOptions.cs` + `LiveMicMonitor.cs` | `…/SecondaryTabsTests.cs` | ✅ |
+| M-APP-03 | Onglet mixage | `I/app/I-onglet-mixage.md` | `…/Views/MixerTab…` + `ViewModels/MixerViewModel.cs` + `.Routing` + `.Volume` + `.Driver` + `.Persist` + `ChannelViewModel.cs` + `TrackEqViewModel.cs` | `…/BandTrackChannelTests.cs` | ✅ |
+| M-APP-04 | Onglet EQ | `I/app/I-onglet-eq.md` | `…/Views/EqTab…` + `ViewModels/EqViewModel.cs` + `HeadphonePickerViewModel.cs` + `BandViewModel.cs` | `…/EqViewModelTests.cs` + `…/HeadphonePickerTests.cs` | ✅ |
+| M-APP-05 | Onglets micro / analyseur / ASIO | `I/app/I-onglets-secondaires.md` | `…/Views/MicTab…` + `AnalyzerTab…` + `AsioTab…` + `ViewModels/MicViewModel.cs` + `.Curve` + `AnalyzerViewModel.cs` + `AsioViewModel.cs` + `RollingBuffer.cs` + `Controls/` (PlotControl, VuMeter, EqControl, MicCurveEditor, dialogues) | `…/MicViewModelTests.cs` + `…/RollingBufferTests.cs` + `…/SecondaryTabsTests.cs` | ✅ |
 
 ## Blocs natifs scellés (hors périmètre de recodage — D1)
 

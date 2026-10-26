@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomEq.Audio", "RoomEq.Audi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomEq.Audio.Tests", "..\tests\RoomEq.Audio.Tests\RoomEq.Audio.Tests.csproj", "{A189AA09-BB34-4FF4-A4E9-F8FB846BD766}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomEq.App", "RoomEq.App\RoomEq.App.csproj", "{956B6298-6DB2-424E-BBA5-B6FF7C6906AE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomEq.App.Tests", "..\tests\RoomEq.App.Tests\RoomEq.App.Tests.csproj", "{3B543800-A9F7-4C32-8E96-8C8DD3306613}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +40,13 @@ Global
 		{A189AA09-BB34-4FF4-A4E9-F8FB846BD766}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A189AA09-BB34-4FF4-A4E9-F8FB846BD766}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A189AA09-BB34-4FF4-A4E9-F8FB846BD766}.Release|Any CPU.Build.0 = Release|Any CPU
+		{956B6298-6DB2-424E-BBA5-B6FF7C6906AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{956B6298-6DB2-424E-BBA5-B6FF7C6906AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{956B6298-6DB2-424E-BBA5-B6FF7C6906AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{956B6298-6DB2-424E-BBA5-B6FF7C6906AE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B543800-A9F7-4C32-8E96-8C8DD3306613}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B543800-A9F7-4C32-8E96-8C8DD3306613}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B543800-A9F7-4C32-8E96-8C8DD3306613}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B543800-A9F7-4C32-8E96-8C8DD3306613}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

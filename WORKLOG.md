@@ -135,3 +135,62 @@ Stage Summary:
   tailles) : toute dérive du miroir C/C# est détectée avant livraison.
 - Prochaine session : vague 6 — RoomEq.App (M-APP-01..05, shell Avalonia,
   ViewModels < 300 lignes) puis vague 7 (finalisation, parité v2.2.2, tag).
+
+---
+## Vague 6 (session 3) — RoomEq.App complet + comblement M-EQ-04
+
+**Périmètre** : M-APP-01..05 (shell Avalonia, 6 onglets, ViewModels, contrôles)
++ M-EQ-04 DevicePresetStore — module v2.2.2 oublié lors des vagues 2-4,
+découvert à l'analyse des dépendances de MainViewModel (politique « preset
+adapté à la sortie »).
+
+**Travail** :
+- 6 specs I écrites AVANT le code (R2) : `I/eq/I-presets-peripherique.md` +
+  `I/app/I-shell.md`, `I-onglet-calibration.md`, `I-onglet-mixage.md`,
+  `I-onglet-eq.md`, `I-onglets-secondaires.md`.
+- Core : `Eq/DevicePresetStore.cs` recodé (magasin JSON à fichier unique,
+  répertoire injectable) + 7 tests portés/étendus (écriture inutile évitée
+  sur Remove sans cible).
+- RoomEq.App créé (Avalonia 11.3.2 + CommunityToolkit.Mvvm 8.4.0, mêmes
+  versions que la v2.2.2) : csproj (manifest/icône Windows, exclusion macOS),
+  thème sombre App.axaml, Program, assets.
+- ViewModels — décomposition v3, chaque fichier < 300 lignes :
+  MainViewModel (~300) + OutputPresetCoordinator (politique preset↔sortie,
+  interfaces étroites IOutputPresetEqView/IOutputPresetMixerView → testable
+  sans périphérique) + TestSignalMenu (menu signaux) ; EqViewModel +
+  HeadphonePickerViewModel (casques) ; MixerViewModel en 5 partiels
+  (cœur / Routing / Volume / Driver / Persist) ; ChannelViewModel +
+  TrackEqViewModel séparés ; CalibrationViewModel + CalibrationOptions +
+  LiveMicMonitor ; MicViewModel + MicViewModel.Curve ; AnalyzerViewModel ;
+  AsioViewModel ; BandViewModel ; RollingBuffer.
+- Contrôles : PlotControl (log/dB + PlotSeries), VuMeter, EqControl
+  (poignées + molette Q), MicCurveEditor, HelpButton/HelpDialog,
+  FlavorDialog, SignalCatalogDialog.
+- Vues : MainWindow (barre supérieure, 6 onglets, barre d'état, OSD volume,
+  raccourcis Ctrl+Alt+↑/↓/M) + EqTab, MixerTab, CalibrationTab, MicTab,
+  AnalyzerTab, AsioTab — bindings adaptés aux sous-ViewModels extraits.
+- Tests App (75) : RollingBuffer, Band/Channel/TrackEq,
+  OutputPresetCoordinator (priorités, mémorisation, replis), HeadphonePicker,
+  EqViewModel (presets, import calibration, poignées), MicViewModel (édition
+  courbe, noms uniques, imports), onglets secondaires (options, LiveMicMonitor
+  centré, menu signaux, ASIO sans pilote).
+
+**Améliorations v3 (documentées dans la spec et le plan)** :
+- `StoredChannel.FilePath` (existant v3 Core, non rempli en v2) : le fichier
+  de la tranche Lecteur survit au redémarrage.
+- Bogue v2 corrigé — AsioViewModel sans pilote : SelectedDriver reste null →
+  aucun PropertyChanged → message d'aide jamais affiché. Appel explicite de
+  RefreshInfo() quand la liste est vide.
+- Bogue v2 corrigé — « Lier ce preset à la sortie » : le preset plat par
+  défaut (« Plat ») échappait au garde-fou (seul « Personnalisé » était
+  refusé) → liaison d'un preset sans nom demandée puis refusée en cascade.
+- Kind « mac » (MacVirtualDevice) géré dans la persistance mixer.json
+  (la v2 ne persistait pas ce libellé).
+
+**Vérification R5** : solution complète build 0 erreur 0 avertissement ;
+436/436 tests verts (219 Core + 142 Audio + 75 App).
+
+**Carte** : M-EQ-04 + M-APP-01..05 ✅ ; statut vagues 2-6.
+
+**Prochaine session** : vague 7 — finalisation (parité v2.2.2 point par
+point, tag v3.0.0-dev.1, marqueurs 🔒, packaging adapté des scripts CI legacy).

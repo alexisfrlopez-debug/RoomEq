@@ -1,0 +1,128 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:RoomEq.App.Views"
+        xmlns:controls="clr-namespace:RoomEq.App.Controls"
+        x:Class="RoomEq.App.Views.MainWindow"
+        Title="RoomEq — Égaliseur, analyseur &amp; calibration acoustique"
+        Width="1300" Height="840" MinWidth="1040" MinHeight="680"
+        Background="#12141A"
+        FontFamily="Segoe UI, Noto Sans, Arial">
+
+    <Window.KeyBindings>
+        <!-- volume du périphérique PHYSIQUE routé : le volume Windows de la carte
+             virtuelle n'a aucun effet, celui-ci agit sur la vraie sortie -->
+        <KeyBinding Gesture="Ctrl+Alt+Up" Command="{Binding Mixer.RoutedVolumeUpCommand}"/>
+        <KeyBinding Gesture="Ctrl+Alt+Down" Command="{Binding Mixer.RoutedVolumeDownCommand}"/>
+        <KeyBinding Gesture="Ctrl+Alt+M" Command="{Binding Mixer.ToggleRoutedMuteCommand}"/>
+    </Window.KeyBindings>
+
+    <Panel>
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <!-- Barre supérieure : sortie, transport, volume -->
+            <!-- défilement HORIZONTAL — sur une fenêtre étroite, les contrôles de
+                 droite (menu des signaux, téléchargement) restent accessibles en
+                 faisant défiler la barre au lieu d'être coupés -->
+            <Border Grid.Row="0" Background="#1A1D26" Padding="0,8"
+                    BorderBrush="#2A2F3A" BorderThickness="0,0,0,1">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="14,0">
+
+                    <TextBlock Text="RoomEq" FontWeight="Bold" FontSize="17"
+                               Foreground="#FF9F1C" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <controls:HelpButton Grid.Row="0"
+                                         HelpTitle="RoomEq"
+                                         HelpText="RoomEq traite le son de votre ordinateur avec un égaliseur acoustique.&#10;&#10;• Barre du haut : sortie de lecture, transport, volume, bypass et signaux de test.&#10;• Onglets : Égaliseur (courbe), Mixage &amp; routage (son Windows → EQ), Analyseur (spectre), Calibration pièce (mesure auto), Micro (profils), ASIO.&#10;• Les boutons « ? » orange de chaque section ouvrent une aide détaillée.&#10;• Ctrl+Alt+↑ / ↓ : volume de la carte physique ; Ctrl+Alt+M : sourdine."/>
+
+                    <ComboBox Width="260" ItemsSource="{Binding Outputs}"
+                              SelectedItem="{Binding SelectedOutput}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="Rafraîchir" Command="{Binding RefreshOutputsCommand}" FontSize="11"/>
+                    <controls:HelpButton HelpTitle="Sortie de lecture"
+                                         HelpText="Périphérique utilisé par le lecteur interne et les signaux de test.&#10;&#10;Pendant le routage de l'onglet Mixage, c'est la SORTIE MASTER de la console qui fait foi — celle-ci reste la sortie du lecteur interne.&#10;&#10;« Rafraîchir » relit la liste des périphériques (branchement à chaud)."/>
+
+                    <Separator Width="1" Height="26" Background="#2A2F3A" Margin="6,0"/>
+
+                    <Button Command="{Binding PlayPauseCommand}" Width="52" Content="Lecture"/>
+                    <Button Command="{Binding StopCommand}" Width="52" Content="Arrêt"/>
+                    <Button Content="Ouvrir un fichier…" Click="OnOpenFileClick"/>
+
+                    <TextBlock Text="{Binding SourceName}" VerticalAlignment="Center"
+                               Foreground="#8B93A7" MaxWidth="170" TextTrimming="CharacterEllipsis"/>
+
+                    <Separator Width="1" Height="26" Background="#2A2F3A" Margin="6,0"/>
+
+                    <TextBlock Text="Volume" VerticalAlignment="Center" Foreground="#8B93A7" FontSize="11"/>
+                    <Slider Minimum="0" Maximum="1.5" Value="{Binding Volume, Mode=TwoWay}" Width="120" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Volume, StringFormat={}{0:0%}}" VerticalAlignment="Center" Width="44" FontSize="11"/>
+                    <controls:HelpButton HelpTitle="Volume et transport"
+                                         HelpText="« Lecture / Arrêt » contrôlent le lecteur interne (fichier ouvert ou signal de test).&#10;&#10;Le curseur Volume agit sur DEUX chemins :&#10;• le lecteur interne : gain après l'égaliseur — 100 % = 0 dB, 150 % = +3,5 dB ;&#10;• le volume Windows de la carte physique routée (sortie master de l'onglet Mixage) : de 0 à 100 %, le curseur règle directement la carte — c'est ce qui rend le curseur audible sur le son routé, dont le chemin ne passe pas par ce lecteur.&#10;&#10;SYNCHRONISATION : ce curseur, le curseur « Volume carte physique » de l'onglet Mixage et les raccourcis Ctrl+Alt+↑ / ↓ règlent le MÊME volume — déplacer l'un met immédiatement les autres à la même position, quel que soit l'ordre. Un réglage fait hors de l'application (mixeur Windows, touches du casque) est aussi suivi.&#10;&#10;Au-delà de 100 %, la carte reste au maximum et seul le gain du lecteur monte (le curseur du Mixage reste alors à 100 %). Ctrl+Alt+↑ / ↓ / M règlent toujours la carte physique seule."/>
+
+                    <ToggleButton IsChecked="{Binding Bypass}" Content="Bypass EQ" VerticalAlignment="Center"/>
+                    <controls:HelpButton HelpTitle="Bypass EQ"
+                                         HelpText="Court-circuite l'égaliseur : le signal traverse sans traitement (mais le volume s'applique toujours).&#10;&#10;Utile pour comparer avant/après correction à l'oreille, et pour laisser la mesure de calibration voir la pièce seule (bypass automatique pendant la mesure)."/>
+
+                    <Separator Width="1" Height="26" Background="#2A2F3A" Margin="6,0"/>
+
+                    <!-- menu déroulant unique (bruits, sinus, balayages, fichiers
+                         téléchargés) -->
+                    <ComboBox Width="240" ItemsSource="{Binding Signals.SignalChoices}"
+                              SelectedItem="{Binding Signals.SelectedSignal}" FontSize="11.5">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="Jouer" Command="{Binding Signals.PlaySelectedCommand}" FontSize="11"/>
+                    <Button Content="Télécharger d'autres…" Command="{Binding OpenSignalCatalogCommand}" FontSize="11"/>
+                    <controls:HelpButton HelpTitle="Signaux de test"
+                                         HelpText="Choisissez un signal dans le menu déroulant puis « Jouer » pour l'écouter sur la sortie sélectionnée.&#10;&#10;Générés par l'application : bruits blanc / rose / brun / violet, sinus de 50 Hz à 15 kHz, balayages logarithmiques (le bruit rose est idéal pour régler le niveau d'écoute ; les balayages servent à la calibration).&#10;&#10;« Télécharger d'autres… » ajoute des signaux publiés avec le projet (impulsions, bruit gris, multi-tones, balayage lent…) : ils sont enregistrés localement puis apparaissent dans le même menu, section « Téléchargés ».&#10;&#10;Réglez le volume pour un niveau confortable, sans écrêtage, avant toute calibration."/>
+                </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Onglets -->
+            <TabControl Grid.Row="1" Margin="10,8,10,4">
+                <TabItem Header="Égaliseur">
+                    <views:EqTab DataContext="{Binding Eq}"/>
+                </TabItem>
+                <TabItem Header="Mixage &amp; routage">
+                    <views:MixerTab DataContext="{Binding Mixer}"/>
+                </TabItem>
+                <TabItem Header="Analyseur">
+                    <views:AnalyzerTab DataContext="{Binding Analyzer}"/>
+                </TabItem>
+                <TabItem Header="Calibration pièce">
+                    <views:CalibrationTab DataContext="{Binding Calibration}"/>
+                </TabItem>
+                <TabItem Header="Micro">
+                    <views:MicTab DataContext="{Binding Mic}"/>
+                </TabItem>
+                <TabItem Header="ASIO">
+                    <views:AsioTab DataContext="{Binding Asio}"/>
+                </TabItem>
+            </TabControl>
+
+            <!-- Barre d'état -->
+            <Border Grid.Row="2" Background="#1A1D26" Padding="14,5"
+                    BorderBrush="#2A2F3A" BorderThickness="0,1,0,0">
+                <TextBlock Text="{Binding StatusText}" Foreground="#8B93A7" FontSize="12"/>
+            </Border>
+        </Grid>
+
+        <!-- OSD volume (Ctrl+Alt+↑ / ↓ / M) : bandeau éphémère en haut de la fenêtre -->
+        <Border x:Name="VolumeOsd" IsVisible="False" HorizontalAlignment="Center"
+                VerticalAlignment="Top" Margin="0,16,0,0"
+                Background="#E620242E" CornerRadius="8" Padding="18,10"
+                BorderBrush="#FF9F1C" BorderThickness="1">
+            <TextBlock x:Name="VolumeOsdText" FontSize="16" FontWeight="Bold" Foreground="#E8EAF0"/>
+        </Border>
+    </Panel>
+</Window>
