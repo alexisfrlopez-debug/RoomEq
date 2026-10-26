@@ -237,6 +237,18 @@ Work Log:
   (branche + tag) + packaging (package_v3.sh : zips test/public/source) +
   miroir Drive.
 
+Complément (même session, signalement du développeur) :
+- Les livrables n'étaient PAS dans le Drive : le miroir ne couvrait que le
+  dépôt — les zips de download/ n'étaient jamais téléversés (aucun mécanisme).
+- drive_sync_roomeq.py étendu : sync_deliverables() téléverse les zips
+  `RoomEq-*` de download/ dans « Equalizer/RoomEq-v3/Livrables » via upload
+  resumable par morceaux de 8 Mo (42 Mo > limite multipart), idempotent par
+  md5 ; publish/ exclu du miroir dépôt.
+- Exécuté et vérifié : les 3 zips 3.0.0-dev.1 (test 41,7 Mo, public 41,6 Mo,
+  source 0,4 Mo) téléversés, empreintes md5 distantes == locales (contrôle
+  programmatique) — tout futur package_v3.sh + sync_backup.sh les garde
+  automatiquement à jour.
+
 Stage Summary:
 - Recodage RoomEq v3 TERMINÉ et cristallisé au tag v3.0.0-dev.1 : 42/42
   modules 🔒, 437/437 tests verts, build 0/0, parité v2.2.2 établie

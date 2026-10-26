@@ -4,20 +4,25 @@
 Idempotent par MD5 : un fichier identique n'est pas re-téléversé. Les jetons
 sont lus depuis ../triade/.gdrive/ (jamais dans le dépôt). Un bundle git
 complet est téléversé pour restaurabilité (git clone roomeq-v3.bundle).
+Les livrables (zips de download/, préfixe RoomEq-) vont dans le sous-dossier
+« Livrables » — téléversement resumable (42 Mo > limite multipart).
 """
 import hashlib
 import json
 import os
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 import urllib.parse
 
 REPO = os.environ.get("ROOMEQ_REPO", "/home/z/my-project/roomeq")
 TOKENS = os.environ.get("ROOMEQ_TOKENS", "/home/z/my-project/triade/.gdrive")
+DOWNLOAD_DIR = os.environ.get("ROOMEQ_DOWNLOAD", "/home/z/my-project/download")
 DRIVE_ROOT = "1vRB4hEr9thaRnJsPjz8JCezGuzzD_yJR"      # dossier « Equalizer »
 FOLDER_NAME = "RoomEq-v3"
-EXCLUDE_DIRS = {".git", "bin", "obj", ".vs", "tmp-diag", "roomeq-git-ref", "roomeq-legacy"}
+DELIVERABLES_FOLDER = "Livrables"
+EXCLUDE_DIRS = {".git", "bin", "obj", ".vs", "tmp-diag", "roomeq-git-ref", "roomeq-legacy", "publish"}
 
 
 def get_access_token():
@@ -97,6 +102,52 @@ def update_existing(file_id, path, token):
         r.read()
 
 
+def resumable_upload(path, token, name=None, file_id=None, parents=None):
+    """Téléversement resumable par morceaux de 8 Mo (gros fichiers).
+
+    Création (name+parents) ou mise à jour (file_id) ; gère les réponses
+    intermédiaires 308 (chunk accepté) et finales 200/201.
+    """
+    total = os.path.getsize(path)
+    if file_id:
+        init_url = (f"https://www.googleapis.com/upload/drive/v3/files/{file_id}"
+                    "?uploadType=resumable&fields=id")
+        init_data, method = b"{}", "PATCH"
+    else:
+        init_url = ("https://www.googleapis.com/upload/drive/v3/files"
+                    "?uploadType=resumable&fields=id")
+        init_data = json.dumps({"name": name, "parents": parents}).encode()
+        method = "POST"
+    req = urllib.request.Request(init_url, method=method, data=init_data,
+                                 headers={"Authorization": f"Bearer {token}",
+                                          "Content-Type": "application/json; charset=UTF-8",
+                                          "X-Upload-Content-Type": "application/zip",
+                                          "X-Upload-Content-Length": str(total)})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        session_uri = r.headers["Location"]
+    chunk = 8 * 1024 * 1024
+    with open(path, "rb") as f:
+        offset = 0
+        while offset < total:
+            data = f.read(chunk)
+            end = offset + len(data) - 1
+            req = urllib.request.Request(
+                session_uri, method="PUT", data=data,
+                headers={"Content-Range": f"bytes {offset}-{end}/{total}",
+                         "Content-Length": str(len(data))})
+            try:
+                with urllib.request.urlopen(req, timeout=600) as r:
+                    code, body = r.status, r.read()
+            except urllib.error.HTTPError as e:
+                code, body = e.code, (e.read() if e.fp else b"")
+            if code in (200, 201):
+                return json.loads(body) if body else {}
+            if code != 308:
+                raise RuntimeError(f"upload resumable {path} : HTTP {code}")
+            offset += len(data)
+    return {}
+
+
 def mirror(local_dir, folder_id, token, rel=""):
     children = list_children(folder_id, token)
     uploaded = updated = unchanged = 0
@@ -124,6 +175,35 @@ def mirror(local_dir, folder_id, token, rel=""):
     return uploaded, updated, unchanged
 
 
+def sync_deliverables(folder_id, token):
+    """Téléverse les livrables RoomEq-*.zip de download/ dans « Livrables »."""
+    if not os.path.isdir(DOWNLOAD_DIR):
+        print("Livrables : dossier download/ absent — rien à faire")
+        return
+    zips = sorted(f for f in os.listdir(DOWNLOAD_DIR)
+                  if f.startswith("RoomEq-") and f.endswith(".zip"))
+    if not zips:
+        print("Livrables : aucun zip RoomEq-* dans download/ — rien à faire")
+        return
+    liv_id = ensure_folder(folder_id, DELIVERABLES_FOLDER, token)
+    children = list_children(liv_id, token)
+    print(f"Livrables → {FOLDER_NAME}/{DELIVERABLES_FOLDER} ({len(zips)} zips) :")
+    for z in zips:
+        p = os.path.join(DOWNLOAD_DIR, z)
+        size_mb = os.path.getsize(p) / (1024 * 1024)
+        with open(p, "rb") as f:
+            md5 = hashlib.md5(f.read()).hexdigest()
+        remote = children.get(z)
+        if remote is None:
+            resumable_upload(p, token, name=z, parents=[liv_id])
+            print(f"  + {z} ({size_mb:.1f} Mo) : téléversé")
+        elif remote.get("md5Checksum") != md5:
+            resumable_upload(p, token, file_id=remote["id"])
+            print(f"  ± {z} ({size_mb:.1f} Mo) : mis à jour")
+        else:
+            print(f"  = {z} ({size_mb:.1f} Mo) : inchangé")
+
+
 def main():
     token = get_access_token()
     folder_id = ensure_folder(DRIVE_ROOT, FOLDER_NAME, token)
@@ -131,6 +211,8 @@ def main():
 
     up, upd, unch = mirror(REPO, folder_id, token)
     print(f"Fichiers : {up} créés, {upd} mis à jour, {unch} inchangés")
+
+    sync_deliverables(folder_id, token)
 
     # bundle git pour restaurabilité complète (historique)
     bundle = os.path.join("/tmp", "roomeq-v3.bundle")
