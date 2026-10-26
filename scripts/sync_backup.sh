@@ -31,13 +31,19 @@ else
   echo "=== Rien à committer ==="
 fi
 
-# 3) push GitHub
+# 3) push GitHub (HEAD → branche distante v3-recodage, puis tags de
+#    cristallisation — ex. v3.0.0-dev.1 déclenche la release CI, D10)
 TOKEN=$(cut -d: -f2 ../triade/.gdrive/token_git.txt | tr -d ' \r')
-if git push -q "https://alexisfrlopez-debug:${TOKEN}@github.com/alexisfrlopez-debug/RoomEq.git" v3-recodage:v3-recodage 2>&1; then
-  echo "=== Push GitHub : v3-recodage OK ==="
+GITURL="https://alexisfrlopez-debug:${TOKEN}@github.com/alexisfrlopez-debug/RoomEq.git"
+if git push -q "$GITURL" HEAD:v3-recodage 2>&1; then
+  echo "=== Push GitHub : HEAD → v3-recodage OK ==="
 else
-  git branch -q v3-recodage 2>/dev/null || true
-  git push -q --set-upstream "https://alexisfrlopez-debug:${TOKEN}@github.com/alexisfrlopez-debug/RoomEq.git" v3-recodage 2>&1 && echo "=== Push GitHub : v3-recodage créé ===" || echo "!!! Échec push GitHub"
+  echo "!!! Échec push GitHub (branche v3-recodage)"
+fi
+if git tag -l 'v*' | grep -q .; then
+  git push -q "$GITURL" --tags 2>&1 \
+    && echo "=== Push GitHub : tags OK ===" \
+    || echo "!!! Échec push GitHub (tags)"
 fi
 
 # 4) miroir Drive

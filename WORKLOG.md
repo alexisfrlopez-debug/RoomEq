@@ -194,3 +194,56 @@ adapté à la sortie »).
 
 **Prochaine session** : vague 7 — finalisation (parité v2.2.2 point par
 point, tag v3.0.0-dev.1, marqueurs 🔒, packaging adapté des scripts CI legacy).
+
+---
+Session : 4 — 2026-10-26
+Agent : main (Z.ai)
+Task : Vague 7 du recodage TRIADE de RoomEq — finalisation : parité v2.2.2
+point par point, comblement des données embarquées (D9), cristallisation
+v3.0.0-dev.1 (D10 : Carte 🔒, tag, packaging, CI), sauvegarde systématique.
+
+Work Log:
+- Session précédente interrompue en cours de vague 7 : artefacts retrouvés
+  non commités (audit PARITE-v2.2.2.md rédigé, D9/D10 consignées dans
+  DECISIONS.md, JSON casques remplacé, package_v3.sh + build.yml + LISEZMOI
+  écrits, version 3.0.0-dev.1 posée) — contexte reconstruit puis séquence de
+  finalisation exécutée.
+- Parité des données embarquées vérifiée par empreintes : headphone_presets
+  (md5 ffff00a5… = v2.2.2, 321 modèles / 58 marques) et MicLibrary
+  (md5 f126f6f5… = v2.2.2, 36 micros) — octet pour octet identiques.
+- Fausse alerte écartée : « branches: ain, v3-recodage] » dans l'affichage
+  bash de build.yml = séquence ANSI avalée ; le YAML est sain (lecteur de
+  fichiers).
+- R5 (verify-then-commit) : build solution 0 erreur 0 avertissement ;
+  437/437 tests verts (220 Core — dont Parity_IncludesV21Additions — +
+  142 Audio + 75 App).
+- CARTE.md cristallisée : 42 modules ✅→🔒, en-tête corrigé (base de
+  référence v2.2.2 @ deff25c — était restée v2.2.1, empreinte legacy =
+  roomeq-git-ref + roomeq-legacy, statut cristallisé, version 3.0.0-dev.1),
+  natifs scellés re-marqués v2.2.2, convention de statut étendue aux
+  pré-versions -dev.N (D10).
+- PLAN_RECODAGE.md : vague 7 ✅ (session 4), critère de non-régression
+  aligné sur v2.2.2, mention « RECODAGE TERMINÉ » + marche à suivre pour
+  l'ouverture v3.0.0 finale.
+- README.md et REPRISE.md mis à jour : état « terminé et cristallisé »,
+  chiffres 42 modules 🔒 / 437 tests / 0-0, D1-D10, commandes de vérification
+  sur les trois suites + packaging, reste-à-faire = validation utilisateur
+  Windows réelle puis retrait du suffixe -dev.1.
+- Outillage corrigé : .gitignore exclut publish/ (artefacts du packaging) ;
+  sync_backup.sh pousse désormais HEAD:v3-recodage (la branche locale
+  v3-recodage était restée 4 commits derrière main — les pushes précédents
+  étaient des no-ops) puis les tags v* (déclenche la release CI, D10).
+- Commit de cristallisation + tag annoté v3.0.0-dev.1 + push GitHub
+  (branche + tag) + packaging (package_v3.sh : zips test/public/source) +
+  miroir Drive.
+
+Stage Summary:
+- Recodage RoomEq v3 TERMINÉ et cristallisé au tag v3.0.0-dev.1 : 42/42
+  modules 🔒, 437/437 tests verts, build 0/0, parité v2.2.2 établie
+  (docs/PARITE-v2.2.2.md — 14/14 familles, données embarquées identiques,
+  3 écarts volontaires documentés).
+- Livrables : zips test/public/source 3.0.0-dev.1 (scripts/package_v3.sh) ;
+  CI GitHub Actions (tests 3 OS + packaging + release sur tag) ; télémétrie
+  régénérable hors git (gen_telemetrie.py).
+- Prochaine étape (hors recodage) : validation utilisateur sur machine
+  Windows réelle (checklist PARITE § 1) → ouverture v3.0.0 finale.

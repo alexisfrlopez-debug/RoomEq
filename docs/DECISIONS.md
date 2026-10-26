@@ -132,3 +132,51 @@ réels faibles. Comportement consigné dans la spec I-CAL-02 et testé
 défaut connu du comportement validé contredit l'objectif du recodage (nettoyage)
 et la fonction objectif (sécurité d'abord : un utilisateur non averti appliquerait
 une correction aléatoire à son système).
+
+## D9 — Parité des données embarquées : bibliothèque casques portée à 321 (vague 7)
+
+**Décision.** Les jeux de données embarqués de la v3 doivent être **identiques en
+volume à la v2.2.2**. L'audit de parité a révélé que `headphone_presets.json`
+était resté au jeu v2.0.0 (255 modèles) alors que la v2.1.0 l'avait porté à 321
+(66 ajouts Bluetooth grand public, dont les séries JBL Tune/Live/Tour). Le JSON
+v2.2.2 (321 modèles, 58 marques, empreinte `ffff00a5…` vérifiée) le remplace ;
+la spec I-HPH-01 passe en v2 (contrat public inchangé — patch à contrat stable,
+données étendues) ; le test `Parity_IncludesV21Additions` verrouille le plancher
+à 320 modèles et la présence des ajouts v2.1.
+
+**Pourquoi.** La parité fonctionnelle est le critère de non-régression (D6) : un
+utilisateur v2.2.2 qui passe à la v3 ne doit perdre aucune reconnaissance de
+périphérique — le preset automatique par sortie s'appuie précisément sur ces
+modèles (« Casque (JBL Tune Flex 2 Stereo) » doit continuer d'être reconnu).
+
+**Alternatives rejetées.** (a) Garder 255 : écart silencieux de 66 modèles ;
+(b) fusion manuelle des 66 ajouts dans le JSON v3 : inutile, les schémas sont
+identiques (vérifié champ à champ) et l'empreinte du fichier legacy garantit
+l'exactitude.
+
+## D10 — Cristallisation v3.0.0-dev.1, packaging et CI v3 (vague 7)
+
+**Décision.** Le dépôt est cristallisé au tag **`v3.0.0-dev.1`** : les 42 modules
+applicatifs passent 🔒 dans la Carte (contrats I gelés jusqu'à v3.0.0 finale).
+Le packaging v3 est porté par `scripts/package_v3.sh` (adapté du
+`package_2.0.0.sh` legacy) : publication win-x64 auto-contenue, déclinaison
+`RoomEq.exe` (public) / `RoomEq-test.exe` (test), zips test / public / source
+avec contrôles de contenu. La CI GitHub Actions v3 (`.github/workflows/build.yml`)
+couvre les tests xUnit sur les 3 OS et le packaging applicatif — **sans** jobs
+natifs : le pilote, la DLL ASIO et les installateurs restent consommés depuis
+les artefacts scellés v2.2.2 (D1, `natif/REFERENCE-NATIF.md`), notamment
+`RoomEqDriverSetup-2.2.2.exe` pour l'installation du pilote. Le suffixe
+`-dev.1` (pré-version SemVer) marque l'état « recodage vérifié par tests,
+validation utilisateur Windows réelle non encore effectuée ».
+
+**Pourquoi.** Le plan de vague 7 exige un point de restauration nommé et des
+marqueurs 🔒 ; 437 tests verts + build 0/0 justifient la cristallisation, mais
+l'absence de validation sur machine Windows réelle interdit le tag v3.0.0 nu.
+Réutiliser le schéma de packaging legacy (mêmes noms de fichiers, mêmes règles
+public/test) garantit la continuité des habitudes de distribution du développeur.
+
+**Alternatives rejetées.** (a) Tag `v3.0.0` direct : prématuré sans validation
+terrain ; (b) pas de tag : le dépôt reste sans point de restauration nommé, la
+convention 🔒 de la Carte ne peut pas s'appliquer ; (c) réécrire les scripts
+d'installateurs : hors périmètre D1, risque sans gain.
+

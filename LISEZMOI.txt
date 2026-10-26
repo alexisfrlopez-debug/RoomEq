@@ -1,0 +1,61 @@
+RoomEq 3.0.0-dev.1 — recodage intégral sous protocole TRIADE (parité 2.2.2)
+===========================================================================
+
+CE QU'EST CETTE VERSION
+-----------------------
+  • RECODAGE COMPLET de l'application (RoomEq.Core, RoomEq.Audio, RoomEq.App)
+    selon le protocole TRIADE : chaque module est défini par une spécification
+    d'intention diffable (I/), implémenté par du code versionné (src/) et
+    cartographié à adresse stable (CARTE.md) — 42 modules, 31 spécifications,
+    437 tests verts, build 0 erreur 0 avertissement.
+  • PARITÉ FONCTIONNELLE 2.2.2 ÉTABLIE point par point (docs/PARITE-v2.2.2.md) :
+    égaliseur paramétrique, analyseur RTA, calibration multi-signaux, profils
+    micro (36), corrections casques (321 modèles AutoEq), preset automatique
+    par périphérique, mixage & routage complet, pont ASIO, lecteur intégré,
+    versions test/public, télémétrie de test.
+  • CORRECTIFS v3 (documentés) : détection du balayage durcie (une capture de
+    bruit seul n'est plus « corrigée »), message d'aide ASIO affiché même sans
+    pilote, garde-fou « Lier ce preset » étendu au preset plat, fichier de la
+    tranche Lecteur restauré au démarrage, kind « mac » persisté.
+  • LES COMPOSANTS NATIFS (pilote de carte virtuelle, DLL ASIO, installateurs)
+    sont SCELLÉS en version 2.2.2 et inchangés : mêmes points d'entrée, mêmes
+    artefacts — voir natif/REFERENCE-NATIF.md.
+
+INSTALLATION
+------------
+    1) PILOTE (inchangé, scellé 2.2.2) : RoomEqDriverSetup-2.2.2.exe — la carte
+       son virtuelle « RoomEq Virtual Audio » + le pilote ASIO en un fichier.
+       Double-clic -> UAC -> fenêtre graphique (état, journal, boutons
+       Installer / Diagnostic complet / Revenir au mode normal / Désinstaller).
+       Le mode test est PROPOSÉ en boîte de dialogue (jamais activé en silence,
+       défaut : NON). Options console : --status / --uninstall / --mode-normal
+       / --accept-testmode / --no-testmode.
+    2) APPLICATION v3 : RoomEq.exe (public, silencieux — aucune journalisation,
+       aucun envoi) ou RoomEq-test.exe (journalisation complète + télémétrie
+       Drive du développement, pilotée par telemetrie.json placé à côté).
+       Au lancement de la version test, une boîte de dialogue propose la
+       version publique. ROOMEQ_TEST=1 force le mode test (développement).
+       Sans pilote, l'onglet Mixage fonctionne en boucle WASAPI.
+    Les réglages et mesures (%APPDATA%\RoomEq : presets, profils micro,
+    mixer.json, devicepresets.json, signaux) sont PARTAGÉS avec la 2.2.2 —
+    une mesure existante et les presets liés aux sorties sont conservés.
+
+COMPILER DEPUIS LES SOURCES
+---------------------------
+    SDK .NET 8 :  dotnet build src/RoomEq.sln -c Release
+    Tests       :  dotnet test tests/RoomEq.Core.Tests  (puis Audio, App)
+    Publication :  dotnet publish src/RoomEq.App -c Release -r win-x64 \
+                      --self-contained true
+    Packaging complet (zips test/public/source + contrôles) :
+                  bash scripts/package_v3.sh
+
+SIGNALEMENT DE PROBLÈMES
+------------------------
+    Version test : le journal part automatiquement vers le dossier Drive
+    « journaux-app » (fermeture / toutes les 5 min / bouton « Envoyer
+    maintenant ») ; le chemin local s'affiche dans l'onglet Calibration.
+    Version publique : aucun fichier n'est écrit — basculez sur RoomEq-test.exe
+    pour diagnostiquer.
+
+RoomEq — égaliseur temps réel Windows & macOS avec calibration acoustique
+automatique. Données casques dérivées du projet AutoEq (MIT, cible Harman).

@@ -7,45 +7,55 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq v3.0.0 — recodage complet de l'application sous protocole TRIADE |
+| **Projet** | RoomEq v3.0.0-dev.1 — recodage complet de l'application sous protocole TRIADE, **cristallisé** |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/roomeq` — branche `main` (recodage), miroirs Drive + GitHub `v3-recodage` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis `dotnet test ../tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj` |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 437 verts |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 1)
+## 1. État (fin session 4 — recodage TERMINÉ, cristallisé v3.0.0-dev.1)
 
-**Terminé — RoomEq.Core v3 INTÉGRALEMENT recodé** (vagues 1-4 du plan) :
+**Les trois projets sont intégralement recodés sous TRIADE** (vagues 1-7 du
+plan) :
 
-- **Vague 1** : structure Triade (I/ specs · src/ code · tests/ · CARTE.md ·
-  docs/DECISIONS.md D1-D8 · docs/PLAN_RECODAGE.md), SDK .NET 8, solution.
-- **Vague 2 — Dsp + Eq** (10 modules) : FFT radix-2, fenêtres, biquads RBJ en
-  Transposed Direct Form II + traitement par bloc, bruits (Kellet), balayage ESS
-  forme fermée, Welch/octaves/lissage, mixage canaux, bandes/presets/chaîne EQ
-  temps réel sans lock ni allocation (préampli intégré).
-- **Vague 3 — Calibration + Headphones** (9 modules) : courbes cibles,
-  déconvolution Farina (seuil de détection relevé 8×→1000×, D8), planificateur
-  glouton anti-doublons, croisement multi-signaux (médiane + dispersion),
-  précisions, designer, profils micro + bibliothèque, presets casque AutoEq
-  (255 modèles + reconnaissance de périphérique).
-- **Vague 4 — Io** (5 modules) : saveur test/public, journal diagnostic,
-  télémétrie Drive, catalogue de signaux téléchargeables (validation avant
-  réseau + SHA-256), magasins presets/profils.
+- **Vagues 1-4 — RoomEq.Core** (25 modules) : Dsp (FFT radix-2, fenêtres,
+  biquads RBJ TDF2 par bloc, bruits Kellet, ESS forme fermée, Welch/octaves,
+  mixage), Eq (bandes, presets, chaîne temps réel sans lock ni allocation,
+  liaisons preset↔périphérique M-EQ-04), Calibration (déconvolution Farina
+  avec seuil de détection 1000× — D8 —, cibles, planificateur anti-doublons,
+  multi-signaux médiane+dispersion, précisions, designer, 36 profils micro),
+  Headphones (AutoEq, **321 modèles** — D9), Io (saveur test/public, journal,
+  télémétrie Drive, signaux SHA-256, magasins).
+- **Vague 5 — RoomEq.Audio** (6 modules) : capture WASAPI/AUHAL avec repli de
+  format, moteur de lecture + ISampleProvider, routage complet (RingBuffer
+  SPSC, carte virtuelle RoomEq + boucle WASAPI, volume Windows, PolicyConfig,
+  watcher, pilote pnputil, mixer.json), pont ASIO (miroir du protocole C
+  verrouillé par tests), pont macOS CoreAudio, moteur de mesure mono +
+  multi-signaux.
+- **Vague 6 — RoomEq.App** (5 modules) : shell Avalonia 11, ViewModels
+  décomposés par concern (< 300 lignes/fichier), 8 contrôles personnalisés,
+  6 onglets ; 2 vrais bogues v2 corrigés (ASIO sans pilote, garde-fou preset
+  plat) + FilePath de la tranche Lecteur persisté.
+- **Vague 7 — Finalisation** : audit de parité v2.2.2 point par point
+  (`docs/PARITE-v2.2.2.md`, 14/14 familles du README, empreintes md5 des
+  données embarquées vérifiées), D9 casques 255→321, D10 cristallisation
+  (tag `v3.0.0-dev.1`, 42 modules 🔒, packaging `scripts/package_v3.sh`, CI
+  `.github/workflows/build.yml`), `LISEZMOI.txt`, télémétrie régénérable
+  (`scripts/gen_telemetrie.py`).
 
-**Chiffres** : 24/24 modules Core ✅ · **212/212 tests verts** · build
-**0 erreur 0 avertissement** · specs I écrites pour chaque module avant le code.
+**Chiffres** : 42/42 modules 🔒 · **437/437 tests verts** (220 Core + 142
+Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
 
-**Reste à faire** (vagues 5-7 du plan) :
-- **Vague 5 — RoomEq.Audio** (M-AUD-01..06) : capture, lecture, routage/mixeur,
-  pont ASIO, pont macOS, moteur de mesure. Legacy : 25 fichiers, 5 259 lignes.
-- **Vague 6 — RoomEq.App** (M-APP-01..05) : shell Avalonia, onglets,
-  ViewModels (cible < 300 lignes chacun), contrôles. Legacy : 27 fichiers,
-  4 922 lignes.
-- **Vague 7 — Finalisation** : tag v3.0.0-dev.1, parité v2.2.2 point par point,
-  packaging.
+**Reste à faire** (hors recodage) :
+- **Validation utilisateur sur machine Windows réelle** : installer le pilote
+  scellé (`RoomEqDriverSetup-2.2.2.exe`), lancer `RoomEq.exe` / `RoomEq-test.exe`
+  du zip, parcourir la checklist des 14 familles (`docs/PARITE-v2.2.2.md` § 1).
+- Puis **ouverture v3.0.0 finale** : retirer le suffixe `-dev.1` dans
+  `src/Directory.Build.props`, `LISEZMOI.txt` et `scripts/package_v3.sh`, tag
+  `v3.0.0`, re-sauvegarde.
 
 ## 2. Méthode de travail (protocole TRIADE appliqué ici)
 
@@ -69,6 +79,10 @@
 - **D6** base v2.2.2, cible v3.0.0.
 - **D7** sauvegarde systématique.
 - **D8** seuil de détection du balayage 8×→1000× (rejette le bruit pur).
+- **D9** parité des données embarquées : casques portés à 321 (fichier v2.2.2
+  repris tel quel, md5 vérifié).
+- **D10** cristallisation `v3.0.0-dev.1` : 42 modules 🔒, packaging v3
+  (`package_v3.sh`), CI GitHub Actions sans jobs natifs.
 
 ## 4. Pièges et découvertes de la session 1
 
@@ -93,7 +107,10 @@
 export PATH="$HOME/.dotnet:$PATH"
 cd /home/z/my-project/roomeq/src
 dotnet build RoomEq.sln -c Debug          # 0 erreur 0 avertissement attendu
-dotnet test ../tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj   # 212 verts
+dotnet test ../tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj    # 220 verts
+dotnet test ../tests/RoomEq.Audio.Tests/RoomEq.Audio.Tests.csproj  # 142 verts
+dotnet test ../tests/RoomEq.App.Tests/RoomEq.App.Tests.csproj      # 75 verts
+bash ../scripts/package_v3.sh             # livrables : zips test/public/source
 bash ../scripts/sync_backup.sh            # fin de lot : commit + GitHub + Drive
 ```
 

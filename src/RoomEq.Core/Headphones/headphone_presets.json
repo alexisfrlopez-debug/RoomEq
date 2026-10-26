@@ -1,6 +1,6 @@
 {
  "version": 1,
- "generated": "2026-10-24",
+ "generated": "2026-10-25",
  "source": "AutoEq (MIT) — Jaakko Pasanen — jaakkopasanen.github.io/AutoEq",
  "sources": [
   "oratory1990",
@@ -18115,6 +18115,4692 @@
      "f": 65.0,
      "g": 0.2,
      "q": 2.22
+    }
+   ]
+  },
+  {
+   "id": "jbltuneflex2",
+   "brand": "JBL",
+   "model": "Tune Flex 2",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings — dérivée du JBL Tune Flex (2021), génération précédente",
+   "preampDb": -2.0,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -2.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9958.0,
+     "g": -4.0,
+     "q": 0.49
+    },
+    {
+     "type": "peaking",
+     "f": 816.0,
+     "g": 2.2,
+     "q": 0.32
+    },
+    {
+     "type": "peaking",
+     "f": 1607.0,
+     "g": -3.6,
+     "q": 0.93
+    },
+    {
+     "type": "peaking",
+     "f": 4265.0,
+     "g": 3.8,
+     "q": 1.49
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 145.0,
+     "g": 0.6,
+     "q": 2.06
+    },
+    {
+     "type": "peaking",
+     "f": 278.0,
+     "g": -0.5,
+     "q": 2.56
+    },
+    {
+     "type": "peaking",
+     "f": 41.0,
+     "g": -0.3,
+     "q": 1.64
+    },
+    {
+     "type": "peaking",
+     "f": 858.0,
+     "g": 0.5,
+     "q": 4.01
+    }
+   ]
+  },
+  {
+   "id": "jbltuneflex",
+   "brand": "JBL",
+   "model": "Tune Flex",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -2.0,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -2.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9958.0,
+     "g": -4.0,
+     "q": 0.49
+    },
+    {
+     "type": "peaking",
+     "f": 816.0,
+     "g": 2.2,
+     "q": 0.32
+    },
+    {
+     "type": "peaking",
+     "f": 1607.0,
+     "g": -3.6,
+     "q": 0.93
+    },
+    {
+     "type": "peaking",
+     "f": 4265.0,
+     "g": 3.8,
+     "q": 1.49
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 145.0,
+     "g": 0.6,
+     "q": 2.06
+    },
+    {
+     "type": "peaking",
+     "f": 278.0,
+     "g": -0.5,
+     "q": 2.56
+    },
+    {
+     "type": "peaking",
+     "f": 41.0,
+     "g": -0.3,
+     "q": 1.64
+    },
+    {
+     "type": "peaking",
+     "f": 858.0,
+     "g": 0.5,
+     "q": 4.01
+    }
+   ]
+  },
+  {
+   "id": "jbltunebeam2",
+   "brand": "JBL",
+   "model": "Tune Beam 2",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Filk",
+   "preampDb": -1.5,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -3.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 108.0,
+     "g": -1.1,
+     "q": 1.4
+    },
+    {
+     "type": "peaking",
+     "f": 411.0,
+     "g": -1.3,
+     "q": 2.03
+    },
+    {
+     "type": "peaking",
+     "f": 8333.0,
+     "g": 2.4,
+     "q": 2.72
+    },
+    {
+     "type": "peaking",
+     "f": 1571.0,
+     "g": 0.8,
+     "q": 2.16
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 854.0,
+     "g": 0.6,
+     "q": 2.84
+    },
+    {
+     "type": "peaking",
+     "f": 2649.0,
+     "g": -0.8,
+     "q": 4.45
+    },
+    {
+     "type": "peaking",
+     "f": 3711.0,
+     "g": 0.9,
+     "q": 3.82
+    },
+    {
+     "type": "peaking",
+     "f": 4809.0,
+     "g": -0.9,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "jblvibebeam",
+   "brand": "JBL",
+   "model": "Vibe Beam",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -3.0,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -2.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 418.0,
+     "g": 3.0,
+     "q": 1.48
+    },
+    {
+     "type": "peaking",
+     "f": 2545.0,
+     "g": -3.3,
+     "q": 2.68
+    },
+    {
+     "type": "peaking",
+     "f": 6086.0,
+     "g": -6.1,
+     "q": 4.38
+    },
+    {
+     "type": "peaking",
+     "f": 147.0,
+     "g": 2.5,
+     "q": 2.43
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 1.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 3989.0,
+     "g": 1.4,
+     "q": 3.37
+    },
+    {
+     "type": "peaking",
+     "f": 1591.0,
+     "g": -0.6,
+     "q": 1.53
+    },
+    {
+     "type": "peaking",
+     "f": 44.0,
+     "g": -0.6,
+     "q": 1.54
+    },
+    {
+     "type": "peaking",
+     "f": 76.0,
+     "g": 0.5,
+     "q": 1.54
+    }
+   ]
+  },
+  {
+   "id": "jbllivepro",
+   "brand": "JBL",
+   "model": "Live Pro+",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -4.9,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -8.9,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 827.0,
+     "g": 5.2,
+     "q": 1.36
+    },
+    {
+     "type": "peaking",
+     "f": 137.0,
+     "g": -3.0,
+     "q": 1.35
+    },
+    {
+     "type": "peaking",
+     "f": 53.0,
+     "g": 6.0,
+     "q": 0.4
+    },
+    {
+     "type": "peaking",
+     "f": 273.0,
+     "g": -2.8,
+     "q": 0.88
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -5.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 5587.0,
+     "g": 3.3,
+     "q": 4.95
+    },
+    {
+     "type": "peaking",
+     "f": 2700.0,
+     "g": -1.7,
+     "q": 3.44
+    },
+    {
+     "type": "peaking",
+     "f": 1953.0,
+     "g": 1.4,
+     "q": 2.95
+    },
+    {
+     "type": "peaking",
+     "f": 4073.0,
+     "g": -1.2,
+     "q": 4.09
+    }
+   ]
+  },
+  {
+   "id": "jbltourpro2",
+   "brand": "JBL",
+   "model": "Tour Pro 2",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "Kazi",
+   "preampDb": -3.9,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 5.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 57.0,
+     "g": -6.1,
+     "q": 0.6
+    },
+    {
+     "type": "peaking",
+     "f": 4488.0,
+     "g": 4.0,
+     "q": 3.0
+    },
+    {
+     "type": "peaking",
+     "f": 770.0,
+     "g": 0.9,
+     "q": 2.08
+    },
+    {
+     "type": "peaking",
+     "f": 6424.0,
+     "g": -1.3,
+     "q": 3.6
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 202.0,
+     "g": 0.8,
+     "q": 2.09
+    },
+    {
+     "type": "peaking",
+     "f": 111.0,
+     "g": -0.8,
+     "q": 1.98
+    },
+    {
+     "type": "peaking",
+     "f": 2750.0,
+     "g": -0.8,
+     "q": 3.62
+    },
+    {
+     "type": "peaking",
+     "f": 63.0,
+     "g": 0.4,
+     "q": 2.34
+    }
+   ]
+  },
+  {
+   "id": "jbltouronem2",
+   "brand": "JBL",
+   "model": "Tour One M2",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "Filk",
+   "preampDb": -4.2,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -1.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 100.0,
+     "g": -4.6,
+     "q": 1.99
+    },
+    {
+     "type": "peaking",
+     "f": 4836.0,
+     "g": 4.6,
+     "q": 2.38
+    },
+    {
+     "type": "peaking",
+     "f": 7141.0,
+     "g": -3.4,
+     "q": 2.56
+    },
+    {
+     "type": "peaking",
+     "f": 1429.0,
+     "g": 1.5,
+     "q": 2.12
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -6.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 10000.0,
+     "g": 3.1,
+     "q": 1.67
+    },
+    {
+     "type": "peaking",
+     "f": 44.0,
+     "g": -0.9,
+     "q": 2.59
+    },
+    {
+     "type": "peaking",
+     "f": 2624.0,
+     "g": -2.6,
+     "q": 4.93
+    },
+    {
+     "type": "peaking",
+     "f": 3573.0,
+     "g": 1.4,
+     "q": 4.68
+    }
+   ]
+  },
+  {
+   "id": "jbllive770nc",
+   "brand": "JBL",
+   "model": "Live 770NC",
+   "type": "over-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -3.5,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -7.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 110.0,
+     "g": -6.0,
+     "q": 1.69
+    },
+    {
+     "type": "peaking",
+     "f": 504.0,
+     "g": 3.7,
+     "q": 1.02
+    },
+    {
+     "type": "peaking",
+     "f": 2450.0,
+     "g": 3.5,
+     "q": 3.16
+    },
+    {
+     "type": "peaking",
+     "f": 283.0,
+     "g": -2.0,
+     "q": 2.09
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 3.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6563.0,
+     "g": -5.0,
+     "q": 5.67
+    },
+    {
+     "type": "peaking",
+     "f": 3647.0,
+     "g": -4.6,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 4853.0,
+     "g": 3.2,
+     "q": 4.5
+    },
+    {
+     "type": "peaking",
+     "f": 9256.0,
+     "g": -1.8,
+     "q": 2.55
+    }
+   ]
+  },
+  {
+   "id": "jbllive670nc",
+   "brand": "JBL",
+   "model": "Live 670NC",
+   "type": "over-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -7.2,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -2.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 549.0,
+     "g": 5.8,
+     "q": 0.76
+    },
+    {
+     "type": "peaking",
+     "f": 100.0,
+     "g": -6.6,
+     "q": 0.74
+    },
+    {
+     "type": "peaking",
+     "f": 5661.0,
+     "g": -6.5,
+     "q": 3.75
+    },
+    {
+     "type": "peaking",
+     "f": 1224.0,
+     "g": -5.3,
+     "q": 2.78
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 7.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 2523.0,
+     "g": 1.6,
+     "q": 2.46
+    },
+    {
+     "type": "peaking",
+     "f": 39.0,
+     "g": -1.4,
+     "q": 3.51
+    },
+    {
+     "type": "peaking",
+     "f": 4595.0,
+     "g": -1.7,
+     "q": 4.39
+    },
+    {
+     "type": "peaking",
+     "f": 53.0,
+     "g": 1.0,
+     "q": 4.19
+    }
+   ]
+  },
+  {
+   "id": "jbltune720bt",
+   "brand": "JBL",
+   "model": "Tune 720BT",
+   "type": "over-ear",
+   "gamme": "budget",
+   "source": "kr0mka",
+   "preampDb": -3.6,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 3.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 71.0,
+     "g": -6.8,
+     "q": 0.85
+    },
+    {
+     "type": "peaking",
+     "f": 1383.0,
+     "g": 3.9,
+     "q": 0.51
+    },
+    {
+     "type": "peaking",
+     "f": 2895.0,
+     "g": -4.8,
+     "q": 2.19
+    },
+    {
+     "type": "peaking",
+     "f": 585.0,
+     "g": -3.7,
+     "q": 1.54
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -6.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 4887.0,
+     "g": 3.7,
+     "q": 5.22
+    },
+    {
+     "type": "peaking",
+     "f": 170.0,
+     "g": 2.0,
+     "q": 2.55
+    },
+    {
+     "type": "peaking",
+     "f": 117.0,
+     "g": -1.6,
+     "q": 2.76
+    },
+    {
+     "type": "peaking",
+     "f": 6223.0,
+     "g": -2.0,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "jblendurancepeak3",
+   "brand": "JBL",
+   "model": "Endurance Peak 3",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -3.2,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -15.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 693.0,
+     "g": 2.9,
+     "q": 1.17
+    },
+    {
+     "type": "peaking",
+     "f": 165.0,
+     "g": -1.7,
+     "q": 2.19
+    },
+    {
+     "type": "peaking",
+     "f": 389.0,
+     "g": 1.1,
+     "q": 1.4
+    },
+    {
+     "type": "peaking",
+     "f": 66.0,
+     "g": 4.8,
+     "q": 0.98
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -0.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6978.0,
+     "g": -3.0,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 4926.0,
+     "g": -2.7,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 2143.0,
+     "g": 0.7,
+     "q": 2.68
+    },
+    {
+     "type": "peaking",
+     "f": 3964.0,
+     "g": 1.3,
+     "q": 4.92
+    }
+   ]
+  },
+  {
+   "id": "beatsstudiopro",
+   "brand": "Beats",
+   "model": "Studio Pro",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "Rtings",
+   "preampDb": -3.8,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -3.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 8990.0,
+     "g": -5.1,
+     "q": 2.02
+    },
+    {
+     "type": "peaking",
+     "f": 304.0,
+     "g": 3.8,
+     "q": 0.85
+    },
+    {
+     "type": "peaking",
+     "f": 1720.0,
+     "g": -3.0,
+     "q": 1.19
+    },
+    {
+     "type": "peaking",
+     "f": 67.0,
+     "g": 6.0,
+     "q": 2.55
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 5052.0,
+     "g": 3.7,
+     "q": 4.43
+    },
+    {
+     "type": "peaking",
+     "f": 3394.0,
+     "g": -2.5,
+     "q": 5.33
+    },
+    {
+     "type": "peaking",
+     "f": 6509.0,
+     "g": -2.0,
+     "q": 5.62
+    },
+    {
+     "type": "peaking",
+     "f": 734.0,
+     "g": 0.7,
+     "q": 3.38
+    }
+   ]
+  },
+  {
+   "id": "beatssolo4",
+   "brand": "Beats",
+   "model": "Solo 4",
+   "type": "over-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -2.7,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 1.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 920.0,
+     "g": 3.4,
+     "q": 0.19
+    },
+    {
+     "type": "peaking",
+     "f": 3842.0,
+     "g": -5.2,
+     "q": 1.98
+    },
+    {
+     "type": "peaking",
+     "f": 1054.0,
+     "g": -4.7,
+     "q": 0.97
+    },
+    {
+     "type": "peaking",
+     "f": 7703.0,
+     "g": -2.0,
+     "q": 0.67
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 2.7,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 75.0,
+     "g": -1.4,
+     "q": 2.28
+    },
+    {
+     "type": "peaking",
+     "f": 9444.0,
+     "g": -1.1,
+     "q": 2.03
+    },
+    {
+     "type": "peaking",
+     "f": 137.0,
+     "g": 0.7,
+     "q": 2.0
+    },
+    {
+     "type": "peaking",
+     "f": 51.0,
+     "g": 1.3,
+     "q": 4.12
+    }
+   ]
+  },
+  {
+   "id": "beatsstudiobuds",
+   "brand": "Beats",
+   "model": "Studio Buds+",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "oratory1990",
+   "preampDb": -4.3,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -2.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1819.0,
+     "g": -4.7,
+     "q": 0.74
+    },
+    {
+     "type": "peaking",
+     "f": 145.0,
+     "g": 3.3,
+     "q": 0.23
+    },
+    {
+     "type": "peaking",
+     "f": 6271.0,
+     "g": 4.8,
+     "q": 1.67
+    },
+    {
+     "type": "peaking",
+     "f": 568.0,
+     "g": -2.4,
+     "q": 1.88
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 3619.0,
+     "g": 2.3,
+     "q": 4.81
+    },
+    {
+     "type": "peaking",
+     "f": 2771.0,
+     "g": -1.7,
+     "q": 3.92
+    },
+    {
+     "type": "peaking",
+     "f": 68.0,
+     "g": 0.8,
+     "q": 1.75
+    },
+    {
+     "type": "peaking",
+     "f": 127.0,
+     "g": -0.8,
+     "q": 1.91
+    }
+   ]
+  },
+  {
+   "id": "beatsstudiobuds-2",
+   "brand": "Beats",
+   "model": "Studio Buds",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -3.8,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 10.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 702.0,
+     "g": 5.2,
+     "q": 0.41
+    },
+    {
+     "type": "peaking",
+     "f": 1352.0,
+     "g": -7.5,
+     "q": 0.72
+    },
+    {
+     "type": "peaking",
+     "f": 195.0,
+     "g": 2.1,
+     "q": 0.8
+    },
+    {
+     "type": "peaking",
+     "f": 42.0,
+     "g": -11.0,
+     "q": 0.47
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6487.0,
+     "g": -4.4,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 9846.0,
+     "g": -2.1,
+     "q": 2.19
+    },
+    {
+     "type": "peaking",
+     "f": 3674.0,
+     "g": 1.9,
+     "q": 4.28
+    },
+    {
+     "type": "peaking",
+     "f": 918.0,
+     "g": 1.1,
+     "q": 4.94
+    }
+   ]
+  },
+  {
+   "id": "beatssolopro",
+   "brand": "Beats",
+   "model": "Solo Pro",
+   "type": "over-ear",
+   "gamme": "moyenne",
+   "source": "oratory1990",
+   "preampDb": -2.1,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -2.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 332.0,
+     "g": 1.9,
+     "q": 0.5
+    },
+    {
+     "type": "peaking",
+     "f": 3735.0,
+     "g": -4.7,
+     "q": 0.44
+    },
+    {
+     "type": "peaking",
+     "f": 2106.0,
+     "g": 5.4,
+     "q": 1.58
+    },
+    {
+     "type": "peaking",
+     "f": 5816.0,
+     "g": 5.0,
+     "q": 3.86
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -1.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 58.0,
+     "g": -0.4,
+     "q": 1.36
+    },
+    {
+     "type": "peaking",
+     "f": 31.0,
+     "g": 0.4,
+     "q": 1.68
+    },
+    {
+     "type": "peaking",
+     "f": 163.0,
+     "g": 0.7,
+     "q": 3.66
+    },
+    {
+     "type": "peaking",
+     "f": 233.0,
+     "g": -0.4,
+     "q": 2.45
+    }
+   ]
+  },
+  {
+   "id": "beatspro",
+   "brand": "Beats",
+   "model": "Pro",
+   "type": "over-ear",
+   "gamme": "moyenne",
+   "source": "oratory1990",
+   "preampDb": -4.2,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 17.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 44.0,
+     "g": -17.4,
+     "q": 0.3
+    },
+    {
+     "type": "peaking",
+     "f": 2296.0,
+     "g": 9.8,
+     "q": 0.49
+    },
+    {
+     "type": "peaking",
+     "f": 2728.0,
+     "g": -15.7,
+     "q": 1.55
+    },
+    {
+     "type": "peaking",
+     "f": 405.0,
+     "g": 3.6,
+     "q": 1.56
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 3.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6604.0,
+     "g": -3.8,
+     "q": 4.79
+    },
+    {
+     "type": "peaking",
+     "f": 4059.0,
+     "g": 2.7,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 3230.0,
+     "g": -1.5,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 5631.0,
+     "g": 1.0,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "appleairpods4",
+   "brand": "Apple",
+   "model": "AirPods 4",
+   "type": "earbud",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -6.4,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 11.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 4622.0,
+     "g": 6.0,
+     "q": 1.39
+    },
+    {
+     "type": "peaking",
+     "f": 49.0,
+     "g": -11.7,
+     "q": 0.39
+    },
+    {
+     "type": "peaking",
+     "f": 1277.0,
+     "g": -2.6,
+     "q": 0.86
+    },
+    {
+     "type": "peaking",
+     "f": 3036.0,
+     "g": 4.1,
+     "q": 2.43
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -1.9,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 354.0,
+     "g": -1.4,
+     "q": 1.5
+    },
+    {
+     "type": "peaking",
+     "f": 176.0,
+     "g": 1.5,
+     "q": 2.04
+    },
+    {
+     "type": "peaking",
+     "f": 618.0,
+     "g": 1.0,
+     "q": 2.35
+    },
+    {
+     "type": "peaking",
+     "f": 106.0,
+     "g": -0.9,
+     "q": 2.47
+    }
+   ]
+  },
+  {
+   "id": "sonywh1000xm6",
+   "brand": "Sony",
+   "model": "WH-1000XM6",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "Super Review",
+   "preampDb": -4.6,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -8.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 171.0,
+     "g": -4.9,
+     "q": 0.99
+    },
+    {
+     "type": "peaking",
+     "f": 648.0,
+     "g": 2.5,
+     "q": 0.63
+    },
+    {
+     "type": "peaking",
+     "f": 2499.0,
+     "g": -5.2,
+     "q": 1.5
+    },
+    {
+     "type": "peaking",
+     "f": 5689.0,
+     "g": 4.1,
+     "q": 0.4
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 3.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 4137.0,
+     "g": 1.3,
+     "q": 3.44
+    },
+    {
+     "type": "peaking",
+     "f": 6747.0,
+     "g": -2.2,
+     "q": 3.84
+    },
+    {
+     "type": "peaking",
+     "f": 1496.0,
+     "g": -1.5,
+     "q": 3.88
+    },
+    {
+     "type": "peaking",
+     "f": 1151.0,
+     "g": 1.4,
+     "q": 4.07
+    }
+   ]
+  },
+  {
+   "id": "sonyultwear",
+   "brand": "Sony",
+   "model": "ULT Wear",
+   "type": "over-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -6.2,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -6.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 124.0,
+     "g": -6.8,
+     "q": 0.89
+    },
+    {
+     "type": "peaking",
+     "f": 2871.0,
+     "g": 5.6,
+     "q": 1.45
+    },
+    {
+     "type": "peaking",
+     "f": 60.0,
+     "g": 3.0,
+     "q": 1.43
+    },
+    {
+     "type": "peaking",
+     "f": 4198.0,
+     "g": 3.9,
+     "q": 3.46
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 3.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9001.0,
+     "g": -2.9,
+     "q": 2.15
+    },
+    {
+     "type": "peaking",
+     "f": 768.0,
+     "g": 0.8,
+     "q": 3.47
+    },
+    {
+     "type": "peaking",
+     "f": 345.0,
+     "g": 0.7,
+     "q": 1.89
+    },
+    {
+     "type": "peaking",
+     "f": 209.0,
+     "g": -0.7,
+     "q": 2.71
+    }
+   ]
+  },
+  {
+   "id": "sonywhch720n",
+   "brand": "Sony",
+   "model": "WH-CH720N",
+   "type": "over-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -8.6,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -1.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 152.0,
+     "g": -5.9,
+     "q": 1.16
+    },
+    {
+     "type": "peaking",
+     "f": 1296.0,
+     "g": 6.6,
+     "q": 1.16
+    },
+    {
+     "type": "peaking",
+     "f": 4381.0,
+     "g": 8.8,
+     "q": 1.34
+    },
+    {
+     "type": "peaking",
+     "f": 8912.0,
+     "g": -5.6,
+     "q": 0.18
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 10.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 419.0,
+     "g": 3.1,
+     "q": 2.95
+    },
+    {
+     "type": "peaking",
+     "f": 10000.0,
+     "g": -5.1,
+     "q": 1.66
+    },
+    {
+     "type": "peaking",
+     "f": 299.0,
+     "g": -1.5,
+     "q": 1.98
+    },
+    {
+     "type": "peaking",
+     "f": 504.0,
+     "g": 0.2,
+     "q": 2.46
+    }
+   ]
+  },
+  {
+   "id": "sonywhch700n",
+   "brand": "Sony",
+   "model": "WH-CH700N",
+   "type": "over-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -3.9,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -0.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 767.0,
+     "g": 4.4,
+     "q": 0.38
+    },
+    {
+     "type": "peaking",
+     "f": 232.0,
+     "g": -2.8,
+     "q": 1.16
+    },
+    {
+     "type": "peaking",
+     "f": 5362.0,
+     "g": -9.4,
+     "q": 5.02
+    },
+    {
+     "type": "peaking",
+     "f": 2781.0,
+     "g": -5.0,
+     "q": 1.04
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 69.0,
+     "g": 1.5,
+     "q": 1.91
+    },
+    {
+     "type": "peaking",
+     "f": 33.0,
+     "g": -1.2,
+     "q": 1.83
+    },
+    {
+     "type": "peaking",
+     "f": 1380.0,
+     "g": 1.3,
+     "q": 2.86
+    },
+    {
+     "type": "peaking",
+     "f": 1836.0,
+     "g": -1.5,
+     "q": 4.38
+    }
+   ]
+  },
+  {
+   "id": "sonywhch520",
+   "brand": "Sony",
+   "model": "WH-CH520",
+   "type": "over-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -6.7,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 5.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 5060.0,
+     "g": 7.1,
+     "q": 2.23
+    },
+    {
+     "type": "peaking",
+     "f": 64.0,
+     "g": -6.4,
+     "q": 0.83
+    },
+    {
+     "type": "peaking",
+     "f": 3013.0,
+     "g": -3.9,
+     "q": 3.47
+    },
+    {
+     "type": "peaking",
+     "f": 871.0,
+     "g": -0.8,
+     "q": 1.82
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9568.0,
+     "g": -1.7,
+     "q": 1.47
+    },
+    {
+     "type": "peaking",
+     "f": 6627.0,
+     "g": 2.9,
+     "q": 5.95
+    },
+    {
+     "type": "peaking",
+     "f": 1837.0,
+     "g": 1.5,
+     "q": 4.58
+    },
+    {
+     "type": "peaking",
+     "f": 386.0,
+     "g": 0.7,
+     "q": 4.78
+    }
+   ]
+  },
+  {
+   "id": "sonywfc700n",
+   "brand": "Sony",
+   "model": "WF-C700N",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -6.5,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 7.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 4513.0,
+     "g": 2.2,
+     "q": 1.15
+    },
+    {
+     "type": "peaking",
+     "f": 1318.0,
+     "g": -2.5,
+     "q": 1.79
+    },
+    {
+     "type": "peaking",
+     "f": 44.0,
+     "g": -9.3,
+     "q": 0.49
+    },
+    {
+     "type": "peaking",
+     "f": 640.0,
+     "g": 1.2,
+     "q": 1.08
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 6.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9238.0,
+     "g": -4.5,
+     "q": 2.54
+    },
+    {
+     "type": "peaking",
+     "f": 2641.0,
+     "g": 0.6,
+     "q": 3.25
+    },
+    {
+     "type": "peaking",
+     "f": 3992.0,
+     "g": -0.6,
+     "q": 3.63
+    },
+    {
+     "type": "peaking",
+     "f": 5588.0,
+     "g": 0.9,
+     "q": 4.62
+    }
+   ]
+  },
+  {
+   "id": "sonywfc500",
+   "brand": "Sony",
+   "model": "WF-C500",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "oratory1990",
+   "preampDb": -4.6,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -4.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 2803.0,
+     "g": -5.3,
+     "q": 2.29
+    },
+    {
+     "type": "peaking",
+     "f": 5036.0,
+     "g": 5.1,
+     "q": 2.47
+    },
+    {
+     "type": "peaking",
+     "f": 77.0,
+     "g": 3.6,
+     "q": 0.68
+    },
+    {
+     "type": "peaking",
+     "f": 1938.0,
+     "g": -0.9,
+     "q": 1.6
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -1.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 809.0,
+     "g": 2.1,
+     "q": 2.01
+    },
+    {
+     "type": "peaking",
+     "f": 1281.0,
+     "g": -1.0,
+     "q": 2.36
+    },
+    {
+     "type": "peaking",
+     "f": 7069.0,
+     "g": -1.6,
+     "q": 5.97
+    },
+    {
+     "type": "peaking",
+     "f": 6011.0,
+     "g": 1.4,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "sonylinkbuds",
+   "brand": "Sony",
+   "model": "LinkBuds",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -6.2,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 5.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1600.0,
+     "g": -6.2,
+     "q": 0.22
+    },
+    {
+     "type": "peaking",
+     "f": 3687.0,
+     "g": 8.7,
+     "q": 2.25
+    },
+    {
+     "type": "peaking",
+     "f": 7572.0,
+     "g": 7.4,
+     "q": 1.22
+    },
+    {
+     "type": "peaking",
+     "f": 154.0,
+     "g": 4.7,
+     "q": 0.7
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 1.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1148.0,
+     "g": 1.6,
+     "q": 1.0
+    },
+    {
+     "type": "peaking",
+     "f": 1856.0,
+     "g": -2.8,
+     "q": 3.88
+    },
+    {
+     "type": "peaking",
+     "f": 432.0,
+     "g": -1.6,
+     "q": 0.86
+    },
+    {
+     "type": "peaking",
+     "f": 307.0,
+     "g": 2.8,
+     "q": 3.64
+    }
+   ]
+  },
+  {
+   "id": "samsunggalaxybuds3",
+   "brand": "Samsung",
+   "model": "Galaxy Buds3",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -4.3,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 3.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 5450.0,
+     "g": 3.2,
+     "q": 1.89
+    },
+    {
+     "type": "peaking",
+     "f": 1685.0,
+     "g": -4.7,
+     "q": 2.9
+    },
+    {
+     "type": "peaking",
+     "f": 66.0,
+     "g": -3.1,
+     "q": 0.53
+    },
+    {
+     "type": "peaking",
+     "f": 3405.0,
+     "g": 2.4,
+     "q": 1.78
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 4.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 635.0,
+     "g": -0.8,
+     "q": 1.49
+    },
+    {
+     "type": "peaking",
+     "f": 1126.0,
+     "g": 1.3,
+     "q": 3.08
+    },
+    {
+     "type": "peaking",
+     "f": 6820.0,
+     "g": -1.7,
+     "q": 5.98
+    },
+    {
+     "type": "peaking",
+     "f": 1441.0,
+     "g": -0.8,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "samsunggalaxybuds3pro",
+   "brand": "Samsung",
+   "model": "Galaxy Buds3 Pro",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "Rtings",
+   "preampDb": -2.8,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -5.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 185.0,
+     "g": -2.5,
+     "q": 0.8
+    },
+    {
+     "type": "peaking",
+     "f": 2105.0,
+     "g": 1.9,
+     "q": 1.04
+    },
+    {
+     "type": "peaking",
+     "f": 539.0,
+     "g": 2.2,
+     "q": 0.99
+    },
+    {
+     "type": "peaking",
+     "f": 37.0,
+     "g": -0.9,
+     "q": 0.79
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -0.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 5885.0,
+     "g": -4.5,
+     "q": 3.94
+    },
+    {
+     "type": "peaking",
+     "f": 4086.0,
+     "g": 2.6,
+     "q": 5.16
+    },
+    {
+     "type": "peaking",
+     "f": 7847.0,
+     "g": -0.9,
+     "q": 1.95
+    },
+    {
+     "type": "peaking",
+     "f": 6672.0,
+     "g": 2.9,
+     "q": 5.97
+    }
+   ]
+  },
+  {
+   "id": "googlepixelbudspro",
+   "brand": "Google",
+   "model": "Pixel Buds Pro",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -6.8,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -5.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9492.0,
+     "g": 7.1,
+     "q": 2.32
+    },
+    {
+     "type": "peaking",
+     "f": 4876.0,
+     "g": -3.0,
+     "q": 0.8
+    },
+    {
+     "type": "peaking",
+     "f": 202.0,
+     "g": 7.2,
+     "q": 0.36
+    },
+    {
+     "type": "peaking",
+     "f": 232.0,
+     "g": -8.4,
+     "q": 0.8
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 5.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 47.0,
+     "g": -1.3,
+     "q": 2.25
+    },
+    {
+     "type": "peaking",
+     "f": 79.0,
+     "g": 1.3,
+     "q": 2.59
+    },
+    {
+     "type": "peaking",
+     "f": 9248.0,
+     "g": -3.4,
+     "q": 4.96
+    },
+    {
+     "type": "peaking",
+     "f": 1859.0,
+     "g": -0.7,
+     "q": 3.29
+    }
+   ]
+  },
+  {
+   "id": "googlepixelbudspro2",
+   "brand": "Google",
+   "model": "Pixel Buds Pro 2",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "Rtings",
+   "preampDb": -5.4,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -1.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 688.0,
+     "g": 3.7,
+     "q": 1.07
+    },
+    {
+     "type": "peaking",
+     "f": 319.0,
+     "g": -2.0,
+     "q": 0.92
+    },
+    {
+     "type": "peaking",
+     "f": 4748.0,
+     "g": -6.0,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 8657.0,
+     "g": -4.4,
+     "q": 1.7
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 5.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 3800.0,
+     "g": 3.3,
+     "q": 5.95
+    },
+    {
+     "type": "peaking",
+     "f": 9591.0,
+     "g": -2.6,
+     "q": 4.15
+    },
+    {
+     "type": "peaking",
+     "f": 6120.0,
+     "g": -2.0,
+     "q": 4.3
+    },
+    {
+     "type": "peaking",
+     "f": 2469.0,
+     "g": 0.9,
+     "q": 4.61
+    }
+   ]
+  },
+  {
+   "id": "googlepixelbudsaseries",
+   "brand": "Google",
+   "model": "Pixel Buds A-Series",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -4.0,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 4.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 180.0,
+     "g": 3.6,
+     "q": 1.52
+    },
+    {
+     "type": "peaking",
+     "f": 421.0,
+     "g": -1.6,
+     "q": 1.85
+    },
+    {
+     "type": "peaking",
+     "f": 4364.0,
+     "g": -3.9,
+     "q": 2.65
+    },
+    {
+     "type": "peaking",
+     "f": 5704.0,
+     "g": 2.8,
+     "q": 5.79
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -5.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9120.0,
+     "g": -2.4,
+     "q": 1.52
+    },
+    {
+     "type": "peaking",
+     "f": 42.0,
+     "g": -0.7,
+     "q": 2.8
+    },
+    {
+     "type": "peaking",
+     "f": 1981.0,
+     "g": 1.1,
+     "q": 2.7
+    },
+    {
+     "type": "peaking",
+     "f": 6087.0,
+     "g": 2.5,
+     "q": 5.86
+    }
+   ]
+  },
+  {
+   "id": "huaweifreebudspro3",
+   "brand": "Huawei",
+   "model": "FreeBuds Pro 3",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "DHRME",
+   "preampDb": -3.3,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -7.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 65.0,
+     "g": 9.1,
+     "q": 0.73
+    },
+    {
+     "type": "peaking",
+     "f": 2426.0,
+     "g": -2.2,
+     "q": 1.01
+    },
+    {
+     "type": "peaking",
+     "f": 6198.0,
+     "g": 3.7,
+     "q": 3.39
+    },
+    {
+     "type": "peaking",
+     "f": 630.0,
+     "g": -1.0,
+     "q": 2.4
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -9.9,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9060.0,
+     "g": 4.6,
+     "q": 2.14
+    },
+    {
+     "type": "peaking",
+     "f": 1339.0,
+     "g": -0.6,
+     "q": 2.95
+    },
+    {
+     "type": "peaking",
+     "f": 994.0,
+     "g": 0.6,
+     "q": 4.09
+    },
+    {
+     "type": "peaking",
+     "f": 1992.0,
+     "g": 0.4,
+     "q": 4.11
+    }
+   ]
+  },
+  {
+   "id": "huaweifreebudspro2",
+   "brand": "Huawei",
+   "model": "FreeBuds Pro 2",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "oratory1990",
+   "preampDb": -3.0,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -0.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 118.0,
+     "g": 3.2,
+     "q": 1.19
+    },
+    {
+     "type": "peaking",
+     "f": 1329.0,
+     "g": -2.3,
+     "q": 1.29
+    },
+    {
+     "type": "peaking",
+     "f": 37.0,
+     "g": -1.6,
+     "q": 1.11
+    },
+    {
+     "type": "peaking",
+     "f": 8615.0,
+     "g": 2.6,
+     "q": 3.31
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 5348.0,
+     "g": -1.7,
+     "q": 5.75
+    },
+    {
+     "type": "peaking",
+     "f": 508.0,
+     "g": 0.5,
+     "q": 1.69
+    },
+    {
+     "type": "peaking",
+     "f": 256.0,
+     "g": -0.5,
+     "q": 2.35
+    },
+    {
+     "type": "peaking",
+     "f": 3016.0,
+     "g": -0.5,
+     "q": 3.51
+    }
+   ]
+  },
+  {
+   "id": "huaweifreebuds5",
+   "brand": "Huawei",
+   "model": "FreeBuds 5",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "Regan Cipher",
+   "preampDb": -7.0,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 8.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 127.0,
+     "g": -9.8,
+     "q": 0.59
+    },
+    {
+     "type": "peaking",
+     "f": 517.0,
+     "g": 8.0,
+     "q": 0.57
+    },
+    {
+     "type": "peaking",
+     "f": 1327.0,
+     "g": -4.8,
+     "q": 1.31
+    },
+    {
+     "type": "peaking",
+     "f": 65.0,
+     "g": -6.5,
+     "q": 1.48
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 3.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6177.0,
+     "g": 5.3,
+     "q": 3.64
+    },
+    {
+     "type": "peaking",
+     "f": 2927.0,
+     "g": -2.0,
+     "q": 0.79
+    },
+    {
+     "type": "peaking",
+     "f": 1858.0,
+     "g": 3.1,
+     "q": 4.28
+    },
+    {
+     "type": "peaking",
+     "f": 35.0,
+     "g": 1.3,
+     "q": 5.32
+    }
+   ]
+  },
+  {
+   "id": "bosequietcomfortultraearbuds",
+   "brand": "Bose",
+   "model": "QuietComfort Ultra Earbuds",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "Rtings",
+   "preampDb": -4.9,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -4.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1078.0,
+     "g": 4.6,
+     "q": 1.23
+    },
+    {
+     "type": "peaking",
+     "f": 2228.0,
+     "g": -6.3,
+     "q": 2.33
+    },
+    {
+     "type": "peaking",
+     "f": 29.0,
+     "g": -1.9,
+     "q": 1.66
+    },
+    {
+     "type": "peaking",
+     "f": 189.0,
+     "g": -1.3,
+     "q": 3.48
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 4.9,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6139.0,
+     "g": -1.3,
+     "q": 3.42
+    },
+    {
+     "type": "peaking",
+     "f": 358.0,
+     "g": -1.1,
+     "q": 2.86
+    },
+    {
+     "type": "peaking",
+     "f": 504.0,
+     "g": 0.8,
+     "q": 3.06
+    },
+    {
+     "type": "peaking",
+     "f": 5318.0,
+     "g": 1.1,
+     "q": 5.92
+    }
+   ]
+  },
+  {
+   "id": "boseultraopen",
+   "brand": "Bose",
+   "model": "Ultra Open",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "Rtings",
+   "preampDb": -6.2,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 6.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 4064.0,
+     "g": -15.2,
+     "q": 0.9
+    },
+    {
+     "type": "peaking",
+     "f": 3294.0,
+     "g": 4.8,
+     "q": 3.92
+    },
+    {
+     "type": "peaking",
+     "f": 118.0,
+     "g": 3.7,
+     "q": 1.6
+    },
+    {
+     "type": "peaking",
+     "f": 2632.0,
+     "g": 7.1,
+     "q": 0.64
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 4.9,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6065.0,
+     "g": -3.0,
+     "q": 5.9
+    },
+    {
+     "type": "peaking",
+     "f": 226.0,
+     "g": 1.3,
+     "q": 3.95
+    },
+    {
+     "type": "peaking",
+     "f": 175.0,
+     "g": -1.2,
+     "q": 4.58
+    },
+    {
+     "type": "peaking",
+     "f": 4931.0,
+     "g": 1.4,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "jabraelite10",
+   "brand": "Jabra",
+   "model": "Elite 10",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "Rtings",
+   "preampDb": -2.3,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -2.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 149.0,
+     "g": 2.7,
+     "q": 1.8
+    },
+    {
+     "type": "peaking",
+     "f": 40.0,
+     "g": -1.1,
+     "q": 0.89
+    },
+    {
+     "type": "peaking",
+     "f": 267.0,
+     "g": -2.4,
+     "q": 2.68
+    },
+    {
+     "type": "peaking",
+     "f": 452.0,
+     "g": 2.5,
+     "q": 2.74
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6808.0,
+     "g": -3.6,
+     "q": 5.45
+    },
+    {
+     "type": "peaking",
+     "f": 9428.0,
+     "g": -2.3,
+     "q": 2.35
+    },
+    {
+     "type": "peaking",
+     "f": 3252.0,
+     "g": 2.0,
+     "q": 2.24
+    },
+    {
+     "type": "peaking",
+     "f": 4675.0,
+     "g": -2.5,
+     "q": 5.37
+    }
+   ]
+  },
+  {
+   "id": "jabraelite8active",
+   "brand": "Jabra",
+   "model": "Elite 8 Active",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -2.7,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 0.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 70.0,
+     "g": -6.7,
+     "q": 0.58
+    },
+    {
+     "type": "peaking",
+     "f": 303.0,
+     "g": 3.2,
+     "q": 0.59
+    },
+    {
+     "type": "peaking",
+     "f": 2822.0,
+     "g": 2.5,
+     "q": 2.8
+    },
+    {
+     "type": "peaking",
+     "f": 704.0,
+     "g": -2.1,
+     "q": 2.09
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 5730.0,
+     "g": -3.5,
+     "q": 3.48
+    },
+    {
+     "type": "peaking",
+     "f": 4450.0,
+     "g": 2.1,
+     "q": 2.57
+    },
+    {
+     "type": "peaking",
+     "f": 1405.0,
+     "g": -0.9,
+     "q": 3.07
+    },
+    {
+     "type": "peaking",
+     "f": 6830.0,
+     "g": -1.2,
+     "q": 5.84
+    }
+   ]
+  },
+  {
+   "id": "jabraelite5",
+   "brand": "Jabra",
+   "model": "Elite 5",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -6.3,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 6.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6553.0,
+     "g": -20.0,
+     "q": 0.95
+    },
+    {
+     "type": "peaking",
+     "f": 499.0,
+     "g": 4.0,
+     "q": 1.32
+    },
+    {
+     "type": "peaking",
+     "f": 5571.0,
+     "g": 17.0,
+     "q": 0.96
+    },
+    {
+     "type": "peaking",
+     "f": 123.0,
+     "g": -4.2,
+     "q": 2.07
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1285.0,
+     "g": -1.5,
+     "q": 2.18
+    },
+    {
+     "type": "peaking",
+     "f": 2291.0,
+     "g": 0.9,
+     "q": 2.74
+    },
+    {
+     "type": "peaking",
+     "f": 230.0,
+     "g": 0.7,
+     "q": 3.66
+    },
+    {
+     "type": "peaking",
+     "f": 890.0,
+     "g": 0.8,
+     "q": 3.54
+    }
+   ]
+  },
+  {
+   "id": "technicsaz80",
+   "brand": "Technics",
+   "model": "AZ80",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "Rtings",
+   "preampDb": -3.7,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -2.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 296.0,
+     "g": -4.2,
+     "q": 0.51
+    },
+    {
+     "type": "peaking",
+     "f": 6430.0,
+     "g": -5.9,
+     "q": 0.85
+    },
+    {
+     "type": "peaking",
+     "f": 4001.0,
+     "g": 6.5,
+     "q": 1.02
+    },
+    {
+     "type": "peaking",
+     "f": 586.0,
+     "g": 5.6,
+     "q": 0.97
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -0.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 34.0,
+     "g": -0.3,
+     "q": 1.81
+    },
+    {
+     "type": "peaking",
+     "f": 71.0,
+     "g": 0.3,
+     "q": 2.32
+    },
+    {
+     "type": "peaking",
+     "f": 7285.0,
+     "g": 1.0,
+     "q": 5.99
+    },
+    {
+     "type": "peaking",
+     "f": 6327.0,
+     "g": -1.0,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "technicsaz70",
+   "brand": "Technics",
+   "model": "AZ70",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "crinacle",
+   "preampDb": -5.5,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -3.7,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 3816.0,
+     "g": 7.5,
+     "q": 0.82
+    },
+    {
+     "type": "peaking",
+     "f": 1554.0,
+     "g": -4.8,
+     "q": 0.81
+    },
+    {
+     "type": "peaking",
+     "f": 7347.0,
+     "g": -4.8,
+     "q": 1.27
+    },
+    {
+     "type": "peaking",
+     "f": 59.0,
+     "g": 5.3,
+     "q": 0.66
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 5.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 308.0,
+     "g": 1.6,
+     "q": 1.64
+    },
+    {
+     "type": "peaking",
+     "f": 10000.0,
+     "g": -2.8,
+     "q": 1.76
+    },
+    {
+     "type": "peaking",
+     "f": 552.0,
+     "g": -1.2,
+     "q": 2.32
+    },
+    {
+     "type": "peaking",
+     "f": 152.0,
+     "g": -0.9,
+     "q": 2.45
+    }
+   ]
+  },
+  {
+   "id": "nothingear1",
+   "brand": "Nothing",
+   "model": "Ear (1)",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -3.4,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -3.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 411.0,
+     "g": 11.5,
+     "q": 0.18
+    },
+    {
+     "type": "peaking",
+     "f": 5258.0,
+     "g": -8.8,
+     "q": 4.11
+    },
+    {
+     "type": "peaking",
+     "f": 362.0,
+     "g": -12.6,
+     "q": 0.37
+    },
+    {
+     "type": "peaking",
+     "f": 3457.0,
+     "g": -4.3,
+     "q": 2.03
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -7.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 58.0,
+     "g": 1.3,
+     "q": 1.63
+    },
+    {
+     "type": "peaking",
+     "f": 125.0,
+     "g": -1.4,
+     "q": 1.9
+    },
+    {
+     "type": "peaking",
+     "f": 230.0,
+     "g": 0.7,
+     "q": 1.52
+    },
+    {
+     "type": "peaking",
+     "f": 27.0,
+     "g": -1.0,
+     "q": 2.18
+    }
+   ]
+  },
+  {
+   "id": "nothingear2",
+   "brand": "Nothing",
+   "model": "Ear (2)",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "Super Review",
+   "preampDb": -5.5,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 4.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 54.0,
+     "g": -6.2,
+     "q": 0.39
+    },
+    {
+     "type": "peaking",
+     "f": 493.0,
+     "g": -1.4,
+     "q": 1.2
+    },
+    {
+     "type": "peaking",
+     "f": 190.0,
+     "g": 2.8,
+     "q": 1.02
+    },
+    {
+     "type": "peaking",
+     "f": 5667.0,
+     "g": 1.4,
+     "q": 0.72
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 5.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9561.0,
+     "g": -3.2,
+     "q": 5.15
+    },
+    {
+     "type": "peaking",
+     "f": 9969.0,
+     "g": -1.5,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 2302.0,
+     "g": 0.9,
+     "q": 4.86
+    },
+    {
+     "type": "peaking",
+     "f": 2323.0,
+     "g": -0.7,
+     "q": 3.82
+    }
+   ]
+  },
+  {
+   "id": "nothingeara",
+   "brand": "Nothing",
+   "model": "Ear (a)",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -6.6,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 0.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 675.0,
+     "g": 3.8,
+     "q": 0.94
+    },
+    {
+     "type": "peaking",
+     "f": 409.0,
+     "g": -1.4,
+     "q": 0.25
+    },
+    {
+     "type": "peaking",
+     "f": 5658.0,
+     "g": -3.2,
+     "q": 4.24
+    },
+    {
+     "type": "peaking",
+     "f": 48.0,
+     "g": -3.2,
+     "q": 0.56
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 6.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 372.0,
+     "g": -1.4,
+     "q": 3.25
+    },
+    {
+     "type": "peaking",
+     "f": 241.0,
+     "g": 0.8,
+     "q": 2.69
+    },
+    {
+     "type": "peaking",
+     "f": 4414.0,
+     "g": -0.9,
+     "q": 3.0
+    },
+    {
+     "type": "peaking",
+     "f": 509.0,
+     "g": 0.7,
+     "q": 3.63
+    }
+   ]
+  },
+  {
+   "id": "nothingearstick",
+   "brand": "Nothing",
+   "model": "Ear (stick)",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -6.1,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 4.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6903.0,
+     "g": -4.2,
+     "q": 0.96
+    },
+    {
+     "type": "peaking",
+     "f": 870.0,
+     "g": 4.5,
+     "q": 1.29
+    },
+    {
+     "type": "peaking",
+     "f": 431.0,
+     "g": -2.6,
+     "q": 1.2
+    },
+    {
+     "type": "peaking",
+     "f": 185.0,
+     "g": 1.4,
+     "q": 1.64
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -0.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 52.0,
+     "g": -2.5,
+     "q": 1.89
+    },
+    {
+     "type": "peaking",
+     "f": 95.0,
+     "g": 0.8,
+     "q": 2.5
+    },
+    {
+     "type": "peaking",
+     "f": 4332.0,
+     "g": 1.2,
+     "q": 5.94
+    },
+    {
+     "type": "peaking",
+     "f": 25.0,
+     "g": 1.8,
+     "q": 1.24
+    }
+   ]
+  },
+  {
+   "id": "devialetgeminiii",
+   "brand": "Devialet",
+   "model": "Gemini II",
+   "type": "in-ear",
+   "gamme": "premium",
+   "source": "Rtings",
+   "preampDb": -3.2,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -4.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1382.0,
+     "g": 2.9,
+     "q": 0.56
+    },
+    {
+     "type": "peaking",
+     "f": 197.0,
+     "g": -1.6,
+     "q": 0.86
+    },
+    {
+     "type": "peaking",
+     "f": 4497.0,
+     "g": -3.2,
+     "q": 1.39
+    },
+    {
+     "type": "peaking",
+     "f": 37.0,
+     "g": -2.4,
+     "q": 3.24
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 2.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 64.0,
+     "g": 0.4,
+     "q": 2.12
+    },
+    {
+     "type": "peaking",
+     "f": 1510.0,
+     "g": -0.9,
+     "q": 3.52
+    },
+    {
+     "type": "peaking",
+     "f": 1093.0,
+     "g": 0.8,
+     "q": 4.19
+    },
+    {
+     "type": "peaking",
+     "f": 2210.0,
+     "g": 0.6,
+     "q": 4.17
+    }
+   ]
+  },
+  {
+   "id": "ankersoundcoreliberty4nc",
+   "brand": "Anker",
+   "model": "Soundcore Liberty 4 NC",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -2.5,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -6.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 579.0,
+     "g": 2.4,
+     "q": 0.94
+    },
+    {
+     "type": "peaking",
+     "f": 105.0,
+     "g": -2.1,
+     "q": 0.87
+    },
+    {
+     "type": "peaking",
+     "f": 5504.0,
+     "g": -20.0,
+     "q": 0.77
+    },
+    {
+     "type": "peaking",
+     "f": 4778.0,
+     "g": 17.4,
+     "q": 0.67
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 2.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1229.0,
+     "g": 0.3,
+     "q": 2.48
+    },
+    {
+     "type": "peaking",
+     "f": 45.0,
+     "g": 0.3,
+     "q": 2.07
+    },
+    {
+     "type": "peaking",
+     "f": 258.0,
+     "g": -0.1,
+     "q": 1.5
+    },
+    {
+     "type": "peaking",
+     "f": 71.0,
+     "g": -0.3,
+     "q": 2.62
+    }
+   ]
+  },
+  {
+   "id": "ankersoundcorespaceone",
+   "brand": "Anker",
+   "model": "Soundcore Space One",
+   "type": "over-ear",
+   "gamme": "budget",
+   "source": "oratory1990",
+   "preampDb": -4.7,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -4.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 494.0,
+     "g": 4.5,
+     "q": 0.46
+    },
+    {
+     "type": "peaking",
+     "f": 1335.0,
+     "g": -6.2,
+     "q": 1.43
+    },
+    {
+     "type": "peaking",
+     "f": 123.0,
+     "g": -3.7,
+     "q": 1.54
+    },
+    {
+     "type": "peaking",
+     "f": 3318.0,
+     "g": 5.1,
+     "q": 3.6
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -7.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 8910.0,
+     "g": -5.2,
+     "q": 1.18
+    },
+    {
+     "type": "peaking",
+     "f": 5539.0,
+     "g": 4.9,
+     "q": 3.9
+    },
+    {
+     "type": "peaking",
+     "f": 2387.0,
+     "g": 2.3,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 382.0,
+     "g": -1.5,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "ankersoundcorelifeq35",
+   "brand": "Anker",
+   "model": "Soundcore Life Q35",
+   "type": "over-ear",
+   "gamme": "budget",
+   "source": "Rtings",
+   "preampDb": -6.8,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -6.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 115.0,
+     "g": -4.5,
+     "q": 1.11
+    },
+    {
+     "type": "peaking",
+     "f": 3490.0,
+     "g": 7.4,
+     "q": 2.07
+    },
+    {
+     "type": "peaking",
+     "f": 230.0,
+     "g": 3.0,
+     "q": 1.09
+    },
+    {
+     "type": "peaking",
+     "f": 2218.0,
+     "g": -4.7,
+     "q": 2.87
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -10.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9077.0,
+     "g": -1.6,
+     "q": 1.75
+    },
+    {
+     "type": "peaking",
+     "f": 5575.0,
+     "g": 3.6,
+     "q": 4.57
+    },
+    {
+     "type": "peaking",
+     "f": 843.0,
+     "g": 2.6,
+     "q": 5.99
+    },
+    {
+     "type": "peaking",
+     "f": 1316.0,
+     "g": -1.7,
+     "q": 4.96
+    }
+   ]
+  },
+  {
+   "id": "bowerswilkinspx7s2e",
+   "brand": "Bowers & Wilkins",
+   "model": "Px7 S2e",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "oratory1990",
+   "preampDb": -4.4,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -5.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 202.0,
+     "g": -4.0,
+     "q": 1.14
+    },
+    {
+     "type": "peaking",
+     "f": 1938.0,
+     "g": 4.6,
+     "q": 1.74
+    },
+    {
+     "type": "peaking",
+     "f": 473.0,
+     "g": 1.7,
+     "q": 1.27
+    },
+    {
+     "type": "peaking",
+     "f": 980.0,
+     "g": -1.6,
+     "q": 1.67
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -0.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 43.0,
+     "g": 2.4,
+     "q": 3.61
+    },
+    {
+     "type": "peaking",
+     "f": 8012.0,
+     "g": 2.1,
+     "q": 2.17
+    },
+    {
+     "type": "peaking",
+     "f": 3528.0,
+     "g": 1.6,
+     "q": 3.57
+    },
+    {
+     "type": "peaking",
+     "f": 2918.0,
+     "g": -2.0,
+     "q": 5.25
+    }
+   ]
+  },
+  {
+   "id": "bowerswilkinspx7s2",
+   "brand": "Bowers & Wilkins",
+   "model": "Px7 S2",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "oratory1990",
+   "preampDb": -4.6,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -6.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 173.0,
+     "g": -7.1,
+     "q": 0.55
+    },
+    {
+     "type": "peaking",
+     "f": 2124.0,
+     "g": 4.2,
+     "q": 1.71
+    },
+    {
+     "type": "peaking",
+     "f": 410.0,
+     "g": 4.7,
+     "q": 0.65
+    },
+    {
+     "type": "peaking",
+     "f": 50.0,
+     "g": 5.7,
+     "q": 0.9
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9383.0,
+     "g": -2.8,
+     "q": 2.33
+    },
+    {
+     "type": "peaking",
+     "f": 5503.0,
+     "g": 5.0,
+     "q": 3.72
+    },
+    {
+     "type": "peaking",
+     "f": 3218.0,
+     "g": -2.1,
+     "q": 5.97
+    },
+    {
+     "type": "peaking",
+     "f": 6714.0,
+     "g": -3.1,
+     "q": 5.99
+    }
+   ]
+  },
+  {
+   "id": "bowerswilkinspx8",
+   "brand": "Bowers & Wilkins",
+   "model": "Px8",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "oratory1990",
+   "preampDb": -4.7,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -3.9,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 259.0,
+     "g": -6.2,
+     "q": 0.18
+    },
+    {
+     "type": "peaking",
+     "f": 1994.0,
+     "g": 5.3,
+     "q": 0.55
+    },
+    {
+     "type": "peaking",
+     "f": 425.0,
+     "g": 6.3,
+     "q": 1.08
+    },
+    {
+     "type": "peaking",
+     "f": 53.0,
+     "g": 4.7,
+     "q": 1.09
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 6260.0,
+     "g": 3.6,
+     "q": 5.24
+    },
+    {
+     "type": "peaking",
+     "f": 4355.0,
+     "g": -2.7,
+     "q": 4.52
+    },
+    {
+     "type": "peaking",
+     "f": 9862.0,
+     "g": 1.0,
+     "q": 2.38
+    },
+    {
+     "type": "peaking",
+     "f": 1013.0,
+     "g": -0.5,
+     "q": 3.11
+    }
+   ]
+  },
+  {
+   "id": "sennheisermomentum4wireless-2",
+   "brand": "Sennheiser",
+   "model": "Momentum 4 Wireless",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "crinacle",
+   "preampDb": -6.5,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -1.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 990.0,
+     "g": -14.5,
+     "q": 1.34
+    },
+    {
+     "type": "peaking",
+     "f": 1907.0,
+     "g": 9.2,
+     "q": 1.0
+    },
+    {
+     "type": "peaking",
+     "f": 7143.0,
+     "g": 5.6,
+     "q": 0.8
+    },
+    {
+     "type": "peaking",
+     "f": 129.0,
+     "g": -4.2,
+     "q": 1.34
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 66.0,
+     "g": 1.7,
+     "q": 4.85
+    },
+    {
+     "type": "peaking",
+     "f": 3933.0,
+     "g": -4.3,
+     "q": 5.97
+    },
+    {
+     "type": "peaking",
+     "f": 4744.0,
+     "g": 1.6,
+     "q": 4.03
+    },
+    {
+     "type": "peaking",
+     "f": 3401.0,
+     "g": 2.4,
+     "q": 5.98
+    }
+   ]
+  },
+  {
+   "id": "sennheiseraccentumplus",
+   "brand": "Sennheiser",
+   "model": "Accentum Plus",
+   "type": "over-ear",
+   "gamme": "moyenne",
+   "source": "oratory1990",
+   "preampDb": -4.3,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -6.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 245.0,
+     "g": -1.8,
+     "q": 1.27
+    },
+    {
+     "type": "peaking",
+     "f": 1884.0,
+     "g": 3.4,
+     "q": 1.83
+    },
+    {
+     "type": "peaking",
+     "f": 4135.0,
+     "g": 4.7,
+     "q": 4.12
+    },
+    {
+     "type": "peaking",
+     "f": 2934.0,
+     "g": -3.2,
+     "q": 3.46
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -4.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 87.0,
+     "g": 2.3,
+     "q": 2.24
+    },
+    {
+     "type": "peaking",
+     "f": 146.0,
+     "g": -1.2,
+     "q": 2.1
+    },
+    {
+     "type": "peaking",
+     "f": 817.0,
+     "g": 0.8,
+     "q": 3.06
+    },
+    {
+     "type": "peaking",
+     "f": 5714.0,
+     "g": -1.3,
+     "q": 5.18
+    }
+   ]
+  },
+  {
+   "id": "sennheiserhd490pro",
+   "brand": "Sennheiser",
+   "model": "HD 490 Pro",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "Rtings",
+   "preampDb": -6.5,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 10.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1869.0,
+     "g": 3.9,
+     "q": 1.49
+    },
+    {
+     "type": "peaking",
+     "f": 50.0,
+     "g": -7.2,
+     "q": 0.43
+    },
+    {
+     "type": "peaking",
+     "f": 6150.0,
+     "g": -4.0,
+     "q": 4.79
+    },
+    {
+     "type": "peaking",
+     "f": 4223.0,
+     "g": -3.4,
+     "q": 4.63
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 3.9,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9132.0,
+     "g": -2.0,
+     "q": 3.85
+    },
+    {
+     "type": "peaking",
+     "f": 702.0,
+     "g": 1.2,
+     "q": 5.08
+    },
+    {
+     "type": "peaking",
+     "f": 972.0,
+     "g": -0.7,
+     "q": 5.17
+    },
+    {
+     "type": "peaking",
+     "f": 7505.0,
+     "g": -0.4,
+     "q": 3.58
+    }
+   ]
+  },
+  {
+   "id": "audezemm100",
+   "brand": "Audeze",
+   "model": "MM-100",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "oratory1990",
+   "preampDb": -6.0,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 5.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 4762.0,
+     "g": 5.8,
+     "q": 2.44
+    },
+    {
+     "type": "peaking",
+     "f": 8491.0,
+     "g": 5.9,
+     "q": 1.63
+    },
+    {
+     "type": "peaking",
+     "f": 323.0,
+     "g": -1.8,
+     "q": 0.18
+    },
+    {
+     "type": "peaking",
+     "f": 2975.0,
+     "g": -6.0,
+     "q": 3.54
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.7,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1028.0,
+     "g": -1.8,
+     "q": 2.24
+    },
+    {
+     "type": "peaking",
+     "f": 1883.0,
+     "g": 2.8,
+     "q": 3.79
+    },
+    {
+     "type": "peaking",
+     "f": 551.0,
+     "g": 0.9,
+     "q": 1.17
+    },
+    {
+     "type": "peaking",
+     "f": 1401.0,
+     "g": -0.6,
+     "q": 1.23
+    }
+   ]
+  },
+  {
+   "id": "fiioft1",
+   "brand": "FiiO",
+   "model": "FT1",
+   "type": "over-ear",
+   "gamme": "moyenne",
+   "source": "oratory1990",
+   "preampDb": -4.3,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -2.7,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 155.0,
+     "g": -3.4,
+     "q": 1.47
+    },
+    {
+     "type": "peaking",
+     "f": 7882.0,
+     "g": 4.5,
+     "q": 1.99
+    },
+    {
+     "type": "peaking",
+     "f": 3835.0,
+     "g": 4.6,
+     "q": 3.54
+    },
+    {
+     "type": "peaking",
+     "f": 5303.0,
+     "g": -5.6,
+     "q": 4.56
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1735.0,
+     "g": -1.9,
+     "q": 3.24
+    },
+    {
+     "type": "peaking",
+     "f": 61.0,
+     "g": 0.9,
+     "q": 2.22
+    },
+    {
+     "type": "peaking",
+     "f": 579.0,
+     "g": 0.8,
+     "q": 1.78
+    },
+    {
+     "type": "peaking",
+     "f": 239.0,
+     "g": -0.5,
+     "q": 2.59
+    }
+   ]
+  },
+  {
+   "id": "hifimansundara-2",
+   "brand": "HiFiMan",
+   "model": "Sundara",
+   "type": "over-ear",
+   "gamme": "moyenne",
+   "source": "oratory1990",
+   "preampDb": -5.2,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 5.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1190.0,
+     "g": -4.8,
+     "q": 1.59
+    },
+    {
+     "type": "peaking",
+     "f": 2117.0,
+     "g": 2.8,
+     "q": 1.71
+    },
+    {
+     "type": "peaking",
+     "f": 229.0,
+     "g": -1.4,
+     "q": 0.74
+    },
+    {
+     "type": "peaking",
+     "f": 8007.0,
+     "g": 2.7,
+     "q": 1.36
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -4.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 4252.0,
+     "g": 2.2,
+     "q": 3.4
+    },
+    {
+     "type": "peaking",
+     "f": 3056.0,
+     "g": -0.9,
+     "q": 3.61
+    },
+    {
+     "type": "peaking",
+     "f": 551.0,
+     "g": 0.9,
+     "q": 4.27
+    },
+    {
+     "type": "peaking",
+     "f": 5448.0,
+     "g": -1.1,
+     "q": 4.94
+    }
+   ]
+  },
+  {
+   "id": "hifimanhe400se-2",
+   "brand": "HiFiMan",
+   "model": "HE400se",
+   "type": "over-ear",
+   "gamme": "budget",
+   "source": "Filk",
+   "preampDb": -6.1,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 6.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1857.0,
+     "g": 4.1,
+     "q": 2.91
+    },
+    {
+     "type": "peaking",
+     "f": 775.0,
+     "g": -1.3,
+     "q": 1.77
+    },
+    {
+     "type": "peaking",
+     "f": 152.0,
+     "g": -1.1,
+     "q": 0.38
+    },
+    {
+     "type": "peaking",
+     "f": 5262.0,
+     "g": 2.1,
+     "q": 4.08
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -3.8,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 7790.0,
+     "g": -1.4,
+     "q": 3.2
+    },
+    {
+     "type": "peaking",
+     "f": 2843.0,
+     "g": -1.7,
+     "q": 4.33
+    },
+    {
+     "type": "peaking",
+     "f": 5778.0,
+     "g": 1.3,
+     "q": 5.98
+    },
+    {
+     "type": "peaking",
+     "f": 2222.0,
+     "g": 1.1,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "hifimanananda-2",
+   "brand": "HiFiMan",
+   "model": "Ananda",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "oratory1990",
+   "preampDb": -3.9,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 4.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1884.0,
+     "g": 2.9,
+     "q": 2.0
+    },
+    {
+     "type": "peaking",
+     "f": 84.0,
+     "g": -2.2,
+     "q": 1.06
+    },
+    {
+     "type": "peaking",
+     "f": 343.0,
+     "g": -0.7,
+     "q": 1.3
+    },
+    {
+     "type": "peaking",
+     "f": 2910.0,
+     "g": -1.8,
+     "q": 3.07
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -6.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 969.0,
+     "g": -1.0,
+     "q": 4.06
+    },
+    {
+     "type": "peaking",
+     "f": 170.0,
+     "g": 1.0,
+     "q": 3.86
+    },
+    {
+     "type": "peaking",
+     "f": 129.0,
+     "g": -0.7,
+     "q": 3.65
+    },
+    {
+     "type": "peaking",
+     "f": 752.0,
+     "g": 0.9,
+     "q": 5.09
+    }
+   ]
+  },
+  {
+   "id": "hifimanarya-2",
+   "brand": "HiFiMan",
+   "model": "Arya",
+   "type": "over-ear",
+   "gamme": "premium",
+   "source": "oratory1990",
+   "preampDb": -4.4,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 4.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 1866.0,
+     "g": 6.2,
+     "q": 1.75
+    },
+    {
+     "type": "peaking",
+     "f": 89.0,
+     "g": -2.6,
+     "q": 0.82
+    },
+    {
+     "type": "peaking",
+     "f": 3082.0,
+     "g": -2.8,
+     "q": 0.68
+    },
+    {
+     "type": "peaking",
+     "f": 404.0,
+     "g": -0.5,
+     "q": 1.49
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -6.9,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 5536.0,
+     "g": 2.1,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 2960.0,
+     "g": -0.6,
+     "q": 4.64
+    },
+    {
+     "type": "peaking",
+     "f": 3567.0,
+     "g": 1.4,
+     "q": 5.97
+    },
+    {
+     "type": "peaking",
+     "f": 3221.0,
+     "g": -0.9,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "id": "hyperxcloudiii",
+   "brand": "HyperX",
+   "model": "Cloud III",
+   "type": "gaming",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -5.3,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 5.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 3839.0,
+     "g": -9.6,
+     "q": 0.4
+    },
+    {
+     "type": "peaking",
+     "f": 166.0,
+     "g": 2.9,
+     "q": 1.73
+    },
+    {
+     "type": "peaking",
+     "f": 4422.0,
+     "g": 10.1,
+     "q": 1.76
+    },
+    {
+     "type": "peaking",
+     "f": 2810.0,
+     "g": 8.5,
+     "q": 1.22
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 0.2,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 74.0,
+     "g": -1.6,
+     "q": 2.18
+    },
+    {
+     "type": "peaking",
+     "f": 6436.0,
+     "g": -3.5,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 5709.0,
+     "g": 2.7,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 119.0,
+     "g": 0.9,
+     "q": 3.08
+    }
+   ]
+  },
+  {
+   "id": "razerbarracuda",
+   "brand": "Razer",
+   "model": "Barracuda",
+   "type": "gaming",
+   "gamme": "moyenne",
+   "source": "Rtings",
+   "preampDb": -4.5,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": -1.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 699.0,
+     "g": 2.7,
+     "q": 2.66
+    },
+    {
+     "type": "peaking",
+     "f": 163.0,
+     "g": -2.6,
+     "q": 0.69
+    },
+    {
+     "type": "peaking",
+     "f": 45.0,
+     "g": 3.9,
+     "q": 0.92
+    },
+    {
+     "type": "peaking",
+     "f": 418.0,
+     "g": 2.9,
+     "q": 1.76
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": 4.6,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9103.0,
+     "g": -3.2,
+     "q": 2.03
+    },
+    {
+     "type": "peaking",
+     "f": 4817.0,
+     "g": 4.5,
+     "q": 4.27
+    },
+    {
+     "type": "peaking",
+     "f": 1406.0,
+     "g": -1.5,
+     "q": 3.07
+    },
+    {
+     "type": "peaking",
+     "f": 1907.0,
+     "g": 1.9,
+     "q": 5.42
+    }
+   ]
+  },
+  {
+   "id": "trutheargate",
+   "brand": "Truthear",
+   "model": "Gate",
+   "type": "in-ear",
+   "gamme": "budget",
+   "source": "oratory1990",
+   "preampDb": -4.9,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 0.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9538.0,
+     "g": 4.7,
+     "q": 0.99
+    },
+    {
+     "type": "peaking",
+     "f": 2074.0,
+     "g": -1.3,
+     "q": 0.65
+    },
+    {
+     "type": "peaking",
+     "f": 196.0,
+     "g": -1.1,
+     "q": 1.34
+    },
+    {
+     "type": "peaking",
+     "f": 698.0,
+     "g": 1.2,
+     "q": 1.31
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -2.1,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 72.0,
+     "g": 0.8,
+     "q": 1.77
+    },
+    {
+     "type": "peaking",
+     "f": 4992.0,
+     "g": 0.3,
+     "q": 2.04
+    },
+    {
+     "type": "peaking",
+     "f": 126.0,
+     "g": -0.4,
+     "q": 2.34
+    },
+    {
+     "type": "peaking",
+     "f": 8647.0,
+     "g": 1.3,
+     "q": 5.95
+    }
+   ]
+  },
+  {
+   "id": "moondropblessing3",
+   "brand": "Moondrop",
+   "model": "Blessing 3",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "Super Review",
+   "preampDb": -1.7,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 0.3,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 258.0,
+     "g": -0.8,
+     "q": 0.65
+    },
+    {
+     "type": "peaking",
+     "f": 65.0,
+     "g": 1.2,
+     "q": 1.19
+    },
+    {
+     "type": "peaking",
+     "f": 2123.0,
+     "g": 1.5,
+     "q": 2.85
+    },
+    {
+     "type": "peaking",
+     "f": 4363.0,
+     "g": 0.8,
+     "q": 2.65
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -7.5,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 9245.0,
+     "g": 3.1,
+     "q": 3.0
+    },
+    {
+     "type": "peaking",
+     "f": 6764.0,
+     "g": 2.1,
+     "q": 6.0
+    },
+    {
+     "type": "peaking",
+     "f": 1242.0,
+     "g": -0.7,
+     "q": 3.32
+    },
+    {
+     "type": "peaking",
+     "f": 870.0,
+     "g": 0.4,
+     "q": 2.52
+    }
+   ]
+  },
+  {
+   "id": "simgotew200",
+   "brand": "Simgot",
+   "model": "EW200",
+   "type": "in-ear",
+   "gamme": "moyenne",
+   "source": "crinacle",
+   "preampDb": -2.7,
+   "filters": [
+    {
+     "type": "low-shelf",
+     "f": 105.0,
+     "g": 1.0,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 8017.0,
+     "g": 3.6,
+     "q": 1.13
+    },
+    {
+     "type": "peaking",
+     "f": 153.0,
+     "g": -2.1,
+     "q": 0.78
+    },
+    {
+     "type": "peaking",
+     "f": 794.0,
+     "g": 2.8,
+     "q": 1.01
+    },
+    {
+     "type": "peaking",
+     "f": 2472.0,
+     "g": -1.4,
+     "q": 0.3
+    },
+    {
+     "type": "high-shelf",
+     "f": 10000.0,
+     "g": -2.4,
+     "q": 0.7
+    },
+    {
+     "type": "peaking",
+     "f": 4761.0,
+     "g": -1.7,
+     "q": 4.96
+    },
+    {
+     "type": "peaking",
+     "f": 6133.0,
+     "g": 1.6,
+     "q": 5.59
+    },
+    {
+     "type": "peaking",
+     "f": 3418.0,
+     "g": 0.9,
+     "q": 3.56
+    },
+    {
+     "type": "peaking",
+     "f": 1477.0,
+     "g": -0.3,
+     "q": 2.9
     }
    ]
   }

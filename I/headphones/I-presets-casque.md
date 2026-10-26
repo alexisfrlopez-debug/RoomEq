@@ -1,6 +1,11 @@
 # I-HPH-01 — Bibliothèque de presets casque (AutoEq)
 
-- **Module** : M-HPH-01 · **Version de spec** : 1 · **Code** : `src/RoomEq.Core/Headphones/HeadphonePresetLibrary.cs`
+- **Module** : M-HPH-01 · **Version de spec** : 2 · **Code** : `src/RoomEq.Core/Headphones/HeadphonePresetLibrary.cs`
+
+> **v2 (vague 7)** : données embarquées portées de 255 à **321 modèles** —
+> comblement de l'écart de parité avec la v2.2.2 (la v2.1.0 avait ajouté 66
+> modèles Bluetooth grand public, notamment JBL). Contrat public inchangé
+> (patch à contrat stable, R4).
 
 ## Intention
 
@@ -8,7 +13,7 @@ Corrections paramétriques intégrées pour casques et écouteurs, dérivées du
 projet AutoEq (MIT, Jaakko Pasanen — mesures sur tête artificielle oratory1990,
 crinacle, Rtings, Super Review… vers cible Harman). La capture au micro n'étant
 pas applicable à ce type de transducteur, les données sont embarquées à la
-compilation (JSON de 255 modèles, ressource intégrée).
+compilation (JSON de 321 modèles, ressource intégrée).
 
 ## Contrat public
 
@@ -48,7 +53,8 @@ static class HeadphonePresetLibrary
 
 ## Critères de test
 
-- bibliothèque : ≥ 200 modèles, ≥ 10 marques, tous avec filtres et marque ;
+- bibliothèque : ≥ 320 modèles (parité v2.2.2 : 321), ≥ 10 marques, tous avec
+  filtres et marque ; les ajouts v2.1 présents (ex. « JBL Tune Flex 2 ») ;
 - `ByBrand` ne rend que la marque demandée, triée par modèle ;
 - `Find` par id insensible à la casse ; id inconnu → null ;
 - `Search("sony wh")` ne rend que des Sony dont le modèle contient « wh » ;

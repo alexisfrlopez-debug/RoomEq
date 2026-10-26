@@ -3,4 +3,7 @@ obj/
 *.user
 .vs/
 artifacts/
+publish/
 .avalonia-build-tasks/
+# télémétrie réelle (identifiants OAuth) — seul l'example est versionné
+scripts/telemetrie.json

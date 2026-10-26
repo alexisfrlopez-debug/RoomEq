@@ -8,8 +8,8 @@
 Recoder entièrement l'application RoomEq (les trois projets C#) en appliquant le
 protocole TRIADE : chaque module est défini par une intention diffable (I),
 implémenté par du code versionné (B) et cartographié à adresse stable (C).
-Critère de non-régression : **parité fonctionnelle avec la v2.2.1**, suite de
-tests ≥ couverture legacy, build 0 erreur 0 avertissement.
+Critère de non-régression : **parité fonctionnelle avec la v2.2.2**
+(`deff25c`), suite de tests ≥ couverture legacy, build 0 erreur 0 avertissement.
 
 ## Vagues
 
@@ -74,11 +74,32 @@ IOutputPresetEqView/IOutputPresetMixerView rendant la politique preset↔sortie
 testable sans périphérique. Vérification R5 : build 0/0, 436 tests verts
 (219 Core + 142 Audio + 75 App).
 
-### Vague 7 — Finalisation (PROCHAINE SESSION — reprendre ici)
-- Solution complète 0 erreur 0 avertissement, suite complète verte
-- Tag `v3.0.0-dev.1`, marqueurs Carte 🔒
-- Parité v2.2.1 vérifiée point par point (checklist README legacy)
-- Packaging : réutiliser les scripts CI/packaging legacy adaptés
+### Vague 7 — Finalisation ✅ (session 4)
+- Audit de parité v2.2.2 point par point : `docs/PARITE-v2.2.2.md` — 14/14
+  familles du README, données embarquées identiques (md5 casques `ffff00a5…`
+  et micros `f126f6f5…`), 437 tests verts (legacy : 228), 3 écarts
+  volontaires documentés (D8 + améliorations v3 + structure).
+- D9 — comblement de parité : bibliothèque casques 255 → 321 modèles (fichier
+  v2.2.2 repris octet pour octet ; spec I-HPH-01 v2, patch à contrat stable ;
+  test `Parity_IncludesV21Additions` verrouillant le plancher).
+- D10 — cristallisation : version `3.0.0-dev.1` (`Directory.Build.props`),
+  42 modules 🔒 dans la Carte, tag git annoté `v3.0.0-dev.1`, packaging
+  `scripts/package_v3.sh` (publish win-x64 auto-contenue + zips test /
+  public / source avec contrôles de contenu), CI GitHub Actions
+  `.github/workflows/build.yml` (tests xUnit sur 3 OS + packaging + release
+  sur tag — sans jobs natifs, D1).
+- Télémétrie version test : `scripts/gen_telemetrie.py` régénère
+  `scripts/telemetrie.json` (ignoré par git) depuis les jetons du dépôt
+  TRIADE ; seul `telemetrie.json.example` est versionné.
+- `LISEZMOI.txt` v3 (contenu des zips : installation pilote scellé 2.2.2 +
+  application, compilation, signalement).
+- Vérification R5 finale : build 0 erreur 0 avertissement, 437/437 tests
+  verts (220 Core + 142 Audio + 75 App).
+
+**RECODAGE TERMINÉ.** Prochaine étape (hors recodage) : validation
+utilisateur sur machine Windows réelle (checklist § 1 de
+`docs/PARITE-v2.2.2.md`) → tag `v3.0.0` final (retrait du suffixe `-dev.1`
+dans `src/Directory.Build.props`, `LISEZMOI.txt` et `scripts/package_v3.sh`).
 
 ## Règles de travail (extraites du protocole)
 

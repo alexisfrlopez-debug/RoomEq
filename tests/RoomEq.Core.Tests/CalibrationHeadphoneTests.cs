@@ -202,7 +202,7 @@ public class HeadphonePresetLibraryTests
     public void Library_IsLargeAndComplete()
     {
         var all = HeadphonePresetLibrary.LoadAll();
-        Assert.True(all.Count >= 200, $"bibliothèque trop petite : {all.Count}");
+        Assert.True(all.Count >= 320, $"bibliothèque trop petite : {all.Count}");
         Assert.True(HeadphonePresetLibrary.Brands().Count >= 10);
         Assert.All(all, m =>
         {
@@ -210,6 +210,18 @@ public class HeadphonePresetLibraryTests
             Assert.NotEmpty(m.Filters);
             Assert.False(string.IsNullOrEmpty(m.Id));
         });
+    }
+
+    [Fact]
+    public void Parity_IncludesV21Additions()
+    {
+        // parité v2.2.2 : la v2.1.0 avait porté la bibliothèque à 321 modèles
+        // (ajout Bluetooth grand public, dont la série JBL Tune/Live/Tour).
+        var jbl = HeadphonePresetLibrary.Search("jbl tune flex 2");
+        Assert.NotEmpty(jbl);
+        Assert.Contains(HeadphonePresetLibrary.LoadAll(), m => m.Brand == "JBL");
+        Assert.True(HeadphonePresetLibrary.Count is >= 320 and <= 400,
+            $"compte inattendu : {HeadphonePresetLibrary.Count}");
     }
 
     [Fact]

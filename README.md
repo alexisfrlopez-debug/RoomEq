@@ -8,21 +8,24 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
 `CARTE.md`).
 
 - **Base fonctionnelle** : v2.2.2 (`alexisfrlopez-debug/RoomEq` @ deff25c)
-- **État** : RoomEq.Core recodé (24 modules, 212 tests verts) ; Audio et App à
-  suivre — voir `docs/PLAN_RECODAGE.md`
+- **État** : recodage **terminé et cristallisé** au tag `v3.0.0-dev.1` —
+  42 modules 🔒, 437 tests verts, parité v2.2.2 établie point par point
+  (`docs/PARITE-v2.2.2.md`) ; reste la validation utilisateur Windows réelle
+  avant l'ouverture de v3.0.0 finale
 - **Reprise** : lire `REPRISE.md` en premier
-- **Décisions** : `docs/DECISIONS.md` (D1-D8) · **Carte** : `CARTE.md`
+- **Décisions** : `docs/DECISIONS.md` (D1-D10) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
 
 ## Structure
 
 ```
 I/          specs d'intention par module (une par module de la Carte)
-src/        code source (RoomEq.Core ✓, RoomEq.Audio, RoomEq.App)
+src/        code source (RoomEq.Core + RoomEq.Audio + RoomEq.App)
 tests/      suites xUnit (contrat exécutable de la couche I)
-docs/       décisions, plan de recodage
+docs/       décisions, plan de recodage, audit de parité v2.2.2
 natif/      référence des composants natifs scellés v2.2.2
-scripts/    outillage (sync_backup.sh : tests + commit + GitHub + Drive)
+scripts/    outillage (sync_backup.sh : tests + commit + GitHub + Drive ;
+            package_v3.sh : livrables zips test/public/source)
 ```
 
 ## Vérification
@@ -30,7 +33,10 @@ scripts/    outillage (sync_backup.sh : tests + commit + GitHub + Drive)
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
 cd src && dotnet build RoomEq.sln -c Debug     # 0 erreur 0 avertissement
-dotnet test ../tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj   # 212 verts
+dotnet test ../tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj    # 220 verts
+dotnet test ../tests/RoomEq.Audio.Tests/RoomEq.Audio.Tests.csproj  # 142 verts
+dotnet test ../tests/RoomEq.App.Tests/RoomEq.App.Tests.csproj      # 75 verts
+bash ../scripts/package_v3.sh                  # zips test/public/source
 ```
 
 Fonction objectif : **Sécurité > Performance > Optimisation > Coût en tokens**.
