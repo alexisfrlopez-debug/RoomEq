@@ -77,3 +77,61 @@ Stage Summary:
   mesure) puis vague 6 — App. Checklist : REPRISE.md §2.
 - Sauvegardes : GitHub branche v3-recodage + Drive « Equalizer/RoomEq-v3 »
   (fichiers + bundle git restaurable) + dépôt local.
+
+---
+Session : 2 — 2026-10-26
+Agent : main (Z.ai)
+Task : Vague 5 du plan de recodage — RoomEq.Audio complet (M-AUD-01..06),
+specs I d'abord, code ensuite, tests verts, Carte tenue à jour (protocole TRIADE).
+
+Work Log:
+- Reconstitué le contexte : lecture du worklog, du plan, de la Carte, des
+  décisions D1-D8 ; inventaire du legacy v2.2.2 (clone git-ref) : 26 fichiers
+  C#, 5 500 lignes + 1 045 lignes de tests (6 fichiers).
+- Écrit les 6 specs I/audio/ AVANT le code (R2) : I-capture (M-AUD-01),
+  I-lecture (M-AUD-02), I-routage (M-AUD-03, le plus gros : 12 invariants),
+  I-pont-asio (M-AUD-04, miroir binaire du protocole C), I-pont-macos
+  (M-AUD-05), I-moteur-mesure (M-AUD-06, ordre temporel et garde-fous).
+- Créé le projet src/RoomEq.Audio (NAudio 2.2.1, InternalsVisibleTo vers les
+  tests) et ajouté à la solution ; recodé les 26 fichiers en clean-room informé
+  du legacy : CaptureEngine, PlaybackEngine + SampleProviders + AudioOutputs +
+  TestSignalCatalog, RingBuffer, TrackSource (scindé d'AudioDeviceCatalog),
+  AudioDeviceCatalog, VirtualAudioProviders, MixerStore, VolumeSyncPolicy,
+  EndpointVolumeController, DefaultDeviceSetter, AudioDeviceWatcher,
+  DriverSetupManager, ConsoleChannel, ConsoleMixer (+MasterBus/StereoToOutput),
+  AsioBridgeInterop/Host/Manager, CoreAudioApi/Catalog/Output/Capture,
+  MacAudioBridge, RoomMeasurementEngine.
+- Améliorations v3 documentées : ConsoleWasapiOutput fusionné dans
+  WasapiOutput(latenceMs) (suppression d'une classe dupliquée) ;
+  MasterBus et StereoToOutput extraits en classes internes testables ;
+  AsioBridgeTransport discrimine la plateforme par test explicite
+  OperatingSystem.IsWindows() au lieu de catch(PlatformNotSupportedException) ;
+  Volume/Loop de PlaybackEngine en lecture/écriture Volatile (atomiques pour
+  le thread audio) ; CoreAudioOutput lève PlaybackStopped à l'arrêt (contrat
+  IAudioOutput homogène) ; constructeur de test AsioBridgeHost avec libellés
+  paramétrés (le pont périphérique n'écrase plus les textes par réflexion).
+- Écrit la suite tests/RoomEq.Audio.Tests : 9 fichiers, 142 tests — portage
+  intégral des tests legacy (RingBuffer 6, console/persist/EQ-sync, AsioBridge
+  8, DeviceBridge 3, DriverSetup 12, SignalCatalog/VolumeSync théories) +
+  extensions v3 (providers : gain/canaux/tap/générateur-FFT/boucle ; MasterBus :
+  sommation, mute, multi-canaux ; anti-larsen vérifiable sous Linux car la
+  validation précède l'ouverture WASAPI ; AssembleSegment : rognage exact ;
+  inertie plateforme de Capture/Playback/Catalog/AsioManager).
+- Corrections en cours de route : using System.Collections.Concurrent oublié ;
+  contrainte where T : struct omise sur SetPropertyStruct (reprise du legacy) ;
+  EqSampleProvider ramené au contrat 2 arguments ; CS0067 réglé en levant
+  PlaybackStopped ; 2 tests fautifs corrigés (arithmétique de rognage
+  3000−750=2250 ; loi de pan −3 dB/voie au centre : crête ≈ 0,707).
+- Vérification R5 : solution complète build 0 erreur 0 avertissement ;
+  212/212 tests Core + 142/142 tests Audio = 354 verts.
+- Carte mise à jour (M-AUD-01..06 ✅, statut vagues 2-5), plan de recodage
+  (vague 5 ✅ + améliorations, prochaine = vague 6 App).
+
+Stage Summary:
+- RoomEq.Audio v3 recodé et vérifié : 6/6 modules ✅, 142 tests verts, build
+  0/0, specs I/audio/ complètes — la couche E/S est consommable par la vague 6
+  (RoomEq.App) via les mêmes points d'entrée que la v2.2.2.
+- Le protocole du pont ASIO reste verrouillé côté tests (constantes, décalages,
+  tailles) : toute dérive du miroir C/C# est détectée avant livraison.
+- Prochaine session : vague 6 — RoomEq.App (M-APP-01..05, shell Avalonia,
+  ViewModels < 300 lignes) puis vague 7 (finalisation, parité v2.2.2, tag).

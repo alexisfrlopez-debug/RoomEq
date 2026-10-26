@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Couche audio de RoomEq v3 : lecture WASAPI/ASIO/CoreAudio, capture micro, routage mixeur virtuel vers physique, pont ASIO, mesure acoustique. Modules M-AUD-01..06 (specs I/audio/).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RoomEq.Core\RoomEq.Core.csproj" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <InternalsVisibleTo Include="RoomEq.Audio.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -9,10 +9,13 @@ cd "$(dirname "$0")/.."
 export PATH="$HOME/.dotnet:$PATH"
 FORCE="${1:-}"
 
-# 1) vérification
+# 1) vérification (tous les projets de tests du dépôt)
 if [ "$FORCE" != "--force" ]; then
   echo "=== Tests (R5) ==="
-  if ! dotnet test tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj -c Debug --nologo -v q 2>&1 | tail -3; then
+  FAIL=0
+  dotnet test tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj -c Debug --nologo -v q 2>&1 | tail -3 || FAIL=1
+  dotnet test tests/RoomEq.Audio.Tests/RoomEq.Audio.Tests.csproj -c Debug --nologo -v q 2>&1 | tail -3 || FAIL=1
+  if [ "$FAIL" != "0" ]; then
     echo "ÉCHEC DES TESTS — commit refusé (utiliser --force pour outrepasser)."
     exit 1
   fi

@@ -10,7 +10,7 @@
 | profil de cible | x86-64-pc-windows-msvc (.NET 8) + macOS (greffon scellé) |
 | base de référence | v2.2.1 (GitHub alexisfrlopez-debug/RoomEq @ 79c2c95) |
 | empreinte legacy | miroir local `roomeq-legacy/src-drive/RoomEq` (284 fichiers) |
-| statut | 🚧 vague 2-4 terminées (RoomEq.Core complet, 212 tests verts) — restent Audio + App |
+| statut | 🚧 vagues 2-5 terminées (RoomEq.Core + RoomEq.Audio, 354 tests verts) — reste App |
 
 ## Modules — couche I (intention) / B (code)
 
@@ -40,12 +40,12 @@
 | M-IO-03 | Télémétrie Drive | `I/io/I-telemetrie.md` | `…/Io/TelemetryConfig.cs` + `DriveLogUploader.cs` | `…/TelemetryTests.cs` | ✅ |
 | M-IO-04 | Magasin de signaux | `I/io/I-magasin-signaux.md` | `…/Io/SignalPack.cs` + `SignalStore.cs` + `SignalCatalogClient.cs` | `…/SignalPackTests.cs` + `SignalStoreTests.cs` | ✅ |
 | M-IO-05 | Magasins de réglages | `I/io/I-magasins.md` | `…/Io/Stores.cs` | `…/StoresRenameTests.cs` | ✅ |
-| M-AUD-01 | Capture | `I/audio/I-capture.md` | `src/RoomEq.Audio/Capture/…` | `…/Audio tests` | ⬜ |
-| M-AUD-02 | Lecture | `I/audio/I-lecture.md` | `…/Playback/…` | ⬜ | ⬜ |
-| M-AUD-03 | Routage / mixeur | `I/audio/I-routage.md` | `…/Routing/…` | ⬜ | ⬜ |
-| M-AUD-04 | Pont ASIO | `I/audio/I-pont-asio.md` | `…/Asio/…` | ⬜ | ⬜ |
-| M-AUD-05 | Pont macOS | `I/audio/I-pont-macos.md` | `…/Mac/…` | ⬜ | ⬜ |
-| M-AUD-06 | Moteur de mesure | `I/audio/I-moteur-mesure.md` | `…/Measurement/…` | ⬜ | ⬜ |
+| M-AUD-01 | Capture | `I/audio/I-capture.md` | `src/RoomEq.Audio/Capture/CaptureEngine.cs` | `…/MeasurementEngineTests.cs` (inertie) | ✅ |
+| M-AUD-02 | Lecture | `I/audio/I-lecture.md` | `…/Playback/AudioOutputs.cs` + `SampleProviders.cs` + `PlaybackEngine.cs` + `TestSignalCatalog.cs` | `…/SampleProvidersTests.cs` + `SignalCatalogTests.cs` + `MeasurementEngineTests.cs` | ✅ |
+| M-AUD-03 | Routage / mixeur | `I/audio/I-routage.md` | `…/Routing/` (12 fichiers : RingBuffer, TrackSource, AudioDeviceCatalog, VirtualAudioProviders, MixerStore, VolumeSyncPolicy, EndpointVolumeController, DefaultDeviceSetter, AudioDeviceWatcher, DriverSetupManager, ConsoleChannel, ConsoleMixer) | `…/RingBufferTests.cs` + `ConsoleRoutingTests.cs` + `SignalCatalogTests.cs` + `RoomEqDriverTests.cs` | ✅ |
+| M-AUD-04 | Pont ASIO | `I/audio/I-pont-asio.md` | `…/Asio/AsioBridgeInterop.cs` + `AsioBridgeHost.cs` + `AsioManager.cs` | `…/AsioBridgeTests.cs` | ✅ |
+| M-AUD-05 | Pont macOS | `I/audio/I-pont-macos.md` | `…/Mac/CoreAudioApi.cs` + `CoreAudioCatalog.cs` + `CoreAudioOutput.cs` + `CoreAudioCapture.cs` + `MacAudioBridge.cs` | `…/DeviceBridgeTests.cs` | ✅ |
+| M-AUD-06 | Moteur de mesure | `I/audio/I-moteur-mesure.md` | `…/Measurement/RoomMeasurementEngine.cs` | `…/MeasurementEngineTests.cs` | ✅ |
 | M-APP-01 | Shell + MVVM | `I/app/I-shell.md` | `src/RoomEq.App/…` | — | ⬜ |
 | M-APP-02 | Onglet calibration | `I/app/I-onglet-calibration.md` | `…/Views/CalibrationTab…` | — | ⬜ |
 | M-APP-03 | Onglet mixage | `I/app/I-onglet-mixage.md` | `…/Views/MixerTab…` | — | ⬜ |

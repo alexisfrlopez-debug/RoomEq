@@ -37,12 +37,23 @@ bibliothèque presets casque AutoEq (255 modèles, JSON embarqué).
 M-IO-01..05 — saveur test/public, journal diagnostic, télémétrie Drive,
 magasin de signaux téléchargés (validation SHA-256), magasins de réglages.
 
-### Vague 5 — RoomEq.Audio (PROCHAINE SESSION — reprendre ici)
-M-AUD-01..06 — capture WASAPI, lecture (WASAPI partagé/exclusif), routage
-mixeur virtuel→physique, pont ASIO (shared memory), pont macOS CoreAudio,
-moteur de mesure de pièce. Dépend des natifs scellés N-DRV-01/N-ASI-01.
+### Vague 5 — RoomEq.Audio ✅ (session 2, 142 tests)
+M-AUD-01..06 — specs I/audio/ écrites AVANT le code, puis recodage intégral :
+capture WASAPI/AUHAL avec repli de format, moteur de lecture + briques
+ISampleProvider (gain/canaux/tap/EQ/générateur/boucle), routage complet
+(RingBuffer SPSC, tranches, bus master, anti-larsen, carte virtuelle RoomEq +
+boucle WASAPI, volume Windows, PolicyConfig, watcher, pilote pnputil/Setup,
+persistance mixer.json), pont ASIO (miroir exact du protocole C, transport
+multiplateforme), pont macOS (P/Invoke CoreAudio résolus au premier appel),
+moteur de mesure (mono + multi-signaux). Natifs scellés N-DRV-01/N-ASI-01
+consommés via les mêmes points d'entrée (D1). Dépend de RoomEq.Core v3.
+Améliorations v3 : ConsoleWasapiOutput fusionné dans WasapiOutput(latence),
+MasterBus/StereoToOutput internes testables, transport du pont discriminé par
+test de plateforme (plus de catch PlatformNotSupportedException), Volume/Loop
+du PlaybackEngine atomiques (Volatile), PlaybackStopped levé par la sortie
+CoreAudio à l'arrêt.
 
-### Vague 6 — RoomEq.App
+### Vague 6 — RoomEq.App (PROCHAINE SESSION — reprendre ici)
 M-APP-01..05 — shell Avalonia, onglets Calibration/Mixage/EQ/Micro/Analyseur/
 ASIO, ViewModels découplés (taille cible < 300 lignes par ViewModel), contrôles
 personnalisés (courbes, VU-mètres, éditeur EQ).
