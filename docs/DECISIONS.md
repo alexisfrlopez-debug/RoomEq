@@ -440,3 +440,26 @@ un scénario utilisateur réel (le chemin FFT est hors thread audio,
 pour un outil temps réel lancé une fois ; (d) ne rien documenter :
 perd la valeur pédagogique — la confrontation documentée est
 précisément le livrable.
+
+## D16 — Alignement sur le protocole TRIADE v0.4.0 (26 octobre 2026)
+
+| ID | Décision | Choix retenu | Alternatives rejetées |
+|---|---|---|---|
+| D16 | Alignement du dépôt sur la révision v0.4.0 du protocole | Alignement **gouvernance et documentation, sans modification de `src/`** : la v0.4.0 convertit en normes des pratiques que ce dépôt appliquait déjà (specs I avant code, pré-versions `-dev.N`, reverse-specs M-INS, fixtures pnputil partagées, mesure avant optimisation D15). Ajouts : `docs/CONFORMITE_TRIADE_v0.4.0.md` (tableau de bord de conformité + analyse d'implications), `docs/JOURNAL_OPTIMISATION.md` (format OPT-NN, l'entrée OPT-01 reprend la mesure D15), section traçabilité formalisée dans `CARTE.md` (la table modules devient explicitement la table I↔C↔B↔tests de la spécification § 4.2), classification taxonomique des défauts historiques (T1–T6) reportée dans le tableau de bord | Recoder pour « montrer l'alignement » (aucune exigence v0.4.0 ne touche le code : R10 renforcée et R11 s'appliquent au chargement natif et à l'optimisation — ce dépôt instancie B en code source ; modifier `src/` sans besoin fonctionnel violerait l'esprit de R4 et le refus D15) ; attendre la vague 8 (l'alignement documentaire n'a pas de dépendance) ; appliquer R10 signature/anti-rollback au zip public (mécanisme du profil natif, M0+ ; l'instanciation source l'honore par l'historique git signé de balises et les empreintes md5 des données) |
+
+**Développement.** La v0.4.0 du protocole (décisions D19–D25 du dépôt triade) est une
+révision de gouvernance : elle normalise la couche I, ajoute la taxonomie des défauts de
+contrat non écrit, renforce R10, ajoute R11 (optimisation mesurée), officialise les
+reverse-specs, les pré-versions dev/rc/final et les fixtures partagées, exige la
+traçabilité I↔C↔B↔tests, normalise le journal des décisions et ajoute le tableau de bord
+de conformité. Ce dépôt était **déjà conforme de facto** sur l'essentiel — c'est
+précisément de ses pratiques que la révision est née — ; l'alignement consiste donc à (1)
+nommer les choses comme le protocole les nomme désormais, (2) combler les écarts :
+journal d'optimisation formalisé, classification taxonomique explicite des défauts
+historiques, tableau de bord consolidé, (3) documenter ce qui ne s'applique pas à une
+instanciation source et pourquoi. La suite de versions v3.0.0-dev.1 → v3.0.2 est
+rétroactivement conforme au schéma dev/rc/final de la v0.4.0 (§ 9 de la spécification) :
+la balise finale v3.0.2 est immuable, les correctifs 3.0.x sont à contrat stable.
+
+**Vérification R5 (pré-commit).** Aucun fichier de production modifié ; build 0 erreur /
+0 avertissement et 437/437 tests verts reconfirmés avant commit.
