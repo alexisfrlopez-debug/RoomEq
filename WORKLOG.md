@@ -439,3 +439,42 @@ Stage Summary (final, 3.0.2) :
 - Prochaines étapes : validation terrain Windows (écarts → 3.0.x) ;
   vague 8 installateur (specs M-INS prêtes, conditions D11) ; décision
   signature phase A (EV/attestation).
+
+Troisième suite (même session) — demande « optimisation maximale /
+fusion de modules / natif machine », décision D15 :
+
+- Demande du développeur analysée littéralement : fusionner les
+  modules + passer le code en natif machine, « pour valider la
+  démonstration du protocole ». Confrontation au protocole :
+  fusion = casse des adresses stables et des specs par concern (R2/R4,
+  couche C) ; natif machine = invérifiable sous R5 (Linux, cible
+  Windows), portabilité macOS perdue, natifs déjà scellés (D1) ; et le
+  JIT .NET émet déjà du code machine optimisé.
+- Équivalent conforme exécuté : MESURER D'ABORD. Harnais `perf/` créé
+  (console autonome, hors gouvernance modules — pas dans src/ ni
+  RoomEq.sln ; `bash perf/run.sh`, Release). Un faux départ corrigé :
+  `GC.GetAllocatedBytesForCurrentThread` (pluriel).
+- Mesures (2 vCPU partagés, 48 kHz stéréo, blocs 10 ms) : EqChain
+  30 bandes × 2 canaux 66 µs/bloc → **152× temps réel** ;
+  **0 octet alloué** sur 100 000 blocs (1 000 s de son) ; RingBuffer
+  SPSC 0,18 µs → 56 461× ; balayage ESS 12 s en 10,7 ms → 1 121× ;
+  FFT 4096 en 165 µs (517×) ; FFT 1 048 576 en 38,2 ms (572×).
+- D15 consignée : refus motivé des deux transformations, table de
+  mesures, conditions de réexamen (SIMD/FFT uniquement sur profilage
+  d'un scénario réel ; NativeAOT seulement si un besoin de démarrage
+  était mesuré). README (structure, D1-D15) et REPRISE (D15, perf/
+  dans l'environnement) alignés. **Aucune ligne de src/ modifiée,
+  CARTE.md inchangée** — c'est le point.
+- R5 re-vérifiée : build 0/0, 437/437 verts ; sauvegarde D7 (commit +
+  GitHub + miroir Drive).
+
+Stage Summary (final, D15) :
+- La démonstration du protocole est validée PAR le refus : une requête
+  hostile aux couches I/C a été absorbée sans dérive du cristal —
+  analyse documentée, preuves chiffrées, zéro modification du code
+  applicatif, tests verts inchangés. D12→D15 forme le corpus complet
+  (cristallisation, échec CI honoré, portabilité, refus motivé).
+- Outil durable : perf/run.sh — toute future demande d'optimisation
+  part désormais de mesures, pas d'intuitions.
+- Prochaines étapes inchangées : validation terrain Windows (écarts →
+  3.0.x) ; vague 8 installateur (conditions D11) ; signature phase A.

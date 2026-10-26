@@ -99,6 +99,10 @@ Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
 - **D14** portabilité CI du packaging : `rg` → `grep -E` (absent des
   runners), exclusion du dossier de sortie du zip source ; reproducteur
   `simulate_ci_packaging.sh` ; publication `v3.0.2`.
+- **D15** « optimisation maximale » / fusion de modules / natif machine :
+  requête refusée (R2/R4/R5, D1), mesure substituée — harnais `perf/` : thread
+  audio à 152× temps réel et 0 allocation mesurés (2 vCPU partagés) ; aucun
+  problème de performance à corriger, `src/` intact.
 
 ## 4. Pièges et découvertes de la session 1
 
@@ -126,6 +130,7 @@ dotnet build RoomEq.sln -c Debug          # 0 erreur 0 avertissement attendu
 dotnet test ../tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj    # 220 verts
 dotnet test ../tests/RoomEq.Audio.Tests/RoomEq.Audio.Tests.csproj  # 142 verts
 dotnet test ../tests/RoomEq.App.Tests/RoomEq.App.Tests.csproj      # 75 verts
+bash ../perf/run.sh                        # marges temps réel (D15)
 bash ../scripts/package_v3.sh             # livrables : zips test/public/source
 bash ../scripts/sync_backup.sh            # fin de lot : commit + GitHub + Drive
 ```

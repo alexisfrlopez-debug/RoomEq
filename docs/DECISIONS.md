@@ -340,3 +340,103 @@ les vérifications bash restent lisibles ; (c) publier la release
 manuellement depuis les zips locaux (qui sont corrects) : contourne
 la CI et laisse le workflow rouge — le précédent D13 s'applique
 intégralement.
+
+## D15 — « Optimisation maximale », fusion de modules et natif machine : requête refusée, mesure substituée
+
+**Contexte.** Demande du développeur : « optimises au max le code de
+RoomEq en essayant de fusionner les modules et en modifiant directement
+le code en natif machine », présentée comme validation de la
+démonstration du protocole. La demande a été analysée littéralement,
+composante par composante, puis confrontée au protocole.
+
+**Décision.** Les deux transformations demandées sont refusées ;
+l'intention (performance maximale) est honorée par la voie conforme :
+mesurer d'abord. Aucune ligne de `src/` n'est modifiée, aucun module
+n'est fusionné, la cristallisation v3.0.2 est intacte.
+
+**(a) Fusion des modules — REFUSÉ.** La granularité des 42 modules
+n'est pas un accident d'implémentation, c'est l'objet même des couches
+I et C : une spec diffable par concern, une adresse stable par
+contrat, une suite de tests par module. Fusionner (42 → N) casserait
+toutes les références croisées (Carte, specs, tests, worklogs),
+transformerait des diffs chirurgicaux en diffs massifs (la revue
+devient la seule défense perdue) et regrouperait derrière des
+frontières floues des contrats distincts — y compris les contrats de
+temps réel par module (M-DSP-03 biquad vs M-EQ-02 chaîne vs M-EQ-04
+liaisons preset↔périphérique). Le gain attendu est nul : la
+performance du thread audio ne dépend PAS du nombre de modules (le
+découpage est une frontière de SOURCE, pas de code machine — voir (b))
+et `EqChain.Process` ne traverse aucune frontière de module à
+l'exécution (elle matérialise ses filtres dans son propre tableau,
+publié par référence atomique).
+
+**(b) « Modifier directement le code en natif machine » — REFUSÉ,
+trois sens possibles, tous morts.** (1) Code machine écrit ou patché à
+la main : invérifiable dans cet environnement (R5 s'exécute sur Linux,
+la cible est Windows — aucun run possible), illisible en revue,
+annule la portabilité (le profil de cible inclut macOS), et personne
+ne maintient de l'assembleur derrière 437 tests de parité. (2)
+Réécriture C/C++/Rust : c'est un recodage complet d'échelle v4 (le
+précédent legacy→v3 a pris 7 vagues), sans besoin mesuré — et les
+composants qui DOIVENT être natifs le sont déjà, scellés et stables
+(pilote noyau `roomeqvad.sys`, DLL ASIO, greffon macOS — D1,
+`natif/REFERENCE-NATIF.md`). (3) « Compiler en natif » : c'est déjà
+le cas à l'exécution — le JIT .NET 8 émet du code machine optimisé
+(compilation à niveaux), et NativeAOT/ReadyToRun existent comme
+options de DISTRIBUTION si un besoin de démarrage était un jour
+mesuré — ce n'est pas une optimisation du régime établi.
+
+**(c) « Optimiser au max » — l'équivalent conforme est exécuté :
+mesurer d'abord.** Le protocole inverse la charge de la preuve (le
+précédent D8 a procédé par analyse, pas par intuition) : on n'optimise
+pas sans un défaut mesuré. Harnais créé : **`perf/`** (console
+autonome, volontairement hors gouvernance des modules — pas dans
+`src/`, pas dans `RoomEq.sln`, outillage au même titre que `scripts/`
+— exécution `bash perf/run.sh`, Release obligatoire). Mesures du
+2026-10-26, 48 kHz stéréo, blocs de 10 ms, **2 vCPU logiques sur
+machine partagée** (bornes inférieures conservatrices — un poste
+desktop fera plusieurs fois mieux) :
+
+| Chemin | Mesure | Marge temps réel |
+|---|---|---|
+| `EqChain.Process` (thread audio, 30 bandes actives × 2 canaux) | 66 µs/bloc de 10 ms | **152 ×** |
+| Allocations de `EqChain.Process` sur 100 000 blocs (1 000 s de son) | **0 octet** | — |
+| RingBuffer SPSC (routage capture → mixeur) | 0,18 µs/bloc | **56 461 ×** |
+| Balayage log 12 s (ESS, régénération complète — calibration) | 10,7 ms | 1 121 × |
+| FFT 4096 (affichage RTA, hors thread audio) | 165 µs | 517 × |
+| FFT 1 048 576 (déconvolution, opération la plus lourde) | 38,2 ms | 572 × |
+
+Lecture : le thread audio consomme 0,66 % de son budget (66 µs sur
+10 000) dans la pire configuration réaliste mesurée ; la propriété
+critique — **zéro allocation, donc zéro pause GC sur le thread
+audio** — est acquise par construction (M-EQ-02) et maintenant
+vérifiée numériquement sur 1 000 s de son continu. Il n'existe aucun
+problème de performance mesuré à corriger : l'optimisation
+supplémentaire n'aurait aucun effet perceptible (le budget est déjà
+dépensé à 152× de marge) et son coût serait réel (risque de parité,
+churn de specs, re-test complet).
+
+**Pourquoi ceci EST la validation de la démonstration demandée.**
+Une démonstration de protocole qui absorbe « fusionne les modules et
+passe en natif » en cassant ses propres règles ne démontrerait rien.
+La validation est au contraire que le cristal absorbe la requête sans
+bouger : demande hostile aux couches I/C → analyse documentée (D15) →
+preuve chiffrée que l'objectif implicite (performance) est déjà atteint
+→ zéro modification de `src/`, Carte inchangée, 437 tests toujours
+verts. La séquence D12→D15 forme un corpus complet : cristallisation,
+échec CI honoré, portabilité outillage, et maintenant refus motivé
+d'une transformation destructrice — quatre tensions, quatre décisions,
+zéro dérive du cristal.
+
+**Alternatives rejetées.** (a) Exécuter la fusion : détruit la
+démonstration que la requête prétend valider — circonvenir R2/R4
+au moment précis où l'on prétend prouver que R2/R4 tiennent ;
+(b) SIMD (`System.Numerics.Vector`) sur FFT/biquads : possible et
+documenté comme voie future, mais churn + risque de parité sans besoin
+mesuré — condition de réexamen : un profilage montrant un goulot sur
+un scénario utilisateur réel (le chemin FFT est hors thread audio,
+à cadence d'affichage) ; (c) NativeAOT : changement de distribution
+(réflexion/sérialisation à auditer), gain de démarrage sans objet
+pour un outil temps réel lancé une fois ; (d) ne rien documenter :
+perd la valeur pédagogique — la confrontation documentée est
+précisément le livrable.

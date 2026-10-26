@@ -14,7 +14,7 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   point (`docs/PARITE-v2.2.2.md`) ; les écarts terrain éventuels seront
   traités en patchs 3.0.x à contrat stable
 - **Reprise** : lire `REPRISE.md` en premier
-- **Décisions** : `docs/DECISIONS.md` (D1-D14) · **Carte** : `CARTE.md`
+- **Décisions** : `docs/DECISIONS.md` (D1-D15) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
 
 ## Structure
@@ -25,6 +25,7 @@ src/        code source (RoomEq.Core + RoomEq.Audio + RoomEq.App)
 tests/      suites xUnit (contrat exécutable de la couche I)
 docs/       décisions, plan de recodage, audit de parité v2.2.2
 natif/      référence des composants natifs scellés v2.2.2
+perf/       harnais de mesure des marges temps réel (D15 — bash perf/run.sh)
 scripts/    outillage (sync_backup.sh : tests + commit + GitHub + Drive ;
             package_v3.sh : livrables zips test/public/source)
 ```
