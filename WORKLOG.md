@@ -401,3 +401,41 @@ Stage Summary (final) :
 - Prochaines étapes : validation terrain Windows (écarts → 3.0.x) ;
   vague 8 installateur (specs M-INS prêtes, conditions D11) ; décision
   signature phase A (EV/attestation).
+
+Deuxième suite (même session) — packaging CI rouge sur v3.0.1, publication 3.0.2 (D14) :
+
+- Vérification du run CI v3.0.1 : tests VERTS sur les 3 OS (le
+  correctif `ReadLogShared` fonctionne), mais le job « Packaging »
+  échoue : `rg: command not found` (×13) — ripgrep est absent des
+  runners GitHub ; les contrôles de contenu revenaient vides
+  (« test zip : RoomEq.exe=0 ») → exit 1 « contenu du zip TEST
+  incorrect ». Deuxième effet : le zip SOURCE pesait 84 Mo (488 Ko
+  attendus) car `OUT="$PWD/artifacts"` est interne au dépôt en CI et
+  était avalé par le rsync.
+- Correctifs dans `scripts/package_v3.sh` : toutes les invocations `rg`
+  remplacées par `grep`/`grep -E` du socle POSIX (`rg -c … || echo 0`
+  → `grep -cE … || true`, `grep -c` imprimant déjà 0) ;
+  `--exclude artifacts --exclude download` ajouté au rsync du zip
+  source ; le script n'exige plus rien hors socle standard.
+- **Reproducteur permanent** : `/home/z/my-project/scripts/
+  simulate_ci_packaging.sh` — copie type checkout, PATH sandbox SANS
+  ripgrep, OUT interne — exécuté AVANT le push : 12/12 contrôles verts,
+  source 488 Ko, 437 tests verts. La classe entière du défaut
+  (dépendance hors socle) est couverte, pas seulement le symptôme.
+- Version 3.0.2 posée (props/LISEZMOI/package_v3.sh), D14 consignée,
+  docs d'état ré-alignés (CARTE, REPRISE, README, PARITE,
+  PLAN_RECODAGE).
+
+Stage Summary (final, 3.0.2) :
+- **RoomEq v3.0.2 publié** : tests verts 3 OS + packaging vert + release
+  CI — chaîne complète. v3.0.0/v3.0.1 restent comme marqueurs honnêtes
+  des deux incidents (chaque échec corrigé en patch à contrat stable,
+  aucun tag déplacé) ; D12/D13/D14 documentent la séquence entière.
+- Enseignements consignés : (1) la CI 3-OS est le seul vérificateur des
+  dimensions Windows/runner — la simulation CI locale devient un outil
+  permanent avant tout push de tag ; (2) les connaissances « environnement
+  » (FileShare Windows, outils runner) vivent mieux en commentaires
+  diffables qu'en mémoire de session.
+- Prochaines étapes : validation terrain Windows (écarts → 3.0.x) ;
+  vague 8 installateur (specs M-INS prêtes, conditions D11) ; décision
+  signature phase A (EV/attestation).

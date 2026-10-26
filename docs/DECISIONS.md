@@ -300,3 +300,43 @@ production (par exemple un writer en `FileShare.ReadWrite`) : le
 production code est un portage à l'identique de la v2.2.2 validée
 terrain (parité D6), le défaut est dans la batterie de tests, pas dans
 le binaire ; (d) rouvrir les specs I : aucun contrat ne change.
+
+## D14 — Portabilité CI du packaging : grep -E et exclusion du dossier de sortie — v3.0.2
+
+**Décision.** Le job CI « Packaging » échouait sur `v3.0.1` pour deux
+raisons d'environnement runner : (1) `scripts/package_v3.sh` invoquait
+`rg` (ripgrep), absent des runners GitHub Actions — les contrôles
+structurels et de contenu de zips revenaient vides et le script
+s'arrêtait sur « contenu du zip TEST incorrect » ; (2) le zip SOURCE
+avalait le dossier de sortie (`OUT="$PWD/artifacts"` en CI, interne au
+dépôt) — 84 Mo au lieu de 488 Ko. Correctifs : toutes les invocations
+`rg` remplacées par `grep`/`grep -E` du socle POSIX (sémantique
+identique pour ces motifs ; `rg -c … || echo 0` devient
+`grep -cE … || true`, `grep -c` imprimant déjà `0` sans correspondance),
+et `--exclude artifacts --exclude download` ajouté au rsync du zip
+source. Le script n'exige plus RIEN hors du socle standard (dotnet,
+python3, rsync, zip/unzip, grep). Vérifié par **simulation fidèle du
+runner** (`/home/z/my-project/scripts/simulate_ci_packaging.sh` : copie
+type checkout, PATH sandbox sans ripgrep, OUT interne) : 12/12 contrôles
+verts, source 488 Ko, 437 tests. Publication en **`v3.0.2`**, patch à
+contrat stable — `v3.0.1` (tests verts, packaging rouge) reste le
+marqueur intermédiaire, tags toujours immuables.
+
+**Pourquoi.** Deux échecs CI consécutifs sur des dépendances
+d'environnement = le symptôme classique du « ça marche chez moi » :
+la vérification locale ne peut pas deviner les outils du runner. Plutôt
+que d'itérer tag après tag, la correction couvre la CLASSE entière du
+défaut (toute dépendance hors socle POSIX) et s'accompagne d'un
+reproducteur : la simulation CI devient un outil permanent du dépôt,
+exécutable avant tout futur push de tag. Le choix de `grep -E` plutôt
+que d'installer ripgrep dans le workflow : moins de dépendances, même
+résultat pour ces motifs simples, et le script reste exécutable partout
+(machine de développement, runner, machine du développeur).
+
+**Alternatives rejetées.** (a) `apt-get install ripgrep` dans le
+workflow : ajoute une dépendance réseau et système pour quelques
+greps simples ; (b) réécrire les contrôles en python : churn inutile,
+les vérifications bash restent lisibles ; (c) publier la release
+manuellement depuis les zips locaux (qui sont corrects) : contourne
+la CI et laisse le workflow rouge — le précédent D13 s'applique
+intégralement.
