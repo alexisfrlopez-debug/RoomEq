@@ -134,7 +134,7 @@ jobs:
       - name: Empaqueter l'artefact
         run: |
           mkdir -p artifacts
-          VERSION=$(sed -n 's/^project(RoomEqAU VERSION \([0-9.]*\)).*/\1/p' natif/roomeq-au/CMakeLists.txt)
+          VERSION=$(sed -n 's/^project(RoomEqAU VERSION \([0-9.]*\).*/\1/p' natif/roomeq-au/CMakeLists.txt)
           ditto -c -k --keepParent build-core/RoomEq.component \
             "artifacts/RoomEq-AU-${VERSION}-macos.zip"
           cp natif/roomeq-au/README.md artifacts/RoomEq-AU-LISEZMOI.md
