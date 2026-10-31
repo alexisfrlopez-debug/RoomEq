@@ -98,13 +98,15 @@ CGFloat XForFrequency(CGFloat width, double freq)
 
 @end
 
-/// Vue principale du greffon (fabriquée par l'hôte via uiViewForAU:withSize:).
+/// Vue principale du greffon (fabriquée par l'hôte via le protocole
+/// AUCocoaUIBase : uiViewForAudioUnit:withSize:).
 @interface RoomEqAuView : NSView <AUCocoaUIBase> {
     AudioUnit _au;
     NSTextField* _info;
     RoomEqCurveView* _curve;
 }
-+ (NSView*)uiViewForAU:(AudioUnit)au withSize:(NSSize)size;
++ (unsigned)interfaceVersion;
++ (NSView*)uiViewForAudioUnit:(AudioUnit)au withSize:(NSSize)size;
 - (instancetype)initWithAU:(AudioUnit)au;
 - (void)loadPresetFromURL:(NSURL*)url;
 - (void)refreshFromAU;
@@ -112,6 +114,8 @@ CGFloat XForFrequency(CGFloat width, double freq)
 
 /// Rappel identique à l'ajout et au retrait (même pointeur de fonction) ;
 /// signature conforme à AudioUnitPropertyListenerProc (retour OSStatus).
+/// Écoute NOTRE propriété d'état (kRoomEqPropertyStatus) : il n'existe pas
+/// de propriété Apple « changement de valeur de paramètre » en AUv2.
 static OSStatus ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
     AudioUnitPropertyID /*inID*/, AudioUnitScope /*inScope*/,
     AudioUnitElement /*inElement*/)
@@ -125,7 +129,12 @@ static OSStatus ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
 
 @implementation RoomEqAuView
 
-+ (NSView*)uiViewForAU:(AudioUnit)au withSize:(NSSize)size
++ (unsigned)interfaceVersion
+{
+    return 0;
+}
+
++ (NSView*)uiViewForAudioUnit:(AudioUnit)au withSize:(NSSize)size
 {
     RoomEqAuView* view = [[RoomEqAuView alloc] initWithAU:au];
     [view setFrameSize:size];
@@ -184,8 +193,9 @@ static OSStatus ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
     // glisser-déposer de fichiers
     [self registerForDraggedTypes:@[ NSPasteboardTypeFileURL ]];
 
-    // suivi des changements de paramètre (préampli automatisé dans le DAW)
-    AudioUnitAddPropertyListener(_au, kAudioUnitProperty_ParameterValueChange,
+    // suivi des changements d'état du greffon (preset chargé — y compris
+    // depuis une autre vue, ou par glisser-déposer)
+    AudioUnitAddPropertyListener(_au, kRoomEqPropertyStatus,
         ParameterChangedCallback, (__bridge void*)self);
 
     [self refreshFromAU];
@@ -196,8 +206,7 @@ static OSStatus ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
 {
     if (_au != nullptr)
         AudioUnitRemovePropertyListenerWithUserData(_au,
-            kAudioUnitProperty_ParameterValueChange, ParameterChangedCallback,
-            (__bridge void*)self);
+            kRoomEqPropertyStatus, ParameterChangedCallback, (__bridge void*)self);
 }
 
 // ------------------------------------------------------------ chargement
@@ -237,7 +246,7 @@ static OSStatus ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
             url.lastPathComponent];
         return;
     }
-    CFDataRef blob = static_cast<CFDataRef>(data);
+    CFDataRef blob = (__bridge CFDataRef)data;
     const OSStatus status = AudioUnitSetProperty(_au, kRoomEqPropertyPresetData,
         kAudioUnitScope_Global, 0, &blob, sizeof(blob));
     if (status != noErr) {

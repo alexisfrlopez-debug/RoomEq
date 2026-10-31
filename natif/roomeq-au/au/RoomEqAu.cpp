@@ -6,8 +6,7 @@
 
 #include "roomeq/preset/preset_io.h"
 
-#include <AudioUnit/AudioUnit.h>
-#include <AudioUnit/AUCocoaUIView.h>
+#include <AudioUnit/AudioUnit.h> // AudioUnitCocoaViewProperty (kAudioUnitProperty_CocoaUI)
 #include <AudioUnitSDK/AUPlugInDispatch.h> // AUBaseFactory (entrée usine)
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -142,7 +141,7 @@ OSStatus RoomEqAu::GetPropertyInfo(AudioUnitPropertyID inID, AudioUnitScope inSc
             outWritable = false;
             return noErr;
         case kAudioUnitProperty_CocoaUI:
-            outDataSize = sizeof(AUCocoaUIViewProperty);
+            outDataSize = sizeof(AudioUnitCocoaViewProperty);
             outWritable = false;
             return noErr;
         default:
@@ -164,7 +163,7 @@ OSStatus RoomEqAu::GetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope,
                 CFSTR("fr.roomeq.RoomEqAU"));
             if (bundle == nullptr)
                 return kAudioUnitErr_InvalidProperty;
-            const auto viewProperty = static_cast<AUCocoaUIViewProperty*>(outData);
+            const auto viewProperty = static_cast<AudioUnitCocoaViewProperty*>(outData);
             viewProperty->mCocoaAUViewClass[0] = CFSTR("RoomEqAuView");
             viewProperty->mCocoaAUViewBundleLocation = CFBundleCopyBundleURL(bundle);
             return noErr;
@@ -180,7 +179,9 @@ OSStatus RoomEqAu::GetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope,
 
             const CFStringRef nameKeys[] = { CFSTR("name"), CFSTR("bands"),
                 CFSTR("preampDb"), CFSTR("version") };
-            const CFTypeRef values[] = {
+            // CFTypeRef = const void* : tableau SANS const supplémentaire pour
+            // décayer vers const void** (exigence de CFDictionaryCreate)
+            CFTypeRef values[] = {
                 CFStringCreateWithCString(nullptr, preset->name.c_str(),
                     kCFStringEncodingUTF8),
                 CFNumberCreate(nullptr, kCFNumberIntType, &bands),
@@ -264,7 +265,8 @@ OSStatus RoomEqAu::SaveState(CFPropertyListRef* outData)
 
     const auto dict = static_cast<CFMutableDictionaryRef>(
         const_cast<void*>(*outData));
-    if (dict == nullptr || CFGetTypeID(dict) != CFMutableDictionaryGetTypeID())
+    // mutable et immuable partagent le même identifiant de type CoreFoundation
+    if (dict == nullptr || CFGetTypeID(dict) != CFDictionaryGetTypeID())
         return noErr;
 
     const CFDataRef blob = CFDataCreate(nullptr, presetBytes_.data(),
@@ -337,8 +339,10 @@ OSStatus RoomEqAu::ApplyPresetBytes(const void* data, size_t size, bool updatePa
         const auto value = static_cast<Float32>(std::clamp(parsed->preampDb,
             static_cast<double>(kPreampMinDb), static_cast<double>(kPreampMaxDb)));
         SetParameter(kParamPreampDb, value);
-        // notifier l'hôte (rafraîchissement de l'affichage du paramètre)
-        PropertyChanged(kAudioUnitProperty_ParameterValueChange, kAudioUnitScope_Global, 0);
+        // notifier vues et hôte : notre propriété d'état a changé (il n'existe
+        // pas de propriété Apple « changement de valeur de paramètre » en AUv2
+        // — les vues écoutent kRoomEqPropertyStatus)
+        PropertyChanged(kRoomEqPropertyStatus, kAudioUnitScope_Global, 0);
     }
     return noErr;
 }
