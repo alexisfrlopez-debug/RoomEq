@@ -105,9 +105,11 @@ CGFloat XForFrequency(CGFloat width, double freq)
     NSTextField* _info;
     RoomEqCurveView* _curve;
 }
-+ (unsigned)interfaceVersion;
-+ (NSView*)uiViewForAudioUnit:(AudioUnit)au withSize:(NSSize)size;
-- (instancetype)initWithAU:(AudioUnit)au;
+// protocole AUCocoaUIBase (méthodes d'INSTANCE) : l'hôte instancie cette
+// classe par un simple init — l'instance sert de FABRIQUE, et
+// uiViewForAudioUnit:withSize: crée la vraie vue configurée
+- (unsigned)interfaceVersion;
+- (NSView*)uiViewForAudioUnit:(AudioUnit)au withSize:(NSSize)size;
 - (void)loadPresetFromURL:(NSURL*)url;
 - (void)refreshFromAU;
 @end
@@ -116,7 +118,7 @@ CGFloat XForFrequency(CGFloat width, double freq)
 /// signature conforme à AudioUnitPropertyListenerProc (retour OSStatus).
 /// Écoute NOTRE propriété d'état (kRoomEqPropertyStatus) : il n'existe pas
 /// de propriété Apple « changement de valeur de paramètre » en AUv2.
-static OSStatus ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
+static void ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
     AudioUnitPropertyID /*inID*/, AudioUnitScope /*inScope*/,
     AudioUnitElement /*inElement*/)
 {
@@ -124,28 +126,26 @@ static OSStatus ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
         RoomEqAuView* view = (__bridge RoomEqAuView*)inRefCon;
         [view refreshFromAU];
     });
-    return noErr;
 }
 
 @implementation RoomEqAuView
 
-+ (unsigned)interfaceVersion
+- (unsigned)interfaceVersion
 {
     return 0;
 }
 
-+ (NSView*)uiViewForAudioUnit:(AudioUnit)au withSize:(NSSize)size
+- (NSView*)uiViewForAudioUnit:(AudioUnit)au withSize:(NSSize)size
 {
-    RoomEqAuView* view = [[RoomEqAuView alloc] initWithAU:au];
-    [view setFrameSize:size];
+    RoomEqAuView* view = [[RoomEqAuView alloc]
+        initWithFrame:NSMakeRect(0, 0, size.width > 100 ? size.width : 520,
+                                       size.height > 80 ? size.height : 216)];
+    [view configureWithAudioUnit:au];
     return view;
 }
 
-- (instancetype)initWithAU:(AudioUnit)au
+- (void)configureWithAudioUnit:(AudioUnit)au
 {
-    self = [super initWithFrame:NSMakeRect(0, 0, 520, 216)];
-    if (self == nil)
-        return nil;
     _au = au;
 
     // fond aux couleurs de l'application
@@ -199,7 +199,6 @@ static OSStatus ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
         ParameterChangedCallback, (__bridge void*)self);
 
     [self refreshFromAU];
-    return self;
 }
 
 - (void)dealloc

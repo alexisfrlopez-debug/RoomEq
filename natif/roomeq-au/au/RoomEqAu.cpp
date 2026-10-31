@@ -6,7 +6,7 @@
 
 #include "roomeq/preset/preset_io.h"
 
-#include <AudioUnit/AudioUnit.h> // AudioUnitCocoaViewProperty (kAudioUnitProperty_CocoaUI)
+#include <AudioUnit/AudioUnit.h> // AudioUnitCocoaViewInfo (kAudioUnitProperty_CocoaUI)
 #include <AudioUnitSDK/AUPlugInDispatch.h> // AUBaseFactory (entrée usine)
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -141,7 +141,7 @@ OSStatus RoomEqAu::GetPropertyInfo(AudioUnitPropertyID inID, AudioUnitScope inSc
             outWritable = false;
             return noErr;
         case kAudioUnitProperty_CocoaUI:
-            outDataSize = sizeof(AudioUnitCocoaViewProperty);
+            outDataSize = sizeof(AudioUnitCocoaViewInfo);
             outWritable = false;
             return noErr;
         default:
@@ -163,7 +163,7 @@ OSStatus RoomEqAu::GetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope,
                 CFSTR("fr.roomeq.RoomEqAU"));
             if (bundle == nullptr)
                 return kAudioUnitErr_InvalidProperty;
-            const auto viewProperty = static_cast<AudioUnitCocoaViewProperty*>(outData);
+            const auto viewProperty = static_cast<AudioUnitCocoaViewInfo*>(outData);
             viewProperty->mCocoaAUViewClass[0] = CFSTR("RoomEqAuView");
             viewProperty->mCocoaAUViewBundleLocation = CFBundleCopyBundleURL(bundle);
             return noErr;
