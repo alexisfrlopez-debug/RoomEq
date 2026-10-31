@@ -33,6 +33,8 @@ public:
 
     // ---- identification / format
     UInt32 SupportedNumChannels(const AUChannelInfo** outInfo) override;
+    bool ValidFormat(AudioUnitScope inScope, AudioUnitElement inElement,
+        const AudioStreamBasicDescription& inNewFormat) override;
     bool StreamFormatWritable(AudioUnitScope, AudioUnitElement) override { return true; }
 
     // ---- paramètres

@@ -101,6 +101,16 @@ UInt32 RoomEqAu::SupportedNumChannels(const AUChannelInfo** outInfo)
     return 2; // mono et stéréo
 }
 
+bool RoomEqAu::ValidFormat(AudioUnitScope /*inScope*/, AudioUnitElement,
+    const AudioStreamBasicDescription& inNewFormat)
+{
+    // mono ou stéréo, float 32 non entrelacé, tout taux (invariant 5) —
+    // l'implémentation par défaut d'AUBase accepte N'IMPORTE QUEL nombre de
+    // canaux, ce qu'auval rejette (test d'initialisation 3 entrées / 1 sortie)
+    return ausdk::ASBD::IsCommonFloat32(inNewFormat)
+        && (inNewFormat.mChannelsPerFrame == 1 || inNewFormat.mChannelsPerFrame == 2);
+}
+
 // ------------------------------------------------------------------ paramètres
 
 OSStatus RoomEqAu::GetParameterInfo(AudioUnitScope inScope,
@@ -111,13 +121,16 @@ OSStatus RoomEqAu::GetParameterInfo(AudioUnitScope inScope,
     if (inParameterID != kParamPreampDb)
         return kAudioUnitErr_InvalidParameter;
 
+    // drapeaux D'ABORD : FillInParameterName ajoute HasCFNameString —
+    // affecter flags après l'écraserait (warning auval « SHOULD PUBLISH NAME
+    // AS CFString »)
+    outParameterInfo.flags = kAudioUnitParameterFlag_IsWritable
+                             | kAudioUnitParameterFlag_IsReadable;
     FillInParameterName(outParameterInfo, CFSTR("Préampli"), true);
     outParameterInfo.unit = kAudioUnitParameterUnit_Decibels;
     outParameterInfo.minValue = kPreampMinDb;
     outParameterInfo.maxValue = kPreampMaxDb;
     outParameterInfo.defaultValue = kPreampDefaultDb;
-    outParameterInfo.flags = kAudioUnitParameterFlag_IsWritable
-                             | kAudioUnitParameterFlag_IsReadable;
     return noErr;
 }
 
