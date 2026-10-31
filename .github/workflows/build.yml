@@ -150,9 +150,19 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG="${GITHUB_REF_NAME}"
-          gh release create "$TAG" --draft --title "RoomEq $TAG" \
-            --notes "Recodage TRIADE v3 (parité v2.2.2 — docs/PARITE-v2.2.2.md)." \
-            artifacts/RoomEq-AU-* || \
-          gh release upload "$TAG" artifacts/RoomEq-AU-* --clobber
+          # le job « package » crée la release : attendre qu'elle existe pour
+          # ne créer qu'UNE seule draft (créations parallèles = doublon) ;
+          # repli en création si elle n'apparaît pas
+          for i in $(seq 1 30); do
+            gh release view "$TAG" >/dev/null 2>&1 && break
+            sleep 10
+          done
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/RoomEq-AU-* --clobber
+          else
+            gh release create "$TAG" --draft --title "RoomEq $TAG" \
+              --notes "Recodage TRIADE v3 (parité v2.2.2 — docs/PARITE-v2.2.2.md)." \
+              artifacts/RoomEq-AU-*
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
