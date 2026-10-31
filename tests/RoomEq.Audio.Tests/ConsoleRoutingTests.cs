@@ -259,39 +259,101 @@ public class MasterBusTests
     }
 }
 
-/// <summary>Console : protections anti-larsen et comportement sans sous-système audio.</summary>
+/// <summary>Console : protections anti-larsen (spec I-AUD-03 v2 — au moment du routage) et comportement sans sous-système audio.</summary>
 public class ConsoleMixerTests
 {
     [Fact]
-    public void AntiFeedback_LoopbackOnMasterOutput_IsRejected()
+    public void AntiFeedback_LoopbackOnMasterOutput_IsRejectedAtRoutingTime()
     {
-        // ORDRE SÉCURITÉ (spec I-AUD-03, invariant 2a) : la validation précède
-        // l'ouverture de la sortie — le message d'aide est vérifiable même sans
-        // périphérique (Linux/CI) car la validation échoue AVANT le WASAPI.
+        // ORDRE SÉCURITÉ (invariant 2 v2) : le refus arrive au MOMENT du routage
+        // (ici : l'ajout de piste), AVANT toute modification d'état — vérifiable
+        // sans périphérique (Linux/CI).
         using var mixer = new ConsoleMixer();
         mixer.SetOutput("wasapi|{0.0.0.00000000}.{deadbeef}");
-        var ch = mixer.AddChannel(
-            TrackSource.LoopbackDevice("{0.0.0.00000000}.{deadbeef}", "Sortie test (boucle)"));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => mixer.Start());
-        Assert.Contains("capture en boucle", ex.Message);
-        Assert.False(mixer.IsRunning);
-        ch.Dispose();
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            mixer.AddChannel(TrackSource.LoopbackDevice("{0.0.0.00000000}.{deadbeef}", "Sortie test (boucle)")));
+        Assert.Contains("capturerait en boucle", ex.Message);
+        // la tranche n'a pas été créée : la console reste vide
+        Assert.Empty(mixer.Snapshot);
+    }
+
+    [Fact]
+    public void AntiFeedback_MasterOutputOnCapturedDevice_IsRejectedAtRoutingTime()
+    {
+        // réciproque : la piste loopback est posée d'abord — choisir ce même
+        // périphérique comme sortie master est refusé, l'état précédent est
+        // conservé, et la suppression de la piste débloque la sortie.
+        using var mixer = new ConsoleMixer();
+        mixer.SetOutput("wasapi|{sortie-physique}");
+        mixer.AddChannel(TrackSource.LoopbackDevice("{cette-sortie}", "Sortie test (boucle)"));
+
+        Assert.Equal("Sortie test (boucle)", mixer.OutputConflict("wasapi|{cette-sortie}"));
+        Assert.True(mixer.IsOutputRoutedAsInput("wasapi|{cette-sortie}"));
+        Assert.False(mixer.IsOutputRoutedAsInput("wasapi|{sortie-physique}"));
+        Assert.Null(mixer.OutputConflict("wasapi|{sortie-physique}"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => mixer.SetOutput("wasapi|{cette-sortie}"));
+        Assert.Contains("capte déjà ce périphérique", ex.Message);
+
+        // l'ancienne sortie reste active : une autre sortie reste choisissable
+        mixer.SetOutput("wasapi|{troisieme}");
+
+        // après suppression de la piste, la sortie redevient choisissable
+        mixer.RemoveChannel(mixer.Snapshot[0]);
+        Assert.Null(mixer.OutputConflict("wasapi|{cette-sortie}"));
+        mixer.SetOutput("wasapi|{cette-sortie}");
+    }
+
+    [Fact]
+    public void AntiFeedback_InternalAndCaptureSources_AreNeverRefused()
+    {
+        // seules les sources à périphérique en conflit sont refusées : les
+        // sources internes (et les entrées WASAPI, d'un espace d'identifiants
+        // distinct des sorties de rendu) passent toujours
+        using var mixer = new ConsoleMixer();
+        mixer.SetOutput("wasapi|{x}");
+        mixer.AddChannel(TrackSource.InternalGenerator());
+        mixer.AddChannel(TrackSource.InternalPlayer());
+        mixer.AddChannel(TrackSource.CaptureDevice("{x}", "Micro"));
+        Assert.Equal(3, mixer.Snapshot.Length);
     }
 
     [Fact]
     public void AntiFeedback_DifferentOutputAndLoopback_PassesValidation()
     {
-        // pas de boucle : la validation passe, l'échec éventuel vient ensuite
-        // de l'ouverture WASAPI (absente sous Linux) — messages distincts.
+        // pas de boucle : le routage passe, l'échec éventuel vient ensuite de
+        // l'ouverture WASAPI (absente sous Linux) — messages distincts.
         using var mixer = new ConsoleMixer();
         mixer.SetOutput("wasapi|{autre-sortie}");
         mixer.AddChannel(TrackSource.LoopbackDevice("{cette-sortie}", "Sortie (boucle)"));
+        Assert.Single(mixer.Snapshot);
 
         var ex = Record.Exception(() => mixer.Start());
         if (ex is InvalidOperationException ioe)
-            Assert.DoesNotContain("capture en boucle", ioe.Message);
+        {
+            Assert.DoesNotContain("boucle", ioe.Message);
+            Assert.DoesNotContain("carte virtuelle", ioe.Message);
+        }
         Assert.False(mixer.IsRunning);
+    }
+
+    [Fact]
+    public void OutputDeviceInfo_BlockedReason_GraysAndLabels()
+    {
+        // marquage anti-boucle du sélecteur master (spec I-AUD-03 v2)
+        var free = new OutputDeviceInfo("wasapi|{a}", "Enceintes", "WASAPI");
+        Assert.Null(free.BlockedReason);
+        Assert.True(free.Selectable);
+        Assert.Equal("Enceintes", free.Display);
+
+        var blocked = free with { BlockedReason = "captée par la piste « Sortie test (boucle) »" };
+        Assert.False(blocked.Selectable);
+        Assert.StartsWith("Enceintes", blocked.Display);
+        Assert.Contains("captée par la piste", blocked.Display);
+
+        // l'égalité de valeur conserve la sélection quand l'UI réannote la liste
+        Assert.Equal(free, blocked with { BlockedReason = null });
     }
 
     [Fact]

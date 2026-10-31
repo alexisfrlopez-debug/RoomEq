@@ -11,9 +11,11 @@ namespace RoomEq.Audio.Routing;
 /// master), rendu sur la sortie choisie (WASAPI partagé ou ASIO exclusif,
 /// CoreAudio sur macOS). Les tranches à périphérique tournent chacune sur leur
 /// callback de capture ; le bus est tiré par la sortie.
-/// Protections intégrées (ordre SÉCURITÉ) : interdiction de capturer en
-/// loopback le périphérique de sortie master (larsen) et d'envoyer le master
-/// vers un câble virtuel (boucle).
+/// Protections intégrées (ordre SÉCURITÉ, v2 — au moment du routage) : refus
+/// immédiat de capturer en loopback le périphérique de sortie master (larsen),
+/// d'envoyer le master vers un câble virtuel, et de croiser entrée et sortie
+/// sur un même périphérique ; <see cref="Start"/> revalide en défense en
+/// profondeur.
 /// </summary>
 public sealed class ConsoleMixer : IDisposable
 {
@@ -93,25 +95,51 @@ public sealed class ConsoleMixer : IDisposable
         return list;
     }
 
-    /// <summary>Change la destination du bus master (redémarre proprement si actif).</summary>
+    /// <summary>
+    /// Change la destination du bus master (redémarre proprement si actif).
+    /// ORDRE SÉCURITÉ (spec I-AUD-03 v2, invariant 2) : la nouvelle sortie est
+    /// validée AVANT tout changement d'état — un périphérique déjà routé en
+    /// entrée d'une tranche (ou un câble virtuel) est refusé immédiatement,
+    /// l'ancienne sortie reste active.
+    /// </summary>
     public void SetOutput(string? id)
     {
         lock (_sync)
         {
             if (_outputId == id) return;
+            EnsureOutputAllowedLocked(id);
             _outputId = id;
             if (IsRunning) RestartLocked();
         }
     }
 
+    /// <summary>
+    /// Titre de la première tranche dont la source capturerait cette sortie
+    /// (boucle audio), null si aucune — utilisé par l'UI pour griser l'entrée
+    /// du sélecteur master.
+    /// </summary>
+    public string? OutputConflict(string? id)
+    {
+        lock (_sync) return OutputConflictLocked(id);
+    }
+
+    /// <summary>Cette sortie est-elle déjà routée en entrée d'une tranche ?</summary>
+    public bool IsOutputRoutedAsInput(string? id) => OutputConflict(id) != null;
+
     // ---------------------------------------------------------------- tranches
 
-    /// <summary>Ajoute une tranche ; la capture démarre immédiatement si le mixeur tourne.</summary>
+    /// <summary>
+    /// Ajoute une tranche ; la capture démarre immédiatement si le mixeur tourne.
+    /// ORDRE SÉCURITÉ (v2) : une source à périphérique qui capturerait la sortie
+    /// master actuelle (loopback WASAPI, périphérique virtuel macOS) est refusée
+    /// AVANT la création de la tranche.
+    /// </summary>
     public ConsoleChannel AddChannel(TrackSource source)
     {
-        var ch = new ConsoleChannel(source);
         lock (_sync)
         {
+            EnsureSourceAllowedLocked(source);
+            var ch = new ConsoleChannel(source);
             _channels.Add(ch);
             PublishSnapshotLocked();
             if (IsRunning)
@@ -126,8 +154,8 @@ public sealed class ConsoleMixer : IDisposable
                     ErrorOccurred?.Invoke($"Piste « {source.Name} » : {ex.Message}");
                 }
             }
+            return ch;
         }
-        return ch;
     }
 
     /// <summary>
@@ -193,13 +221,17 @@ public sealed class ConsoleMixer : IDisposable
 
     // ---------------------------------------------------------------- démarrage / arrêt
 
-    /// <summary>Démarre le routage : captures + bus master vers la sortie choisie.</summary>
+    /// <summary>
+    /// Démarre le routage : captures + bus master vers la sortie choisie.
+    /// </summary>
     public void Start()
     {
         lock (_sync)
         {
             if (_disposed || IsRunning) return;
 
+            // le défaut résolu (aucune sortie choisie) peut être un câble
+            // virtuel ou un périphérique capté : valider AVANT l'ouverture
             ValidateNoFeedbackLocked();
 
             try
@@ -336,23 +368,53 @@ public sealed class ConsoleMixer : IDisposable
     }
 
     /// <summary>
-    /// Interdit tout montage aboutissant à une boucle de rétroaction :
-    /// une piste loopback ne doit pas capturer le périphérique de sortie master ;
-    /// le master ne doit pas partir vers une entrée de câble virtuel, sinon le
-    /// son re-rentre dans le câble et tourne en boucle (Windows et macOS).
+    /// Interdit tout montage aboutissant à une boucle de rétroaction (défense en
+    /// profondeur au démarrage — la sélection de sortie et l'ajout de piste
+    /// refusent déjà en amont) : une piste loopback ne doit pas capturer le
+    /// périphérique de sortie master ; le master ne doit pas partir vers une
+    /// entrée de câble virtuel, sinon le son re-rentre dans le câble et tourne
+    /// en boucle (Windows et macOS).
     /// </summary>
     private void ValidateNoFeedbackLocked()
+        => EnsureOutputAllowedLocked(_outputId ?? ResolveDefaultOutputIdLocked());
+
+    /// <summary>Identifiant « wasapi|… » / « coreaudio|… » de la sortie par défaut (null si indisponible).</summary>
+    private static string? ResolveDefaultOutputIdLocked()
     {
-        string? outWasapiId = _outputId?.StartsWith("wasapi|", StringComparison.Ordinal) == true
-            ? _outputId["wasapi|".Length..]
+        try
+        {
+            if (OperatingSystem.IsMacOS())
+            {
+                uint id = Mac.CoreAudioCatalog.GetDefaultOutputDeviceId();
+                return id == 0 ? null : "coreaudio|" + Mac.CoreAudioApi.ReadDeviceUid(id);
+            }
+            var def = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
+            return "wasapi|" + def.ID;
+        }
+        catch
+        {
+            return null; // sous-système indisponible (Linux/CI) : rien à valider
+        }
+    }
+
+    /// <summary>
+    /// Valide une destination master et lève avec un message actionnable si elle
+    /// crée une boucle : câble virtuel (render reconnu par motifs), périphérique
+    /// virtuel RoomEq (macOS), ou périphérique déjà capté par une piste (loopback
+    /// WASAPI sur le même id, piste macOS sur le même périphérique).
+    /// </summary>
+    private void EnsureOutputAllowedLocked(string? id)
+    {
+        string? outWasapiId = id?.StartsWith("wasapi|", StringComparison.Ordinal) == true
+            ? id["wasapi|".Length..]
             : null;
-        string? outCoreAudioUid = _outputId?.StartsWith("coreaudio|", StringComparison.Ordinal) == true
-            ? _outputId["coreaudio|".Length..]
+        string? outCoreAudioUid = id?.StartsWith("coreaudio|", StringComparison.Ordinal) == true
+            ? id["coreaudio|".Length..]
             : null;
 
         // macOS : le master ne doit pas repartir dans le périphérique virtuel
         if (outCoreAudioUid != null
-            && Mac.CoreAudioCatalog.FindRoomEqVirtual() is { } virt
+            && TryFindRoomEqVirtual() is { } virt
             && string.Equals(virt.Uid, outCoreAudioUid, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
@@ -370,16 +432,79 @@ public sealed class ConsoleMixer : IDisposable
                     "(boucle audio). Choisissez vos enceintes ou votre casque.");
         }
 
-        foreach (var ch in _snapshot)
+        if (OutputConflictLocked(id) is { } trackTitle)
         {
-            if (ch.Kind == TrackSourceKind.Loopback && outWasapiId != null
-                && string.Equals(ch.Source.DeviceId, outWasapiId, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException(
-                    $"La piste « {ch.Title} » capture en boucle le périphérique utilisé " +
-                    "comme sortie master : changez la sortie master ou supprimez cette piste.");
-            }
+            throw new InvalidOperationException(
+                $"Impossible de choisir cette sortie master : la piste « {trackTitle} » " +
+                "capte déjà ce périphérique (boucle audio). Supprimez cette piste ou " +
+                "choisissez une autre sortie.");
         }
+    }
+
+    /// <summary>
+    /// Valide une source de piste et lève si elle capturerait la sortie master
+    /// actuelle (réciproque de <see cref="EnsureOutputAllowedLocked"/>).
+    /// </summary>
+    private void EnsureSourceAllowedLocked(TrackSource source)
+    {
+        string? outputId = _outputId;
+        if (string.IsNullOrEmpty(outputId)) return;
+
+        if (source.Kind == TrackSourceKind.Loopback
+            && outputId.StartsWith("wasapi|", StringComparison.Ordinal)
+            && string.Equals(source.DeviceId, outputId["wasapi|".Length..], StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Impossible d'ajouter la piste « {source.Name} » : elle capturerait en boucle " +
+                "la sortie master actuelle. Changez d'abord la sortie master ou choisissez " +
+                "une autre source.");
+        }
+
+        if (source.Kind == TrackSourceKind.MacVirtualDevice
+            && outputId.StartsWith("coreaudio|", StringComparison.Ordinal)
+            && TryFindRoomEqVirtual() is { } virt
+            && string.Equals(virt.Uid, outputId["coreaudio|".Length..], StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Impossible d'ajouter la piste « RoomEq Virtual » : la sortie master actuelle " +
+                "est ce même périphérique (boucle audio). Changez d'abord la sortie master.");
+        }
+    }
+
+    /// <summary>Première tranche dont la source capturerait cette sortie (null si aucune).</summary>
+    private string? OutputConflictLocked(string? id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+
+        if (id.StartsWith("wasapi|", StringComparison.Ordinal))
+        {
+            string deviceId = id["wasapi|".Length..];
+            foreach (var ch in _channels)
+                if (ch.Kind == TrackSourceKind.Loopback
+                    && string.Equals(ch.Source.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase))
+                    return ch.Title;
+            return null;
+        }
+
+        if (id.StartsWith("coreaudio|", StringComparison.Ordinal))
+        {
+            // une piste macOS lit le périphérique virtuel RoomEq : le master ne
+            // peut pas être ce même périphérique (entrée = sortie = boucle)
+            string uid = id["coreaudio|".Length..];
+            if (TryFindRoomEqVirtual() is { } virt
+                && string.Equals(virt.Uid, uid, StringComparison.OrdinalIgnoreCase))
+                foreach (var ch in _channels)
+                    if (ch.Kind == TrackSourceKind.MacVirtualDevice)
+                        return ch.Title;
+        }
+        return null;
+    }
+
+    /// <summary>Le périphérique virtuel RoomEq (macOS), null hors macOS ou indisponible.</summary>
+    private static Mac.CoreAudioDeviceInfo? TryFindRoomEqVirtual()
+    {
+        try { return Mac.CoreAudioCatalog.FindRoomEqVirtual(); }
+        catch { return null; } // CoreAudio indisponible (Linux/CI) : pas de conflit détectable
     }
 
     public void Dispose()

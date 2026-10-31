@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Générateur de données de référence pour les tests natifs du greffon AU
+       (spec I-AUD-07, invariant 1) : produit des fichiers .json / .ffp /
+       .f32 / .csv depuis le code C# de référence, comparés mot à mot par
+       tests/test_main.cpp. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>RoomEq.AuReference</RootNamespace>
+    <AssemblyName>roomeq-gen-reference</AssemblyName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <!-- hors du périmètre de la solution principale : jamais référencé par
+         RoomEq.sln, compilé à la demande par un développeur ou la CI macOS -->
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\..\..\src\RoomEq.Core\RoomEq.Core.csproj" />
+  </ItemGroup>
+
+</Project>

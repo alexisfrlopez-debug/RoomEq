@@ -12,6 +12,7 @@ d'entrée (P/Invoke, shared memory, fichiers).
 | N-DRV-01 | Pilote audio virtuel Windows `roomeqvad.sys` + INF + CAT (WDM/PortCls, SYSVAD) | `driver/roomeqvad/` | périphériques « RoomEq Input/Output » (WASAPI standard) ; installation via RoomEqDriverSetup |
 | N-ASI-01 | DLL ASIO `RoomEqAsio64.dll` + `bridge_core` (protocole shared memory) | `asio/` | `RoomEq.Audio/Asio/AsioBridgeInterop.cs` + `roomeq_asio_protocol.h` (versionner le protocole des deux côtés) |
 | N-MAC-01 | Greffon HAL CoreAudio macOS `RoomEqHAL.driver` + scripts pkg | `macos/RoomEqHAL/` | périphérique virtuel vu par CoreAudio ; pont C# dans `RoomEq.Audio/Mac/` |
+| N-AU-01 | Greffon AudioUnit « RoomEq Correction » (`RoomEqAU.component`, AUv2 aufx/Rmeq/Rmeq) — **code source DANS ce dépôt** (pas un binaire scellé) : `natif/roomeq-au/` | consommé par les DAW (Ableton Live) ; presets `.json` RoomEq et `.ffp` Pro-Q 3 ; CI macOS `plugin-au` (build + auval) produit `RoomEq-AU-<version>-macos.zip` |
 | N-INS-01 | Installateurs : MSI WiX + custom actions, DriverSetup GUI (WinForms net472), AppSetup | `installer/` | aucun à l'exécution ; packaging de la v3 à réadapter en vague 7 |
 
 ## Règles de cohérence

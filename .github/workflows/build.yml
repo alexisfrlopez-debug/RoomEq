@@ -89,3 +89,63 @@ jobs:
           gh release upload "$TAG" artifacts/RoomEq-*.zip --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 3. Greffon AudioUnit macOS (RoomEqAU.component — natif/roomeq-au,
+  #    spec I-AUD-07 / N-AU-01) : tests natifs (parité RoomEq.Core),
+  #    compilation, signature ad hoc, validation auval, artefact release.
+  # ─────────────────────────────────────────────────────────────────────
+  plugin-au:
+    name: Greffon AU macOS (RoomEq.component)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cœur C++ + tests natifs (parité bit à bit avec RoomEq.Core)
+        run: |
+          cmake -S natif/roomeq-au -B build-core -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-core --parallel
+          ./build-core/roomeq_au_tests natif/roomeq-au/tests/data
+
+      - name: Compiler le greffon .component
+        run: |
+          cmake --build build-core --target RoomEqAU --parallel
+
+      - name: Signature ad hoc
+        run: |
+          codesign --force --sign - build-core/RoomEqAU.component
+          codesign --verify --verbose=2 build-core/RoomEqAU.component
+
+      - name: Validation auval (outil officiel d'Apple)
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/RoomEqAU.component
+          cp -R build-core/RoomEqAU.component ~/Library/Audio/Plug-Ins/Components/
+          xattr -cr ~/Library/Audio/Plug-Ins/Components/RoomEqAU.component || true
+          auval -v aufx Rmeq Rmeq
+
+      - name: Empaqueter l'artefact
+        run: |
+          mkdir -p artifacts
+          VERSION=$(sed -n 's/^project(RoomEqAU VERSION \([0-9.]*\)).*/\1/p' natif/roomeq-au/CMakeLists.txt)
+          ditto -c -k --keepParent build-core/RoomEqAU.component \
+            "artifacts/RoomEq-AU-${VERSION}-macos.zip"
+          cp natif/roomeq-au/README.md artifacts/RoomEq-AU-LISEZMOI.md
+          ls -la artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roomeq-au-component-${{ github.sha }}
+          path: artifacts/RoomEq-AU-*
+          if-no-files-found: error
+
+      - name: Joindre au tag (Release) si présent
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          gh release create "$TAG" --draft --title "RoomEq $TAG" \
+            --notes "Recodage TRIADE v3 (parité v2.2.2 — docs/PARITE-v2.2.2.md)." \
+            artifacts/RoomEq-AU-* || \
+          gh release upload "$TAG" artifacts/RoomEq-AU-* --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

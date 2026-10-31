@@ -1,0 +1,36 @@
+{
+  "Name": "Bordes",
+  "Description": null,
+  "PreampDb": 2,
+  "CreatedAt": "2026-10-31T22:44:32.6101198+00:00",
+  "Bands": [
+    {
+      "Type": "Peaking",
+      "Frequency": 0.05,
+      "GainDb": 12,
+      "Q": 100,
+      "Enabled": true
+    },
+    {
+      "Type": "Peaking",
+      "Frequency": 60000,
+      "GainDb": -9,
+      "Q": 0.001,
+      "Enabled": true
+    },
+    {
+      "Type": "HighPass",
+      "Frequency": 40,
+      "GainDb": 0,
+      "Q": 0.7071,
+      "Enabled": true
+    },
+    {
+      "Type": "LowPass",
+      "Frequency": 16000,
+      "GainDb": 0,
+      "Q": 0.7071,
+      "Enabled": true
+    }
+  ]
+}

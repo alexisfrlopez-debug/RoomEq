@@ -1,0 +1,78 @@
+{
+  "Name": "Salon \u2014 correction v1",
+  "Description": "R\u00E9f\u00E9rence de parit\u00E9 pour le greffon AU",
+  "PreampDb": -6.5,
+  "CreatedAt": "2026-10-31T22:44:32.6076395+00:00",
+  "Bands": [
+    {
+      "Type": "LowShelf",
+      "Frequency": 62,
+      "GainDb": 4.2,
+      "Q": 0.9,
+      "Enabled": true
+    },
+    {
+      "Type": "Peaking",
+      "Frequency": 125,
+      "GainDb": -5.8,
+      "Q": 2.8,
+      "Enabled": true
+    },
+    {
+      "Type": "Peaking",
+      "Frequency": 310,
+      "GainDb": -3.1,
+      "Q": 1.6,
+      "Enabled": true
+    },
+    {
+      "Type": "Peaking",
+      "Frequency": 900,
+      "GainDb": 2.4,
+      "Q": 1.2,
+      "Enabled": true
+    },
+    {
+      "Type": "Peaking",
+      "Frequency": 2400,
+      "GainDb": -4.6,
+      "Q": 3.3,
+      "Enabled": true
+    },
+    {
+      "Type": "Peaking",
+      "Frequency": 5600,
+      "GainDb": 2.9,
+      "Q": 1.8,
+      "Enabled": true
+    },
+    {
+      "Type": "Notch",
+      "Frequency": 7350,
+      "GainDb": 0,
+      "Q": 8,
+      "Enabled": true
+    },
+    {
+      "Type": "Peaking",
+      "Frequency": 11000,
+      "GainDb": -2.2,
+      "Q": 1.4,
+      "Enabled": true
+    },
+    {
+      "Type": "HighShelf",
+      "Frequency": 15000,
+      "GainDb": 3,
+      "Q": 0.7,
+      "Enabled": true
+    },
+    {
+      "Type": "Peaking",
+      "Frequency": 18000,
+      "GainDb": -1,
+      "Q": 0.5,
+      "Enabled": false
+    }
+  ]
+}

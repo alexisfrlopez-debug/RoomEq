@@ -64,7 +64,7 @@
                     <TextBlock Text="{Binding RoutingStatusText}" FontWeight="Bold"
                                VerticalAlignment="Center" Classes.active="{Binding IsRunning}"/>
                     <controls:HelpButton HelpTitle="Routage du son Windows"
-                                         HelpText="Chaîne complète : Windows joue dans la carte virtuelle → RoomEq capte sa sortie → égaliseur → rendu sur la sortie physique choisie (en haut à droite du MASTER).&#10;&#10;Au démarrage, les périphériques par défaut de Windows sont basculés vers la carte virtuelle (et l'entrée si l'option est cochée) ; à l'arrêt, les défauts d'origine sont restaurés.&#10;&#10;Le fader MASTER règle le niveau interne de RoomEq — le VOLUME FINAL des enceintes se règle avec Ctrl+Alt+↑ / ↓ (voir « Volume carte physique »)."/>
+                                         HelpText="Chaîne complète : Windows joue dans la carte virtuelle → RoomEq capte sa sortie → égaliseur → rendu sur la sortie physique choisie (en haut à droite du MASTER).&#10;&#10;Au démarrage, les périphériques par défaut de Windows sont basculés vers la carte virtuelle (et l'entrée si l'option est cochée) ; à l'arrêt, les défauts d'origine sont restaurés.&#10;&#10;Anti-boucle : un périphérique déjà routé EN ENTRÉE (piste « boucle ») ne peut pas être choisi comme sortie master — il est grisé dans le sélecteur avec le motif, et réciproquement une piste ne peut pas capturer la sortie master active.&#10;&#10;Le fader MASTER règle le niveau interne de RoomEq — le VOLUME FINAL des enceintes se règle avec Ctrl+Alt+↑ / ↓ (voir « Volume carte physique »)."/>
                     <Button Classes="accent" Content="Router le son vers l'EQ"
                             Command="{Binding ToggleRoutingCommand}"
                             IsVisible="{Binding !IsRunning}"/>
@@ -271,9 +271,18 @@
                                 <ComboBox ItemsSource="{Binding Outputs}"
                                           SelectedItem="{Binding SelectedOutput}"
                                           FontSize="10" MinHeight="26">
+                                    <ComboBox.ItemContainerTheme>
+                                        <!-- anti-boucle (spec I-AUD-03 v2) : une sortie déjà
+                                             routée en entrée est grisée, motif affiché -->
+                                        <ControlTheme TargetType="ComboBoxItem"
+                                                      BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                                            <Setter Property="IsEnabled" Value="{Binding Selectable}" />
+                                        </ControlTheme>
+                                    </ComboBox.ItemContainerTheme>
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding DisplayName}" FontSize="10"/>
+                                            <TextBlock Text="{Binding Display}" FontSize="10"
+                                                       TextTrimming="CharacterEllipsis"/>
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>

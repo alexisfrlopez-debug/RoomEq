@@ -4,8 +4,22 @@ using NAudio.Wave.SampleProviders;
 
 namespace RoomEq.Audio.Playback;
 
-/// <summary>Informations sur un périphérique audio (sortie WASAPI/ASIO/CoreAudio ou entrée).</summary>
-public sealed record OutputDeviceInfo(string Id, string DisplayName, string Kind);
+/// <summary>
+/// Informations sur un périphérique audio (sortie WASAPI/ASIO/CoreAudio ou entrée).
+/// <see cref="BlockedReason"/> (spec I-AUD-03 v2) marque une sortie déjà routée
+/// en entrée d'une tranche de la console : grisée dans le sélecteur master et
+/// refusée par <c>ConsoleMixer.SetOutput</c> (anti-boucle) ; null par défaut.
+/// </summary>
+public sealed record OutputDeviceInfo(string Id, string DisplayName, string Kind, string? BlockedReason = null)
+{
+    /// <summary>Sortie choisissable comme master (aucun conflit de routage).</summary>
+    public bool Selectable => BlockedReason is null;
+
+    /// <summary>Libellé du sélecteur master : nom, suivi du motif de blocage éventuel.</summary>
+    public string Display => BlockedReason is null
+        ? DisplayName
+        : $"{DisplayName} — {BlockedReason}";
+}
 
 /// <summary>
 /// Abstraction d'une sortie de lecture (spec I-AUD-02). La source remise à

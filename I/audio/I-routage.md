@@ -1,6 +1,6 @@
 # I-AUD-03 — Routage / table de mixage (câble virtuel)
 
-- **Module** : M-AUD-03 · **Version de spec** : 1 · **Code** : `src/RoomEq.Audio/Routing/` —
+- **Module** : M-AUD-03 · **Version de spec** : 2 (v3.2.0 — anti-boucle au moment du routage) · **Code** : `src/RoomEq.Audio/Routing/` —
   `RingBuffer.cs`, `TrackSource.cs`, `AudioDeviceCatalog.cs`, `VirtualAudioProviders.cs`,
   `MixerStore.cs`, `VolumeSyncPolicy.cs`, `EndpointVolumeController.cs`,
   `DefaultDeviceSetter.cs`, `AudioDeviceWatcher.cs`, `DriverSetupManager.cs`,
@@ -77,6 +77,18 @@ sealed class ConsoleChannel : IDisposable { Source, Eq, Fader, Pan, Mute, Solo,
 sealed class ConsoleMixer : IDisposable { MasterEq, MasterFader, MasterMute,
     MasterPeakL/R, OutputLatencyMs, AddChannel(source), RemoveChannel(channel),
     SetOutput(id), Start(), Stop(), EnumerateOutputs() }
+
+// Anti-boucle au moment du routage (v2) : refus immédiat, messages actionnables
+//   SetOutput(id)          lève InvalidOperationException si id désigne un câble
+//                          virtuel ou un périphérique déjà capté par une piste
+//   AddChannel(source)     lève si la source (loopback WASAPI, périphérique
+//                          virtuel macOS) capturerait la sortie master actuelle
+//   OutputConflict(id)     titre de la 1re tranche en conflit avec cette sortie
+//                          (null si aucune) — l'UI s'en sert pour griser l'entrée
+//   IsOutputRoutedAsInput(id)  équivalent booléen
+// Sortie marquée : OutputDeviceInfo(BlockedReason) — Selectable=false, Display
+// porte le motif ; le sélecteur master de l'onglet Mixage grille ces sorties et
+// n'en choisit jamais une automatiquement (préférence, défauts de session).
 ```
 
 ## Invariants
@@ -86,10 +98,16 @@ sealed class ConsoleMixer : IDisposable { MasterEq, MasterFader, MasterMute,
    seule la fin est conservée ; lecture comble le silence ; positions
    monotones (pas d'ambiguïté vide/plein) ; aucun verrou ni allocation au
    régime établi.
-2. **Anti-larsen** (avertissement d'ordre SÉCURITÉ) : `ConsoleMixer.Start`
-   échoue si (a) une piste loopback capture le périphérique de sortie master,
-   (b) le master part vers un câble virtuel (render reconnu par motifs), sur
-   Windows comme macOS — messages actionnables.
+2. **Anti-larsen** (avertissement d'ordre SÉCURITÉ — v2 : au MOMENT du routage,
+   plus seulement au démarrage) : un périphérique routé en entrée ne peut pas
+   être la sortie master, et réciproquement. `SetOutput` lève si (a) la sortie
+   est un câble virtuel (render reconnu par motifs) ou le périphérique virtuel
+   RoomEq (macOS), (b) une piste loopback capture déjà ce périphérique de rendu,
+   (c) une piste « RoomEq Virtual » (macOS) lit ce même périphérique.
+   `AddChannel` lève symétriquement si la source capturerait la sortie master
+   courante. Les refus précèdent TOUTE modification d'état (l'ancienne sortie
+   reste active). `Start` revalide (défense en profondeur, y compris le défaut
+   résolu quand aucune sortie n'a été choisie) — messages actionnables partout.
 3. **Bus master** : somme des tranches audibles (`!Mute && (!anySolo || Solo)`
    × SourceReady), EQ master, gain = MasterFader × 10^(PreampDb/20), Mute → 0 ;
    crêtes post-fader publiées via `Volatile.Write` ; sortie multi-canaux :
@@ -141,5 +159,8 @@ sealed class ConsoleMixer : IDisposable { MasterEq, MasterFader, MasterMute,
   portage legacy), détection paquet/setup, catalogue fournisseurs (2
   fournisseurs, ids héritées → défaut, motifs distincts, guides sans tiers) ;
 - Watcher : inertie hors Windows ;
-- ConsoleMixer : anti-larsen (sortie master = câble virtuel → refus),
-  verdict Mute/Solo, énumération sans exception sous Linux.
+- ConsoleMixer : anti-larsen au routage (piste loopback sur la sortie master →
+  refus à l'AJOUT ; sortie master sur un périphérique capté par une piste →
+  refus à la SÉLECTION ; l'état précédent est conservé dans les deux cas),
+  OutputConflict/IsOutputRoutedAsInput (titre de tranche, booléen), verdict
+  Mute/Solo, énumération sans exception sous Linux.

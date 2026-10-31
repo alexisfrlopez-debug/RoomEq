@@ -486,3 +486,51 @@ désactivées avant export ; l'UI le dit avant d'ouvrir le dialogue.
 
 **Vérification R5 (pré-commit).** Build 0 erreur / 0 avertissement ;
 458/458 tests verts (237 Core + 142 Audio + 79 App — +17 Core, +4 App).
+
+## D18 — Anti-boucle au moment du routage (1er novembre 2026)
+
+| ID | Décision | Choix retenu | Alternatives rejetées |
+|---|---|---|---|
+| D18 | Demande développeur : « lorsqu'un périphérique est routé en entrée, il ne doit pas pouvoir être routé sur la sortie master, pour éviter une boucle » | **M-AUD-03 spec v2** : la garde anti-larsen passe du démarrage au **moment du routage**. `ConsoleMixer.SetOutput` lève AVANT tout changement d'état (câble virtuel, périphérique virtuel RoomEq macOS, périphérique déjà capté par une piste loopback/macOS — l'ancienne sortie reste active) ; `AddChannel` lève symétriquement si la source capturerait la sortie master courante ; `OutputConflict`/`IsOutputRoutedAsInput` exposent le conflit à l'UI qui **grise** les sorties en cause dans le sélecteur master (`OutputDeviceInfo.BlockedReason`, motif affiché) et n'en choisit jamais une automatiquement ; `Start` revalide en défense en profondeur, y compris le défaut résolu quand aucune sortie n'a été choisie (nouveau : le défaut peut être un câble virtuel) | Rester au seul contrôle au `Start` (l'utilisateur pouvait MONTER la boucle et ne l'apprendre qu'au lancement du routage) ; filtrer silencieusement les sorties en conflit (perte d'information : l'utilisateur ne saurait pas POURQUOI la sortie manque) ; refuser côté UI uniquement (le cœur resterait contournable par la persistance/les API) |
+
+**Développement.** Les refus précèdent toute mutation : la tranche en conflit
+n'est pas créée, l'ancienne sortie master reste active. La restauration de
+session (`LoadConfigOrDefaults`) est protégée par construction : les pistes
+sont restaurées avant la sélection de sortie, et `RebuildOutputs` saute les
+sorties en conflit lors du choix automatique (préférence de session → sortie
+libre non virtuelle → sortie libre → dernière extrémité avec message). La
+suppression d'une piste débloque immédiatement la sortie (réannotation).
+Les messages sont actionnables dans les deux sens (« la piste « X » capte
+déjà ce périphérique… supprimez cette piste ou choisissez une autre sortie » /
+« la piste « X » capturerait en boucle la sortie master actuelle… changez
+d'abord la sortie master »).
+
+**Vérification R5 (pré-commit).** Build 0 erreur / 0 avertissement ;
+461/461 tests verts (237 Core + 145 Audio + 79 App — +3 Audio, contrat
+anti-larsen réécrit au niveau routage : refus à l'ajout ET à la sélection,
+état conservé, déblocage après suppression de piste, marquage
+`BlockedReason`/`Selectable`/`Display`).
+
+## D19 — Greffon AudioUnit « RoomEq Correction » .component pour Ableton Live (1er novembre 2026)
+
+| ID | Décision | Choix retenu | Alternatives rejetées |
+|---|---|---|---|
+| D19 | Demande développeur : « une version de l'appli qui soit un plugin .component pour Ableton » | **Nouveau composant natif N-AU-01 / module M-AUD-07** (`natif/roomeq-au/`, spec `I/audio/I-greffon-au.md`) : AUv2 `aufx`/`Rmeq`/`Rmeq` qui **applique** les presets RoomEq (`.json` application ou `.ffp` Pro-Q 3 — détection par magie) dans le DAW. Interprétation : le greffon applique la correction ; la mesure reste dans l'application (un greffon ne peut pas piloter le son système). Cœur C++ **port exact de RoomEq.Core** (biquads RBJ TDFII, chaîne, préampli — parité **bit à bit** vérifiée par 118 tests natifs sur références générées par le code C#), zéro dépendance runtime ; greffon bâti sur **AudioUnitSDK d'Apple 1.4.0 vendangé (Apache-2.0)** ; vue Cocoa (charger / glisser-déposer / courbe) ; paramètre « Préampli » automatisable, bypass standard, état de session (blob preset) ; CI macOS dédiée (build + signature ad hoc + **auval**) qui joint `RoomEq-AU-<version>-macos.zip` aux releases ; `build-macos.sh --install` pour l'utilisateur | JUCE (AGPLv3 ou licence commerciale : introduirait une contrainte de licence dans un projet jusque-là sans tierce partie — écarté au profit du SDK officiel Apache-2.0, ~360 Ko vendangés) ; VST3 (demande explicite `.component` = AudioUnit ; le SDK VST3 est GPLv3/propriétaire ; possible suivi ultérieur) ; AUv3 (Ableton Live consomme des AUv2) ; réécrire le cœur en dépendant de framework (le port est volontairement sans dépendance pour rester auditable et testable sous Linux) ; mesurer dans le greffon (hors périmètre d'un greffon de studio : pas d'accès au son système) |
+
+**Développement.** La parité numérique est l'invariant central (spec
+I-AUD-07, invariant 1) : les tests comparent la réponse impulsionnelle
+(48 kHz stéréo et 44,1 kHz mono, presets réaliste/bordes/transparent) et la
+courbe de réponse composite aux sorties du code C# — **écart nul** sur les
+six références (les deux chaînes calculent en double, le stockage final en
+float32). Le chargement d'un preset publie un `shared_ptr` + compteur de
+version atomique ; chaque noyau reconstruit sa chaîne au bloc suivant
+(action utilisateur rare, documentée). Limites v1 documentées : lecture
+seule (édition dans l'application), coupes Pro-Q 3 raides importées en
+12 dB/oct, mono/stéréo. La signature est ad hoc (aucun compte développeur
+requis) ; la quarantaine macOS se retire par `xattr -cr` (documenté dans
+`build-macos.sh` et le README du composant).
+
+**Vérification R5 (pré-commit).** Application : build 0 erreur / 0
+avertissement, 461/461 tests verts. Natif : `g++ -std=c++17 -Wall -Wextra
+-Werror` propre, 118/118 vérifications vertes (parité bit à bit). La CI
+macOS (`plugin-au`) compile le bundle et le valide par `auval` au push.

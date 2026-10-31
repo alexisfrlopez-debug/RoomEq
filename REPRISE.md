@@ -7,16 +7,40 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.1.0** — recodage complet TRIADE **cristallisé et publié**, + **export FabFilter Pro-Q 3** (D17) |
+| **Projet** | RoomEq **v3.2.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19) |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/roomeq` — branche `main` (recodage), miroirs Drive + GitHub `v3-recodage` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 458 verts |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Werror -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 7 — v3.1.0 : export FabFilter Pro-Q 3, D17)
+## 1. État (fin session 8 — v3.2.0 : anti-boucle routage + greffon AU)
+
+**Session 8 (2026-11-01)** : deux demandes développeur → décisions **D18**
+et **D19** :
+
+- **D18 — anti-boucle au moment du routage** (M-AUD-03 spec **v2**) :
+  `SetOutput`/`AddChannel` refusent immédiatement tout croisement
+  entrée/sortie (piste loopback ↔ périphérique master, câble virtuel,
+  périphérique RoomEq macOS), AVANT toute mutation d'état ; l'UI grise les
+  sorties en conflit (`OutputDeviceInfo.BlockedReason`), n'en sélectionne
+  jamais une automatiquement, et `Start` revalide (défaut résolu compris) ;
+  suppression d'une piste → sortie débloquée.
+- **D19 — greffon AudioUnit « RoomEq Correction » `.component`** (module
+  natif **M-AUD-07** / **N-AU-01**, `natif/roomeq-au/`, spec
+  `I/audio/I-greffon-au.md`) : applique les presets RoomEq (.json
+  application ou .ffp Pro-Q 3) dans Ableton Live (macOS) ; cœur C++ port
+  EXACT de RoomEq.Core — **parité bit à bit** (118 vérifications natives
+  sur références générées par `tools/gen_reference`, écart nul) ;
+  AudioUnitSDK Apple 1.4.0 vendangé (Apache-2.0, D19 écarte JUCE/AGPL) ;
+  vue Cocoa (charger/glisser/courbe), préampli automatisable, état de
+  session ; CI macOS `plugin-au` (build + signature ad hoc + **auval**) →
+  `RoomEq-AU-<version>-macos.zip` dans les releases.
+
+Version **3.2.0**, 44 modules 🔒, **461/461 tests** (237 Core + 145 Audio +
+79 App) + 118 vérifications natives.
 
 **Session 7 (2026-11-01)** : demande développeur « exporter un preset
 d'égalisation en .ffp pour FabFilter Pro-Q 3 » → décision **D17** : nouveau

@@ -532,3 +532,85 @@ Stage Summary :
 - 43 modules 🔒, 458/458 tests verts ; livrables RoomEq-3.1.0-*.
 - Limite connue et documentée : 24 bandes actives maximum (précision
   « Ultra » = 30 bandes → message actionnable dans l'UI).
+
+## Session 8 — 1er novembre 2026 : anti-boucle au routage + greffon AudioUnit (D18/D19, v3.2.0)
+
+**Demandes développeur** : (1) « lorsqu'un périphérique est routé en entrée,
+il ne doit pas pouvoir être routé sur la sortie master, pour éviter une
+boucle » ; (2) « une version de l'appli qui soit un plugin .component pour
+Ableton ».
+
+**D18 — anti-boucle au moment du routage (M-AUD-03 spec v2)** :
+- Spec `I/audio/I-routage.md` passée en **v2** AVANT le code (invariant 2
+  réécrit : refus au moment du routage, pas seulement au démarrage).
+- `ConsoleMixer.SetOutput` : validation AVANT mutation (câble virtuel par
+  motifs, périphérique virtuel RoomEq macOS, périphérique déjà capté par
+  une piste loopback/macOS — `EnsureOutputAllowedLocked`) ; l'ancienne
+  sortie reste active en cas de refus.
+- `ConsoleMixer.AddChannel` : refus symétrique AVANT création de tranche
+  (`EnsureSourceAllowedLocked`).
+- Nouvelles sondes publiques `OutputConflict(id)` / `IsOutputRoutedAsInput(id)`.
+- `Start` revalide en défense en profondeur, y compris le **défaut résolu**
+  quand aucune sortie n'a été choisie (`ResolveDefaultOutputIdLocked` —
+  corrige au passage un angle mort : le défaut pouvait être un câble
+  virtuel sans que la validation le voie).
+- UI (M-APP-03) : `OutputDeviceInfo` gagne `BlockedReason` (+`Selectable`,
+  `Display`) ; `RebuildOutputs` annote les sorties en conflit et n'en
+  choisit jamais une automatiquement ; `OnSelectedOutputChanged` attrape le
+  refus, affiche le message et **revient à la sortie précédente** ;
+  `AnnotateOutputConflicts` après ajout/suppression de piste (suppression →
+  sortie débloquée) ; entrées grisées dans le combo du MASTER
+  (ItemContainerTheme) ; aide « Routage du son Windows » complétée.
+- Tests : contrat anti-larsen réécrit au niveau routage (+3 Audio) — refus à
+  l'ajout, refus à la sélection avec état conservé et déblocage après
+  suppression, sources internes/capture jamais refusées, marquage
+  `BlockedReason`. **461/461 verts** (237 Core + 145 Audio + 79 App),
+  build 0/0.
+
+**D19 — greffon AudioUnit « RoomEq Correction » (M-AUD-07 / N-AU-01)** :
+- Interprétation retenue (documentée) : le greffon **applique** la
+  correction RoomEq dans le DAW (Ableton Live, macOS) ; la mesure reste
+  dans l'application. Formats lus : `.json` (format exact de l'application,
+  énumérations en chaînes) et `.ffp` Pro-Q 3 (inverse exact de M-IO-06,
+  détection par magie).
+- `natif/roomeq-au/` : cœur C++ **sans dépendance** port EXACT de
+  RoomEq.Core (`core/roomeq/` : biquad RBJ TDFII double précision + bornes
+  identiques, chaîne multi-canaux + préampli, mini-analyseur JSON borné,
+  parseurs preset JSON/FFP) ; greffon AUv2 `aufx`/`Rmeq`/`Rmeq`
+  (`au/RoomEqAu.cpp` : paramètre « Préampli » automatisable, propriétés
+  custom preset/statut/courbe, SaveState/RestoreState avec blob preset,
+  noyaux par canal avec reconfiguration paresseuse par version atomique) ;
+  vue Cocoa (`au/RoomEqAuView.mm`, ARC) : bouton charger (NSOpenPanel sur
+  ~/.config/RoomEq/presets), glisser-déposer, courbe de réponse 97 points ;
+  `au/Info.plist` (AudioComponents, factoryFunction RoomEqAuFactory).
+- **Parité bit à bit** : `tools/gen_reference` (C#, référence
+  RoomEq.Core) produit presets/réponses impulsionnelles/courbes ; les 118
+  vérifications natives comparent — **écart nul** sur les 4 signaux et les
+  2 courbes (compilé `g++ -std=c++17 -Wall -Wextra -Werror`, tests verts
+  sous Linux).
+- SDK : **AudioUnitSDK Apple 1.4.0 vendangé** (`thirdparty/`, Apache-2.0
+  avec licence) — D19 écarte JUCE (AGPL/commercial) pour garder le projet
+  sans contrainte de licence tierce.
+- CI : job macOS `plugin-au` (tests natifs → build bundle → signature ad
+  hoc → **auval** → artefact `RoomEq-AU-<version>-macos.zip` joint aux
+  releases). `build-macos.sh [--install]` pour l'utilisateur final
+  (signature ad hoc, xattr -cr documenté pour la quarantaine).
+- Docs : spec `I/audio/I-greffon-au.md`, `natif/roomeq-au/README.md`
+  (build/install/limites), CARTE (M-AUD-07 + statut), DECISIONS (D18, D19),
+  natif/REFERENCE-NATIF.md (N-AU-01, exception « code source vivant »).
+
+**Version 3.2.0** ; packaging `scripts/package_v3.sh` → zips
+RoomEq-3.2.0 ; sauvegarde D7 (commit + GitHub v3-recodage + miroir Drive).
+
+Stage Summary :
+- Un périphérique routé en entrée ne peut plus être la sortie master (et
+  réciproquement) : refus immédiat au routage, sorties grisées avec motif,
+  messages actionnables, ancienne sortie conservée, défense en profondeur
+  au démarrage.
+- RoomEq entre dans Ableton Live : greffon AU « RoomEq: Correction »
+  (.component) chargeant les presets de l'application (.json/.ffp), parité
+  bit à bit avec l'application, livré par la CI macOS (auval vert requis).
+- 44 modules 🔒, 461/461 tests verts + 118 vérifications natives.
+- Limites v1 du greffon documentées : lecture seule (préampli/bypass
+  pilotables uniquement), coupes Pro-Q 3 raides importées en 12 dB/oct,
+  mono/stéréo.

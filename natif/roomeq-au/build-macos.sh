@@ -1,0 +1,41 @@
+#!/bin/bash
+# RoomEq AU — construction et validation du greffon .component (spec I-AUD-07).
+# Usage (macOS, Xcode + CMake installés) :
+#   bash natif/roomeq-au/build-macos.sh            # build + signature + auval
+#   bash natif/roomeq-au/build-macos.sh --install  # + copie dans ~/Library/Audio/Plug-Ins/Components
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+BUILD="$ROOT/build-macos"
+COMPONENT="$BUILD/RoomEqAU.component"
+
+echo "── 1/4 Compilation (cœur C++ + tests natifs + greffon AU) ─────────────"
+cmake -S "$ROOT" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release >/dev/null
+cmake --build "$BUILD" --parallel
+
+echo "── 2/4 Tests natifs du cœur (parité avec RoomEq.Core) ─────────────────"
+"$BUILD/roomeq_au_tests" "$ROOT/tests/data"
+
+echo "── 3/4 Signature ad hoc (chargeable localement) ──────────────────────"
+codesign --force --sign - "$COMPONENT"
+
+echo "── 4/4 Validation auval (outil officiel d'Apple) ─────────────────────"
+auval -v aufx Rmeq Rmeq
+
+if [ "${1:-}" = "--install" ]; then
+    DEST="$HOME/Library/Audio/Plug-Ins/Components"
+    mkdir -p "$DEST"
+    rm -rf "$DEST/RoomEqAU.component"
+    cp -R "$COMPONENT" "$DEST/"
+    # un .component téléchargé peut porter un attribut de quarantaine qui
+    # bloque le chargement dans les DAW : le retirer explicitement
+    xattr -cr "$DEST/RoomEqAU.component" 2>/dev/null || true
+    echo ""
+    echo "Installé : $DEST/RoomEqAU.component"
+    echo "Relancez Ableton Live (ou rescannez les greffons AudioUnit) :"
+    echo "  Ableton Live › Préférences › Plug-ins › Utiliser les périphériques Audio Unit"
+    echo "  Le greffon apparaît comme « RoomEq: Correction »."
+fi
+
+echo ""
+echo "Bundle : $COMPONENT"

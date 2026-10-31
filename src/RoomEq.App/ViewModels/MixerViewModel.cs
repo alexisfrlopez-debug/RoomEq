@@ -49,6 +49,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     public ObservableCollection<OutputDeviceInfo> Outputs { get; } = new();
 
     private string? _storedOutputId;
+    private string? _lastAppliedOutputId;
     private bool _initializing;
 
     [ObservableProperty] private OutputDeviceInfo? selectedOutput;
@@ -231,13 +232,40 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         Outputs.Clear();
         foreach (var o in list) Outputs.Add(o);
 
-        if (SelectedOutput != null && list.Any(o => o.Id == SelectedOutput.Id)) return;
-        // priorité : sortie de la session précédente, sinon une sortie non virtuelle
-        var preferred = list.FirstOrDefault(o => o.Id == _storedOutputId)
-                        ?? list.FirstOrDefault(o => !AudioDeviceCatalog.IsVirtualRender(o.DisplayName))
+        if (SelectedOutput != null && list.Any(o => o.Id == SelectedOutput.Id))
+        {
+            AnnotateOutputConflicts();
+            return;
+        }
+        // priorité : sortie de la session précédente, sinon une sortie sans
+        // conflit ni câble virtuel — jamais une sortie déjà routée en entrée
+        var preferred = list.FirstOrDefault(o => o.Id == _storedOutputId && o.Selectable)
+                        ?? list.FirstOrDefault(o => o.Selectable && !AudioDeviceCatalog.IsVirtualRender(o.DisplayName))
+                        ?? list.FirstOrDefault(o => o.Selectable)
                         ?? list.FirstOrDefault();
         SelectedOutput = preferred;
         _storedOutputId = null;
+        AnnotateOutputConflicts();
+    }
+
+    /// <summary>
+    /// Met à jour le marquage anti-boucle des sorties (spec I-AUD-03 v2) : une
+    /// sortie captée par une piste reçoit un motif de blocage (grisée dans le
+    /// sélecteur, refusée au routage) ; la libération d'une piste la rend à
+    /// nouveau choisissable. L'égalité de valeur des enregistrements conserve
+    /// la sélection courante.
+    /// </summary>
+    private void AnnotateOutputConflicts()
+    {
+        for (int i = 0; i < Outputs.Count; i++)
+        {
+            var o = Outputs[i];
+            string? reason = Mixer.OutputConflict(o.Id) is { } title
+                ? "captée par la piste « " + title + " »"
+                : null;
+            if (o.BlockedReason != reason)
+                Outputs[i] = o with { BlockedReason = reason };
+        }
     }
 
     private void RebuildAvailableSources()
@@ -261,7 +289,19 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     partial void OnSelectedOutputChanged(OutputDeviceInfo? value)
     {
         if (value == null) return;
-        Mixer.SetOutput(value.Id);
+        try
+        {
+            Mixer.SetOutput(value.Id);
+        }
+        catch (Exception ex)
+        {
+            // sortie refusée par la garde anti-boucle : message actionnable et
+            // retour à la sortie précédente (jamais de routage en boucle)
+            StatusText = "Sortie master refusée : " + ex.Message;
+            SelectedOutput = Outputs.FirstOrDefault(o => o.Id == _lastAppliedOutputId);
+            return;
+        }
+        _lastAppliedOutputId = value.Id;
         OutputInfoText = $"Sortie master : {value.DisplayName}";
         bool ok = _endpointVolume.SetTarget(value.Id);
         DiagnosticsLog.Info("Volume physique ciblé : " + value.DisplayName + (ok ? "" : " (non accessible)"));
@@ -306,6 +346,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
             var ch = Mixer.AddChannel(source);
             var vm = new ChannelViewModel(ch, () => SaveConfig());
             Channels.Add(vm);
+            AnnotateOutputConflicts();
             SaveConfig();
             StatusText = "Piste ajoutée : " + vm.Title;
         }
@@ -322,6 +363,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         if (SelectedChannel == vm) SelectedChannel = null;
         Mixer.RemoveChannel(vm.Channel);
         Channels.Remove(vm);
+        AnnotateOutputConflicts();
         SaveConfig();
         StatusText = "Piste retirée : " + vm.Title;
     }

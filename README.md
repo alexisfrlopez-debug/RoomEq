@@ -11,14 +11,20 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
 - **État** : recodage **terminé, cristallisé et publié** (v3.0.2 ; v3.0.0/v3.0.1
   = étapes intermédiaires à CI rouge, non déplacées) — **v3.1.0** ajoute
   l'**export de preset vers FabFilter Pro-Q 3 (.ffp)** (D17, module
-  M-IO-06 : le preset courant — bandes actives + préampli devenu gain de
-  sortie — s'écrit en fichier binaire chargeable par le greffon) —
-  43 modules 🔒, 458 tests verts (CI 3 OS), parité v2.2.2 établie point par
+  M-IO-06) ; **v3.2.0** ajoute l'**anti-boucle au moment du routage** (D18 :
+  un périphérique routé en entrée ne peut plus être choisi en sortie master —
+  refus immédiat + sorties grisées dans l'onglet Mixage) et le **greffon
+  AudioUnit « RoomEq Correction » `.component` pour Ableton Live** (D19,
+  module natif M-AUD-07 : applique les presets RoomEq dans le DAW, parité
+  bit à bit, CI macOS + auval) —
+  44 modules 🔒, 461 tests verts (CI 3 OS) + 118 vérifications natives,
+  parité v2.2.2 établie point par
   point (`docs/PARITE-v2.2.2.md`) ; les écarts terrain éventuels seront
   traités en patchs à contrat stable
 - **Reprise** : lire `REPRISE.md` en premier
-- **Décisions** : `docs/DECISIONS.md` (D1-D17) · **Carte** : `CARTE.md`
+- **Décisions** : `docs/DECISIONS.md` (D1-D19) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
+- **Greffon AudioUnit** (Ableton Live, macOS) : `natif/roomeq-au/README.md`
 
 ## Structure
 

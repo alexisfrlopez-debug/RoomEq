@@ -7,3 +7,7 @@ publish/
 .avalonia-build-tasks/
 # télémétrie réelle (identifiants OAuth) — seul l'example est versionné
 scripts/telemetrie.json
+
+# greffon AU : dossiers de build locaux
+natif/roomeq-au/build-macos/
+natif/roomeq-au/build-core/
