@@ -2,16 +2,16 @@
 
 > Couche C du protocole TRIADE pour ce dépôt. Index de navigation à adresses
 > stables. **Règle : toute modification de `src/` doit mettre à jour la ligne
-> correspondante de la Carte.** Dernière mise à jour : cristallisation
-> finale `v3.0.2` (D14).
+> correspondante de la Carte.** Dernière mise à jour : `v3.1.0` (D17 — export
+> FabFilter Pro-Q 3, modules M-IO-06 + M-APP-04 étendu).
 
 | En-tête | Valeur |
 |---|---|
-| projet | RoomEq v3.0.2 — égaliseur acoustique temps réel |
+| projet | RoomEq v3.1.0 — égaliseur acoustique temps réel |
 | profil de cible | x86-64-pc-windows-msvc (.NET 8 + Avalonia 11) + macOS (greffon scellé) |
 | base de référence | v2.2.2 (GitHub alexisfrlopez-debug/RoomEq @ `deff25c`, tag v2.2.2) |
 | empreinte legacy | clone git `roomeq-git-ref` (code, CI verte) + miroir Drive `roomeq-legacy` (docs, 284 fichiers) |
-| statut | 🔒 cristallisé au tag `v3.0.2` (D14 ; v3.0.0/v3.0.1 = étapes intermédiaires à CI rouge, conservées sans déplacement de tag) — 42 modules 🔒, 437 tests verts, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
+| statut | 🔒 v3.1.0 (D17 : module M-IO-06 « export FabFilter Pro-Q 3 » ajouté à contrat stable — 458 tests verts) sur la suite cristallisée v3.0.2 (D14 ; v3.0.0/v3.0.1 = étapes intermédiaires à CI rouge, conservées sans déplacement de tag) — 43 modules 🔒, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
 
 ## Modules — couche I (intention) / B (code)
 
@@ -42,6 +42,7 @@
 | M-IO-03 | Télémétrie Drive | `I/io/I-telemetrie.md` | `…/Io/TelemetryConfig.cs` + `DriveLogUploader.cs` | `…/TelemetryTests.cs` | 🔒 |
 | M-IO-04 | Magasin de signaux | `I/io/I-magasin-signaux.md` | `…/Io/SignalPack.cs` + `SignalStore.cs` + `SignalCatalogClient.cs` | `…/SignalPackTests.cs` + `SignalStoreTests.cs` | 🔒 |
 | M-IO-05 | Magasins de réglages | `I/io/I-magasins.md` | `…/Io/Stores.cs` | `…/StoresRenameTests.cs` | 🔒 |
+| M-IO-06 | Export FabFilter Pro-Q 3 | `I/io/I-export-fabfilter.md` | `…/Io/FabFilterProQ3.cs` | `…/IoTests.cs` (FabFilterProQ3Tests) | 🔒 |
 | M-AUD-01 | Capture | `I/audio/I-capture.md` | `src/RoomEq.Audio/Capture/CaptureEngine.cs` | `…/MeasurementEngineTests.cs` (inertie) | 🔒 |
 | M-AUD-02 | Lecture | `I/audio/I-lecture.md` | `…/Playback/AudioOutputs.cs` + `SampleProviders.cs` + `PlaybackEngine.cs` + `TestSignalCatalog.cs` | `…/SampleProvidersTests.cs` + `SignalCatalogTests.cs` + `MeasurementEngineTests.cs` | 🔒 |
 | M-AUD-03 | Routage / mixeur | `I/audio/I-routage.md` | `…/Routing/` (12 fichiers : RingBuffer, TrackSource, AudioDeviceCatalog, VirtualAudioProviders, MixerStore, VolumeSyncPolicy, EndpointVolumeController, DefaultDeviceSetter, AudioDeviceWatcher, DriverSetupManager, ConsoleChannel, ConsoleMixer) | `…/RingBufferTests.cs` + `ConsoleRoutingTests.cs` + `SignalCatalogTests.cs` + `RoomEqDriverTests.cs` | 🔒 |
@@ -51,7 +52,7 @@
 | M-APP-01 | Shell + MVVM | `I/app/I-shell.md` | `src/RoomEq.App/…` (Program, App, MainWindow, MainViewModel, TestSignalMenu, OutputPresetCoordinator) | `…/OutputPresetCoordinatorTests.cs` + `…/SecondaryTabsTests.cs` | 🔒 |
 | M-APP-02 | Onglet calibration | `I/app/I-onglet-calibration.md` | `…/Views/CalibrationTab…` + `ViewModels/CalibrationViewModel.cs` + `CalibrationOptions.cs` + `LiveMicMonitor.cs` | `…/SecondaryTabsTests.cs` | 🔒 |
 | M-APP-03 | Onglet mixage | `I/app/I-onglet-mixage.md` | `…/Views/MixerTab…` + `ViewModels/MixerViewModel.cs` + `.Routing` + `.Volume` + `.Driver` + `.Persist` + `ChannelViewModel.cs` + `TrackEqViewModel.cs` | `…/BandTrackChannelTests.cs` | 🔒 |
-| M-APP-04 | Onglet EQ | `I/app/I-onglet-eq.md` | `…/Views/EqTab…` + `ViewModels/EqViewModel.cs` + `HeadphonePickerViewModel.cs` + `BandViewModel.cs` | `…/EqViewModelTests.cs` + `…/HeadphonePickerTests.cs` | 🔒 |
+| M-APP-04 | Onglet EQ | `I/app/I-onglet-eq.md` | `…/Views/EqTab…` + `ViewModels/EqViewModel.cs` + `EqViewModel.FabFilter.cs` + `HeadphonePickerViewModel.cs` + `BandViewModel.cs` | `…/EqViewModelTests.cs` (dont FabFilter) + `…/HeadphonePickerTests.cs` | 🔒 |
 | M-APP-05 | Onglets micro / analyseur / ASIO | `I/app/I-onglets-secondaires.md` | `…/Views/MicTab…` + `AnalyzerTab…` + `AsioTab…` + `ViewModels/MicViewModel.cs` + `.Curve` + `AnalyzerViewModel.cs` + `AsioViewModel.cs` + `RollingBuffer.cs` + `Controls/` (PlotControl, VuMeter, EqControl, MicCurveEditor, dialogues) | `…/MicViewModelTests.cs` + `…/RollingBufferTests.cs` + `…/SecondaryTabsTests.cs` | 🔒 |
 
 ## Modules installateur — specs prêtes, code futur (vague 8, D11)

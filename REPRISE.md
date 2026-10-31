@@ -7,16 +7,27 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.0.2** — recodage complet de l'application sous protocole TRIADE, **cristallisé et publié** |
+| **Projet** | RoomEq **v3.1.0** — recodage complet TRIADE **cristallisé et publié**, + **export FabFilter Pro-Q 3** (D17) |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/roomeq` — branche `main` (recodage), miroirs Drive + GitHub `v3-recodage` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 437 verts |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 458 verts |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 6 — recodage TERMINÉ, cristallisé et publié v3.0.2)
+## 1. État (fin session 7 — v3.1.0 : export FabFilter Pro-Q 3, D17)
+
+**Session 7 (2026-11-01)** : demande développeur « exporter un preset
+d'égalisation en .ffp pour FabFilter Pro-Q 3 » → décision **D17** : nouveau
+module **M-IO-06** (`FabFilterProQ3.cs`, spec `I/io/I-export-fabfilter.md`,
+format binaire FQ3p établi par triple recoupement et validé par relecture
+croisée avec le toolkit Python de référence) + M-APP-04 étendu (partial
+`EqViewModel.FabFilter.cs`, bouton + aide dans EqTab, dialogue
+StorageProvider) ; version **3.1.0**, 43 modules 🔒, **458/458 tests**
+(237 Core + 142 Audio + 79 App). Limites documentées : 24 bandes actives
+max (précision « Ultra » = 30 bandes → réduire à « Fine » ou désactiver
+des bandes avant export).
 
 **Les trois projets sont intégralement recodés sous TRIADE** (vagues 1-7 du
 plan) :
@@ -46,7 +57,7 @@ plan) :
   `.github/workflows/build.yml`), `LISEZMOI.txt`, télémétrie régénérable
   (`scripts/gen_telemetrie.py`).
 
-**Chiffres** : 42/42 modules 🔒 · **437/437 tests verts** (220 Core + 142
+**Chiffres (cristallisation v3.0.2)** : 42/42 modules 🔒 · **437/437 tests verts** (220 Core + 142
 Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
 
 **Reste à faire** (hors recodage) :

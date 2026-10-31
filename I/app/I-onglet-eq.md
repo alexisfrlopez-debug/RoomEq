@@ -15,6 +15,7 @@ preset → sortie, et courbe composite interactive (poignées déplaçables).
 | Fichier | Contenu |
 |---|---|
 | `EqViewModel.cs` | Preset courant, presets sauvegardés, import calibration, liaison sortie, courbe |
+| `EqViewModel.FabFilter.cs` | Export du preset courant vers FabFilter Pro-Q 3 (.ffp) |
 | `HeadphonePickerViewModel.cs` | Sélecteur casques : marques, modèles, recherche, application |
 | `BandViewModel.cs` | Une bande d'EQ éditable (panneau + poignées) |
 
@@ -38,6 +39,12 @@ preset → sortie, et courbe composite interactive (poignées déplaçables).
 - **Liaison sortie** : `LinkTargetText`, `LinkPresetStatus`, commande
   `LinkPresetToOutput`, événements `LinkPresetRequested`,
   `HeadphonePresetApplied`.
+- **Export FabFilter Pro-Q 3** : `ExportStatus`, commande
+  `ExportFabFilter` (vérifie ≤ 24 bandes actives AVANT d'ouvrir le
+  dialogue — message guidant sinon), événement `FabFilterExportRequested`
+  (la vue ouvre le dialogue d'enregistrement), `SuggestedFabFilterFileName()`
+  (nom assaini + .ffp), `SaveFabFilterExport(path)` (encodage I-IO-06 +
+  statut détaillé).
 - **Bandes** : `AddBand`, `RemoveSelected`, `RemoveBand(band)`,
   `Flatten` ; interactions graphe : `OnBandDragged(index, freq, gain)`
   (arrondis 0,1), `OnBandQChanged(index, facteur)` (Q borné 0,1–20).
@@ -61,6 +68,9 @@ preset → sortie, et courbe composite interactive (poignées déplaçables).
 6. **Renommage** : met à jour le nom affiché si le preset courant est
    celui renommé.
 7. `Flatten` remet aussi le préampli à 0 dB.
+8. **Export .ffp** : le preset exporté est reconstruit depuis les vues de
+   bandes (`BuildPreset`, invariant 1) ; seules les bandes actives
+   partent ; l'encodage/écriture et ses limites relèvent de I-IO-06.
 
 ## Invariants
 
@@ -82,3 +92,6 @@ preset → sortie, et courbe composite interactive (poignées déplaçables).
 - Import : sans courbe → statut explicite ; avec courbe factice →
   bandes générées selon la précision.
 - Courbe : recalcul après chargement, `CurveInfo` cohérent.
+- Export .ffp : > 24 bandes actives → pas de dialogue + statut guidant ;
+  preset valide → événement émis ; `SaveFabFilterExport` écrit un fichier
+  de 1 348 octets d'en-tête `FQ3p` ; nom suggéré assaini.

@@ -8,13 +8,16 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
 `CARTE.md`).
 
 - **Base fonctionnelle** : v2.2.2 (`alexisfrlopez-debug/RoomEq` @ deff25c)
-- **État** : recodage **terminé, cristallisé et publié** au tag `v3.0.2`
-  (v3.0.0/v3.0.1 = étapes intermédiaires à CI rouge, non déplacées) —
-  42 modules 🔒, 437 tests verts (CI 3 OS), parité v2.2.2 établie point par
+- **État** : recodage **terminé, cristallisé et publié** (v3.0.2 ; v3.0.0/v3.0.1
+  = étapes intermédiaires à CI rouge, non déplacées) — **v3.1.0** ajoute
+  l'**export de preset vers FabFilter Pro-Q 3 (.ffp)** (D17, module
+  M-IO-06 : le preset courant — bandes actives + préampli devenu gain de
+  sortie — s'écrit en fichier binaire chargeable par le greffon) —
+  43 modules 🔒, 458 tests verts (CI 3 OS), parité v2.2.2 établie point par
   point (`docs/PARITE-v2.2.2.md`) ; les écarts terrain éventuels seront
-  traités en patchs 3.0.x à contrat stable
+  traités en patchs à contrat stable
 - **Reprise** : lire `REPRISE.md` en premier
-- **Décisions** : `docs/DECISIONS.md` (D1-D15) · **Carte** : `CARTE.md`
+- **Décisions** : `docs/DECISIONS.md` (D1-D17) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
 
 ## Structure
@@ -35,9 +38,9 @@ scripts/    outillage (sync_backup.sh : tests + commit + GitHub + Drive ;
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
 cd src && dotnet build RoomEq.sln -c Debug     # 0 erreur 0 avertissement
-dotnet test ../tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj    # 220 verts
+dotnet test ../tests/RoomEq.Core.Tests/RoomEq.Core.Tests.csproj    # 237 verts
 dotnet test ../tests/RoomEq.Audio.Tests/RoomEq.Audio.Tests.csproj  # 142 verts
-dotnet test ../tests/RoomEq.App.Tests/RoomEq.App.Tests.csproj      # 75 verts
+dotnet test ../tests/RoomEq.App.Tests/RoomEq.App.Tests.csproj      # 79 verts
 bash ../scripts/package_v3.sh                  # zips test/public/source
 ```
 

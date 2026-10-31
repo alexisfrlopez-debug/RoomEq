@@ -1,4 +1,4 @@
-RoomEq 3.0.2 — recodage intégral sous protocole TRIADE (parité 2.2.2)
+RoomEq 3.1.0 — recodage intégral sous protocole TRIADE + export FabFilter Pro-Q 3
 ===========================================================================
 
 CE QU'EST CETTE VERSION
@@ -6,8 +6,16 @@ CE QU'EST CETTE VERSION
   • RECODAGE COMPLET de l'application (RoomEq.Core, RoomEq.Audio, RoomEq.App)
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
-    cartographié à adresse stable (CARTE.md) — 42 modules, 31 spécifications,
-    437 tests verts, build 0 erreur 0 avertissement.
+    cartographié à adresse stable (CARTE.md) — 43 modules, 32 spécifications,
+    458 tests verts, build 0 erreur 0 avertissement.
+  • NOUVEAU 3.1.0 — EXPORT FABFILTER PRO-Q 3 (.ffp) : onglet Égaliseur,
+    bouton « Exporter Pro-Q 3 (.ffp) » — le preset courant (bandes actives
+    + préampli, qui devient le gain de sortie du greffon) est écrit en
+    fichier binaire chargeable dans FabFilter Pro-Q 3 (bouton des presets
+    ▸ Load…, ou glisser-déposer du fichier sur le greffon ; pour le
+    retrouver dans le menu : Documents\FabFilter\Presets\Pro-Q 3).
+    Limites du greffon appliquées : 24 bandes actives maximum (les bandes
+    décochées ne sont pas exportées), 10 Hz–30 kHz, Q 0,025–40, ±30 dB.
   • PARITÉ FONCTIONNELLE 2.2.2 ÉTABLIE point par point (docs/PARITE-v2.2.2.md) :
     égaliseur paramétrique, analyseur RTA, calibration multi-signaux, profils
     micro (36), corrections casques (321 modèles AutoEq), preset automatique

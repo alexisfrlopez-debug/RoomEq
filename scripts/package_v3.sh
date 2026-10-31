@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.0.2
+VERSION=3.1.0
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -77,6 +77,16 @@ grep -qE 'AsioBridgeHost' "$SRC/src/RoomEq.Audio/Asio/AsioBridgeHost.cs" \
 grep -qE 'ROOMEQ_TEST' "$SRC/src/RoomEq.Core/Io/AppFlavor.cs" \
   && grep -qE 'AppFlavorKind.Public;' "$SRC/src/RoomEq.Core/Io/AppFlavor.cs" \
   && echo "   ✓ AppFlavor inversé : public silencieux par défaut"
+# --- v3.1.0 : export FabFilter Pro-Q 3 (D17) ---
+[[ -f "$SRC/src/RoomEq.Core/Io/FabFilterProQ3.cs" \
+   && -f "$SRC/I/io/I-export-fabfilter.md" ]] \
+  && grep -qE 'class FabFilterProQ3' "$SRC/src/RoomEq.Core/Io/FabFilterProQ3.cs" \
+  && grep -qE 'FQ3p' "$SRC/src/RoomEq.Core/Io/FabFilterProQ3.cs" \
+  && echo "   ✓ Export FabFilter Pro-Q 3 (module M-IO-06 + spec I)"
+grep -qE 'ExportFabFilter' "$SRC/src/RoomEq.App/ViewModels/EqViewModel.FabFilter.cs" \
+  && grep -qE 'Exporter Pro-Q 3' "$SRC/src/RoomEq.App/Views/EqTab.axaml" \
+  && grep -qE 'SaveFilePickerAsync' "$SRC/src/RoomEq.App/Views/EqTab.axaml.cs" \
+  && echo "   ✓ Bouton d'export + dialogue (onglet Égaliseur)"
 python3 - "$SRC/src/RoomEq.Core/Headphones/headphone_presets.json" <<'PY'
 import json, sys
 n = len(json.load(open(sys.argv[1]))["models"])

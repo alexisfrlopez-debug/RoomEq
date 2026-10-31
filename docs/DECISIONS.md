@@ -463,3 +463,26 @@ la balise finale v3.0.2 est immuable, les correctifs 3.0.x sont à contrat stabl
 
 **Vérification R5 (pré-commit).** Aucun fichier de production modifié ; build 0 erreur /
 0 avertissement et 437/437 tests verts reconfirmés avant commit.
+
+## D17 — Export de preset vers FabFilter Pro-Q 3 (1er novembre 2026)
+
+| ID | Décision | Choix retenu | Alternatives rejetées |
+|---|---|---|---|
+| D17 | Demande développeur « exporter un preset d'égalisation en .ffp pour l'importer dans FabFilter Pro-Q » (précisé : Pro-Q 3) | **Nouveau module M-IO-06** (`FabFilterProQ3.cs`, spec `I/io/I-export-fabfilter.md`) : encodeur binaire du format FQ3p (en-tête + 334 flottants LE = 24 bandes × 13 + 22 globaux, 1 348 octets) ; **seules les bandes actives** sont exportées (le fichier sonne comme l'EQ à l'écran), le **préampli devient le gain de sortie** (normalisé ×36), bornes du greffon appliquées (10 Hz–30 kHz, Q 0,025–40, ±30 dB), emplacements inutilisés = preset vierge d'usine à l'octet près, > 24 actives → exception actionnable ; M-APP-04 étendu (partial `EqViewModel.FabFilter.cs` + bouton/aide dans EqTab + dialogue StorageProvider dans la vue) ; version **3.1.0** (nouvelle fonctionnalité à contrat stable) | Cibler Pro-Q 2 (FQ2p, 190 params — format documenté mais produit visé = Pro-Q 3) ; format texte Pro-Q 4 (`Signature=FQ4p`) — le greffon visé est Q3 et le format binaire FQ3p est chargé aussi par Q4 ; exporter aussi les bandes décochées (une bande décochée est inaudible : l'exporter changerait le son attendu) ; écrire le préampli en première bande (le greffon a un vrai gain de sortie : mapping direct) |
+
+**Développement.** Le format FQ3p n'est pas documenté par FabFilter : il a été
+établi par triple recoupement indépendant — preset d'usine réel (valeurs
+globales reprises à l'octet près), toolkit Python de référence du format,
+et convertisseurs tiers (Java Pro-Q 2 pour la famille d'encodage :
+fréquence `log2`, Q `log10(Q)·0,312098175+0,5` — échelle exacte où 0 ↔ Q
+0,025 et 1 ↔ Q 40 ; gain de sortie normalisé ×36 = dB, plage officielle
+−∞…+36 dB). **Validation croisée** : le fichier produit par le code C# est
+relu par le lecteur Python de référence — types, fréquences, Q, gains et
+préampli retrouvés exactement (preset de test 7 bandes + preset casque
+10 bandes). Limite documentée (spec I-IO-06, invariant 2) : Pro-Q 3 accepte
+24 bandes actives maximum — la précision « Ultra » de l'import de
+calibration (30 bandes) doit être réduite à « Fine » (20) ou des bandes
+désactivées avant export ; l'UI le dit avant d'ouvrir le dialogue.
+
+**Vérification R5 (pré-commit).** Build 0 erreur / 0 avertissement ;
+458/458 tests verts (237 Core + 142 Audio + 79 App — +17 Core, +4 App).

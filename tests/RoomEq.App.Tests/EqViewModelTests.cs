@@ -224,3 +224,93 @@ public class EqViewModelTests : IDisposable
         Assert.Equal("Mon preset nommé", requested);
     }
 }
+
+// ===========================================================================
+// Export FabFilter Pro-Q 3 (.ffp) — spec I-APP-04 § export + I-IO-06
+// ===========================================================================
+public class EqViewModelFabFilterTests : IDisposable
+{
+    private readonly string _dir;
+    private readonly PresetStore _store;
+    private readonly PlaybackEngine _engine = new();
+
+    public EqViewModelFabFilterTests()
+    {
+        _dir = Path.Combine(Path.GetTempPath(), "roomeq-ffp-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_dir);
+        _store = new PresetStore(_dir);
+    }
+
+    public void Dispose()
+    {
+        _engine.Dispose();
+        try { Directory.Delete(_dir, true); } catch { /* temp */ }
+    }
+
+    [Fact]
+    public void ExportFabFilter_MoreThan24ActiveBands_RequestsNothingAndGuides()
+    {
+        var vm = new EqViewModel(_store);
+        vm.Init(_engine);
+        for (int i = 0; i < 25; i++)
+            vm.AddBandCommand.Execute(null);   // 10 (plat) + 25 = 35 bandes actives
+
+        bool requested = false;
+        vm.FabFilterExportRequested += () => requested = true;
+
+        vm.ExportFabFilterCommand.Execute(null);
+
+        Assert.False(requested);                          // pas de dialogue
+        Assert.Contains("24", vm.ExportStatus);           // message actionnable
+    }
+
+    [Fact]
+    public void ExportFabFilter_ValidPreset_RequestsSaveDialog()
+    {
+        var vm = new EqViewModel(_store);
+        vm.Init(_engine);
+
+        bool requested = false;
+        vm.FabFilterExportRequested += () => requested = true;
+
+        vm.ExportFabFilterCommand.Execute(null);
+
+        Assert.True(requested);
+        Assert.Equal(string.Empty, vm.ExportStatus);
+    }
+
+    [Fact]
+    public void SaveFabFilterExport_WritesLoadableFfp()
+    {
+        var vm = new EqViewModel(_store);
+        vm.Init(_engine);
+        vm.PresetName = "Test export ffp";
+
+        string path = Path.Combine(_dir, "export.ffp");
+        vm.SaveFabFilterExport(path);
+
+        Assert.True(File.Exists(path));
+        Assert.Equal(1348, new FileInfo(path).Length);
+        Assert.Contains("exporté", vm.ExportStatus);
+
+        // le fichier commence par l'en-tête Pro-Q 3 et se recharge via le noyau
+        Assert.Equal("FQ3p", System.Text.Encoding.ASCII.GetString(
+            File.ReadAllBytes(path), 0, 4));
+        Assert.EndsWith(".ffp", vm.SuggestedFabFilterFileName());
+        Assert.StartsWith("Test export ffp", vm.SuggestedFabFilterFileName());
+    }
+
+    [Fact]
+    public void SuggestedFileName_SanitizesPresetName()
+    {
+        var vm = new EqViewModel(_store);
+        vm.Init(_engine);
+        vm.PresetName = "a<b:c?d";
+
+        string suggested = vm.SuggestedFabFilterFileName();
+
+        Assert.DoesNotContain("<", suggested);
+        Assert.DoesNotContain(":", suggested);
+        Assert.EndsWith(".ffp", suggested);
+    }
+}

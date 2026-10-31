@@ -37,6 +37,16 @@
                 <TextBlock Text="{Binding PresetStatus}" Classes="muted" FontSize="10"
                            TextWrapping="Wrap" MinHeight="14"/>
 
+                <!-- Export FabFilter Pro-Q 3 (.ffp) -->
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Exporter Pro-Q 3 (.ffp)" Command="{Binding ExportFabFilterCommand}"
+                            ToolTip.Tip="Enregistre le preset courant (bandes actives + préampli) dans un fichier .ffp chargeable dans FabFilter Pro-Q 3."/>
+                    <controls:HelpButton HelpTitle="Exporter vers FabFilter Pro-Q 3"
+                                         HelpText="Écrit le preset courant dans un fichier .ffp binaire compris par le greffon FabFilter Pro-Q 3 : les bandes actives deviennent des bandes Pro-Q, le préampli devient le gain de sortie.&#10;&#10;Utilisation : dans Pro-Q 3, bouton des presets ▸ Load… puis choisissez le fichier ; ou glissez-déposez le .ffp directement sur le greffon. Pour le retrouver dans le menu des presets, placez-le dans Documents\FabFilter\Presets\Pro-Q 3.&#10;&#10;Limites : 24 bandes actives maximum (les bandes décochées ne sont pas exportées) ; fréquences 10 Hz – 30 kHz ; Q 0,025 – 40 ; gains ±30 dB — les valeurs hors plages sont ramenées aux bornes."/>
+                </StackPanel>
+                <TextBlock Text="{Binding ExportStatus}" Classes="muted" FontSize="10"
+                           TextWrapping="Wrap" MinHeight="14"/>
+
                 <!-- Liaison preset → périphérique de sortie -->
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <Button Content="Lier ce preset à la sortie" Command="{Binding LinkPresetToOutputCommand}"

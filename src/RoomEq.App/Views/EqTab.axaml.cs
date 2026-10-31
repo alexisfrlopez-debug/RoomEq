@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using RoomEq.App.Controls;
 using RoomEq.App.ViewModels;
 
@@ -30,6 +31,10 @@ public partial class EqTab : UserControl
         vm.PropertyChanged -= OnVmPropertyChanged;
         vm.PropertyChanged += OnVmPropertyChanged;
 
+        // export .ffp FabFilter Pro-Q 3 : la vue possède le dialogue d'enregistrement
+        vm.FabFilterExportRequested -= OnFabFilterExportRequested;
+        vm.FabFilterExportRequested += OnFabFilterExportRequested;
+
         if (vm.Bands.Count > 0)
         {
             EqPlot.SetCurve(vm.CurrentCurve());
@@ -42,5 +47,42 @@ public partial class EqTab : UserControl
     {
         if (e.PropertyName == nameof(EqViewModel.Bands) && DataContext is EqViewModel vm)
             EqPlot.Bands = vm.Bands;
+    }
+
+    /// <summary>Ouvre le dialogue d'enregistrement puis laisse le ViewModel écrire le .ffp.</summary>
+    private async void OnFabFilterExportRequested()
+    {
+        if (DataContext is not EqViewModel vm) return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.StorageProvider == null) return;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Exporter le preset vers FabFilter Pro-Q 3",
+            SuggestedFileName = vm.SuggestedFabFilterFileName(),
+            DefaultExtension = "ffp",
+            FileTypeChoices = new[]
+            {
+                new FilePickerFileType("Preset FabFilter Pro-Q 3 (*.ffp)")
+                {
+                    Patterns = new[] { "*.ffp" }
+                }
+            }
+        });
+
+        if (file == null) return;   // dialogue annulé
+
+        string path;
+        try
+        {
+            path = file.Path.LocalPath;
+        }
+        catch (Exception ex)
+        {
+            vm.ExportStatus = "Export impossible : " + ex.Message;
+            return;
+        }
+        vm.SaveFabFilterExport(path);
     }
 }

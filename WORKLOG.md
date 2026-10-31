@@ -478,3 +478,57 @@ Stage Summary (final, D15) :
   part désormais de mesures, pas d'intuitions.
 - Prochaines étapes inchangées : validation terrain Windows (écarts →
   3.0.x) ; vague 8 installateur (conditions D11) ; signature phase A.
+
+---
+
+## Session 7 — 1er novembre 2026 : export FabFilter Pro-Q 3 (D17, v3.1.0)
+
+Demande du développeur : « pouvoir exporter un preset d'égalisation en
+format .ffp pour l'importer dans le greffon FabFilter » (précisé en cours
+de session : **Pro-Q 3**).
+
+- **Établissement du format FQ3p** (non documenté par FabFilter) par triple
+  recoupement : preset d'usine réel (bandes + 22 paramètres globaux lus
+  valeur par valeur — nos réglages d'export reprennent l'usine à l'octet
+  près, sauf le gain de sortie), toolkit Python de référence du format,
+  convertisseurs tiers Java/Swift pour la famille d'encodage. Encodages
+  confirmés : fréquence `log2(Hz)` ; Q `log10(Q)·0,312098175+0,5` (échelle
+  où 0 ↔ Q 0,025 et 1 ↔ Q 40 — la plage Q du greffon est donc encodable
+  exactement) ; gains de bande en dB ; gain de sortie normalisé ×36 = dB
+  (plage officielle −∞…+36 dB).
+- **M-IO-06** (spec `I/io/I-export-fabfilter.md` écrite AVANT le code) :
+  `FabFilterProQ3.Encode/Write` — 1 348 octets, 24 bandes × 13 + 22
+  globaux ; seules les bandes ACTIVES partent (le fichier sonne comme
+  l'égaliseur à l'écran) ; préampli → gain de sortie ; mapping
+  Peaking→Bell / LowShelf / HighShelf / HighPass→LowCut / LowPass→HighCut
+  / Notch→Notch ; coupes exportées en 12 dB/oct (pente réelle des biquads
+  RoomEq) ; bornes greffon appliquées ; > 24 actives → exception
+  actionnable.
+- **Validation croisée** : le .ffp produit par le code C# est relu par le
+  lecteur Python de référence (implémentation indépendante) — types,
+  fréquences, Q, gains et préampli retrouvés exactement, sur un preset
+  couvrant les 6 types ET sur un preset casque 10 bandes de la
+  bibliothèque.
+- **M-APP-04 étendu** : partial `EqViewModel.FabFilter.cs` (commande qui
+  vérifie ≤ 24 bandes actives AVANT d'ouvrir le dialogue, événement, nom
+  suggéré assaini, écriture + statut guidant), bouton « Exporter Pro-Q 3
+  (.ffp) » + aide « ? » dans EqTab, dialogue d'enregistrement
+  StorageProvider dans la vue.
+- **Tests** : +17 Core (FabFilterProQ3Tests dans IoTests.cs) + 4 App
+  (EqViewModelFabFilterTests) → **458/458 verts** (237 + 142 + 79) ;
+  build 0 erreur 0 avertissement.
+- **Docs** : CARTE (M-IO-06, M-APP-04, statut v3.1.0), DECISIONS (D17),
+  README, LISEZMOI, REPRISE (état session 7), spec I-APP-04 (contrat
+  export + tests).
+- **Version 3.1.0** (nouvelle fonctionnalité à contrat stable — les tags
+  restent immuables) ; packaging `scripts/package_v3.sh` → zips
+  RoomEq-3.1.0 ; sauvegarde D7 (commit + GitHub v3-recodage + miroir
+  Drive + bundle).
+
+Stage Summary :
+- Le preset courant (correction de pièce ou correction casque) s'exporte
+  en un fichier .ffp chargeable dans FabFilter Pro-Q 3 : bandes actives +
+  préampli (gain de sortie), format validé par relecture croisée.
+- 43 modules 🔒, 458/458 tests verts ; livrables RoomEq-3.1.0-*.
+- Limite connue et documentée : 24 bandes actives maximum (précision
+  « Ultra » = 30 bandes → message actionnable dans l'UI).

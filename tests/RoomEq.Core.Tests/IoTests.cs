@@ -1,4 +1,5 @@
 using System.Text.Json;
+using RoomEq.Core.Dsp;
 using RoomEq.Core.Eq;
 using RoomEq.Core.Io;
 using Xunit;
@@ -513,5 +514,239 @@ public class StoresTests : IDisposable
         store.Save(new EqPreset("X"));
         store.Delete("X");
         Assert.Empty(store.List());
+    }
+}
+
+// ===========================================================================
+// M-IO-06 — Export FabFilter Pro-Q 3 (spec I-IO-06)
+// ===========================================================================
+public class FabFilterProQ3Tests
+{
+    private const double QScale = 0.312098175;
+
+    // ----- mini-décodeur indépendant (vérifie les octets produits) -----
+
+    private static (string FxID, int Version, int Count, float[] P) Read(byte[] data)
+    {
+        if (data.Length != 12 + 334 * 4)
+            throw new InvalidOperationException($"taille inattendue : {data.Length}");
+        return (System.Text.Encoding.ASCII.GetString(data, 0, 4),
+                BitConverter.ToInt32(data, 4),
+                BitConverter.ToInt32(data, 8),
+                ReadFloats(data, 12, 334));
+    }
+
+    private static float[] ReadFloats(byte[] data, int offset, int count)
+    {
+        var r = new float[count];
+        for (int i = 0; i < count; i++)
+            r[i] = BitConverter.ToSingle(data, offset + 4 * i);
+        return r;
+    }
+
+    /// <summary>Les 13 valeurs de la bande n (0..23).</summary>
+    private static float[] Band(float[] p, int n) => p[(n * 13)..(n * 13 + 13)];
+
+    [Fact]
+    public void Header_Is_ProQ3_With334Params()
+    {
+        var (fxid, version, count, _) = Read(FabFilterProQ3.Encode(new EqPreset("test")));
+
+        Assert.Equal("FQ3p", fxid);
+        Assert.Equal(4, version);
+        Assert.Equal(334, count);
+    }
+
+    [Fact]
+    public void EmptyPreset_MatchesFactoryVirginLayout()
+    {
+        var (_, _, _, p) = Read(FabFilterProQ3.Encode(new EqPreset("vierge") { PreampDb = 0 }));
+
+        // preset vierge d'usine : 1000 Hz, gain 0, Q 1, Bell, pente 12 dB/oct, stéréo
+        float[] virgin = { 0f, 1f, 9.965784f, 0f, 0f, 1f, 1f, 0.5f, 0f, 1f, 2f, 1f, 0f };
+        for (int i = 0; i < FabFilterProQ3.MaxBands; i++)
+            Assert.Equal(virgin, Band(p, i));
+
+        // globaux d'usine (gain de sortie nul)
+        float[] globals = { 0f, 1f, 1f, 0f, 0f, 0f, 0f, 0f, 0f, 1f, 1f, -1f, 1f, 2f, 2f, 3f, 0f, 1f, 1f, 2f, 0f, 0f };
+        Assert.Equal(globals, p[312..]);
+    }
+
+    [Fact]
+    public void ActiveBand_Is_EncodedInProQUnits()
+    {
+        var preset = new EqPreset("une bande") { PreampDb = 0 };
+        preset.Bands.Add(new EqBand(FilterType.Peaking, 1000, 4.5, 10.0));
+
+        var (_, _, _, p) = Read(FabFilterProQ3.Encode(preset));
+        var b = Band(p, 0);
+
+        Assert.Equal(1f, b[0]);                            // activée
+        Assert.Equal(1f, b[1]);                            // non bypassée
+        Assert.Equal((float)Math.Log2(1000), b[2]);        // fréquence : log2(1000)
+        Assert.Equal(4.5f, b[3]);                          // gain : dB directs
+        Assert.Equal(0f, b[4]);                            // EQ statique
+        Assert.Equal(1f, b[5]);
+        Assert.Equal(1f, b[6]);
+        Assert.Equal((float)(Math.Log10(10) * QScale + 0.5), b[7]); // Q 10 → 0,8121…
+        Assert.Equal(0f, b[8]);                            // Bell
+        Assert.Equal(1f, b[9]);                            // pente 12 dB/oct
+        Assert.Equal(2f, b[10]);                           // stéréo
+        Assert.Equal(1f, b[11]);
+        Assert.Equal(0f, b[12]);
+
+        // les 23 emplacements suivants restent vierges
+        Assert.Equal(0f, Band(p, 1)[0]);
+        Assert.Equal(0f, Band(p, 23)[0]);
+    }
+
+    [Theory]
+    [InlineData(FilterType.Peaking, 0f)]
+    [InlineData(FilterType.LowShelf, 1f)]
+    [InlineData(FilterType.HighPass, 2f)]   // LowCut
+    [InlineData(FilterType.HighShelf, 3f)]
+    [InlineData(FilterType.LowPass, 4f)]    // HighCut
+    [InlineData(FilterType.Notch, 5f)]
+    public void FilterTypes_MapToProQCodes(FilterType type, float expected)
+    {
+        var preset = new EqPreset("types");
+        preset.Bands.Add(new EqBand(type, 1000, 0, 1.0));
+
+        var (_, _, _, p) = Read(FabFilterProQ3.Encode(preset));
+        Assert.Equal(expected, Band(p, 0)[8]);
+    }
+
+    [Fact]
+    public void Preamp_Becomes_NormalizedOutputGain()
+    {
+        var preset = new EqPreset("préampli") { PreampDb = -7.2 };
+
+        var (_, _, _, p) = Read(FabFilterProQ3.Encode(preset));
+        Assert.Equal(-7.2 / 36.0, p[312 + 3], 5);   // 4e paramètre global : gain de sortie
+
+        // bornage à ±36 dB (−1..1 normalisé)
+        preset.PreampDb = -90;
+        Assert.Equal(-1f, Read(FabFilterProQ3.Encode(preset)).P[312 + 3]);
+        preset.PreampDb = +45;
+        Assert.Equal(1f, Read(FabFilterProQ3.Encode(preset)).P[312 + 3]);
+    }
+
+    [Fact]
+    public void DisabledBands_Are_Skipped()
+    {
+        var preset = new EqPreset("mixte");
+        preset.Bands.Add(new EqBand(FilterType.Peaking, 100, 5, 1.0, enabled: true));
+        preset.Bands.Add(new EqBand(FilterType.Peaking, 200, -5, 2.0, enabled: false));
+        preset.Bands.Add(new EqBand(FilterType.Notch, 3000, 0, 6.0, enabled: true));
+
+        var (_, _, _, p) = Read(FabFilterProQ3.Encode(preset));
+
+        // deux bandes actives seulement : la bande décochée n'occupe pas d'emplacement
+        Assert.Equal((float)Math.Log2(100), Band(p, 0)[2]);
+        Assert.Equal(5f, Band(p, 0)[3]);
+        Assert.Equal((float)Math.Log2(3000), Band(p, 1)[2]);   // le notch prend la 2e place
+        Assert.Equal(5f, Band(p, 1)[8]);                       // Notch → code 5
+        Assert.Equal(0f, Band(p, 2)[0]);                       // 3e emplacement vierge
+    }
+
+    [Fact]
+    public void MoreThan24ActiveBands_Throws()
+    {
+        var preset = new EqPreset("trop");
+        for (int i = 0; i < 25; i++)
+            preset.Bands.Add(new EqBand(FilterType.Peaking, 100 + i * 100, 1, 1.0));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => FabFilterProQ3.Encode(preset));
+        Assert.Contains("24", ex.Message);
+    }
+
+    [Fact]
+    public void ThirtyBands_WithSixDisabled_StillExport()
+    {
+        var preset = new EqPreset("ultra");
+        for (int i = 0; i < 30; i++)
+            preset.Bands.Add(new EqBand(FilterType.Peaking, 40 * Math.Pow(1.2, i), 1, 2.0,
+                                        enabled: i >= 6));
+
+        byte[] data = FabFilterProQ3.Encode(preset);   // 24 actives exactement : accepté
+        Assert.Equal(1348, data.Length);
+        var (_, _, _, p) = Read(data);
+        int active = Enumerable.Range(0, 24).Count(i => Band(p, i)[0] == 1f);
+        Assert.Equal(24, active);
+    }
+
+    [Fact]
+    public void Values_Are_ClampedToProQRanges()
+    {
+        var preset = new EqPreset("bornes");
+        preset.Bands.Add(new EqBand(FilterType.Peaking, 2, 50, 80));      // tout hors plage
+        preset.Bands.Add(new EqBand(FilterType.Peaking, 50000, -50, 0.001));
+
+        var (_, _, _, p) = Read(FabFilterProQ3.Encode(preset));
+
+        Assert.Equal((float)Math.Log2(10), Band(p, 0)[2]);       // fréquence plancher 10 Hz
+        Assert.Equal(30f, Band(p, 0)[3]);                        // gain plafonné à +30 dB
+        Assert.Equal(1f, Band(p, 0)[7]);                         // Q 80 → 40 → 1 normalisé
+
+        Assert.Equal((float)Math.Log2(30000), Band(p, 1)[2]);    // fréquence plafond 30 kHz
+        Assert.Equal(-30f, Band(p, 1)[3]);                       // gain plancher −30 dB
+        Assert.Equal(0f, Band(p, 1)[7], 6);                      // Q 0,001 → 0,025 → ~0 (résidu ~1e-9)
+    }
+
+    [Fact]
+    public void RoundTrip_DecodesToTheSameBands()
+    {
+        var preset = new EqPreset("aller-retour") { PreampDb = -6.5 };
+        preset.Bands.Add(new EqBand(FilterType.Peaking, 34.1, 12.0, 2.0));
+        preset.Bands.Add(new EqBand(FilterType.LowShelf, 105, 6.5, 0.71));
+        preset.Bands.Add(new EqBand(FilterType.Notch, 1780, 0, 8.0));
+        preset.Bands.Add(new EqBand(FilterType.HighShelf, 8000, -3.25, 0.9));
+
+        var (_, _, _, p) = Read(FabFilterProQ3.Encode(preset));
+
+        for (int i = 0; i < preset.Bands.Count; i++)
+        {
+            var b = Band(p, i);
+            double freq = Math.Pow(2, b[2]);
+            double q = Math.Pow(10, (b[7] - 0.5) / QScale);
+            Assert.Equal(preset.Bands[i].Frequency, freq, 1);       // ≤ 1 Hz (arrondi float32)
+            Assert.Equal(preset.Bands[i].GainDb, b[3], 4);
+            Assert.Equal(preset.Bands[i].Q, q, 3);
+        }
+        Assert.Equal(preset.PreampDb, p[312 + 3] * 36.0, 3);        // gain de sortie ×36 = dB
+    }
+
+    [Fact]
+    public void Write_Creates_TheSameBytes()
+    {
+        var preset = new EqPreset("fichier") { PreampDb = -3 };
+        preset.Bands.Add(new EqBand(FilterType.Peaking, 500, 2, 1.4));
+
+        string path = Path.Combine(Path.GetTempPath(), $"roomeq-test-{Guid.NewGuid():N}.ffp");
+        try
+        {
+            FabFilterProQ3.Write(preset, path);
+            Assert.Equal(FabFilterProQ3.Encode(preset), File.ReadAllBytes(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void HeadphonePreset_ExportsTenBands()
+    {
+        // intégration : chaque correction de la bibliothèque intégrée (10 filtres
+        // AutoEq, Q jusqu'à 20, préampli négatif) doit s'exporter telle quelle.
+        var model = RoomEq.Core.Headphones.HeadphonePresetLibrary.LoadAll()
+            .First(m => m.Id == "sennheiserhd25");
+        var preset = RoomEq.Core.Headphones.HeadphonePresetLibrary.ToEqPreset(model);
+
+        var (_, _, _, p) = Read(FabFilterProQ3.Encode(preset));
+
+        int active = Enumerable.Range(0, 24).Count(i => Band(p, i)[0] == 1f);
+        Assert.Equal(10, active);
+        Assert.True(p[312 + 3] < 0, "le préampli AutoEq (négatif) doit se retrouver en gain de sortie");
     }
 }
