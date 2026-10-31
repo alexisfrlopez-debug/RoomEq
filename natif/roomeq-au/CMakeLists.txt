@@ -9,7 +9,7 @@
 # Usage :
 #   cmake -S natif/roomeq-au -B build && cmake --build build && ./build/roomeq_au_tests
 #   cmake -S natif/roomeq-au -B build-au && cmake --build build-au --target RoomEqAU
-#   (macOS) → build-au/RoomEqAU.component ; voir build-macos.sh pour la suite
+#   (macOS) → build-au/RoomEq.component ; voir build-macos.sh pour la suite
 #   (signature ad hoc, installation, auval).
 
 cmake_minimum_required(VERSION 3.22)

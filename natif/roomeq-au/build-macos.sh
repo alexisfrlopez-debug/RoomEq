@@ -7,7 +7,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 BUILD="$ROOT/build-macos"
-COMPONENT="$BUILD/RoomEqAU.component"
+COMPONENT="$BUILD/RoomEq.component"
 
 echo "── 1/4 Compilation (cœur C++ + tests natifs + greffon AU) ─────────────"
 cmake -S "$ROOT" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release >/dev/null
@@ -25,13 +25,13 @@ auval -v aufx Rmeq Rmeq
 if [ "${1:-}" = "--install" ]; then
     DEST="$HOME/Library/Audio/Plug-Ins/Components"
     mkdir -p "$DEST"
-    rm -rf "$DEST/RoomEqAU.component"
+    rm -rf "$DEST/RoomEq.component"
     cp -R "$COMPONENT" "$DEST/"
     # un .component téléchargé peut porter un attribut de quarantaine qui
     # bloque le chargement dans les DAW : le retirer explicitement
-    xattr -cr "$DEST/RoomEqAU.component" 2>/dev/null || true
+    xattr -cr "$DEST/RoomEq.component" 2>/dev/null || true
     echo ""
-    echo "Installé : $DEST/RoomEqAU.component"
+    echo "Installé : $DEST/RoomEq.component"
     echo "Relancez Ableton Live (ou rescannez les greffons AudioUnit) :"
     echo "  Ableton Live › Préférences › Plug-ins › Utiliser les périphériques Audio Unit"
     echo "  Le greffon apparaît comme « RoomEq: Correction »."

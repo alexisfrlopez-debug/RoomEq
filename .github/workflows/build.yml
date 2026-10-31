@@ -91,7 +91,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   # ─────────────────────────────────────────────────────────────────────
-  # 3. Greffon AudioUnit macOS (RoomEqAU.component — natif/roomeq-au,
+  # 3. Greffon AudioUnit macOS (RoomEq.component — natif/roomeq-au,
   #    spec I-AUD-07 / N-AU-01) : tests natifs (parité RoomEq.Core),
   #    compilation, signature ad hoc, validation auval, artefact release.
   # ─────────────────────────────────────────────────────────────────────
@@ -113,22 +113,22 @@ jobs:
 
       - name: Signature ad hoc
         run: |
-          codesign --force --sign - build-core/RoomEqAU.component
-          codesign --verify --verbose=2 build-core/RoomEqAU.component
+          codesign --force --sign - build-core/RoomEq.component
+          codesign --verify --verbose=2 build-core/RoomEq.component
 
       - name: Validation auval (outil officiel d'Apple)
         run: |
           mkdir -p ~/Library/Audio/Plug-Ins/Components
-          rm -rf ~/Library/Audio/Plug-Ins/Components/RoomEqAU.component
-          cp -R build-core/RoomEqAU.component ~/Library/Audio/Plug-Ins/Components/
-          xattr -cr ~/Library/Audio/Plug-Ins/Components/RoomEqAU.component || true
+          rm -rf ~/Library/Audio/Plug-Ins/Components/RoomEq.component
+          cp -R build-core/RoomEq.component ~/Library/Audio/Plug-Ins/Components/
+          xattr -cr ~/Library/Audio/Plug-Ins/Components/RoomEq.component || true
           auval -v aufx Rmeq Rmeq
 
       - name: Empaqueter l'artefact
         run: |
           mkdir -p artifacts
           VERSION=$(sed -n 's/^project(RoomEqAU VERSION \([0-9.]*\)).*/\1/p' natif/roomeq-au/CMakeLists.txt)
-          ditto -c -k --keepParent build-core/RoomEqAU.component \
+          ditto -c -k --keepParent build-core/RoomEq.component \
             "artifacts/RoomEq-AU-${VERSION}-macos.zip"
           cp natif/roomeq-au/README.md artifacts/RoomEq-AU-LISEZMOI.md
           ls -la artifacts/

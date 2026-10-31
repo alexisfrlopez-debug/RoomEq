@@ -9,7 +9,7 @@ l'application.
 Application RoomEq (mesure, réglage, export)
         │  preset .json (format de l'application) ou .ffp (FabFilter Pro-Q 3)
         ▼
-RoomEqAU.component — RoomEq: Correction (aufx / Rmeq / Rmeq)
+RoomEq.component — RoomEq: Correction (aufx / Rmeq / Rmeq)
    • mêmes biquads RBJ que l'application (parité bit à bit, tests natifs)
    • paramètre « Préampli » automatisable, bypass standard du DAW
    • vue : charger un preset (bouton ou glisser-déposer) + courbe de réponse
@@ -24,12 +24,12 @@ bash natif/roomeq-au/build-macos.sh            # compile, teste, signe, valide (
 bash natif/roomeq-au/build-macos.sh --install  # + installe pour l'utilisateur
 ```
 
-Le bundle produit est `build-macos/RoomEqAU.component`. Sans `--install`,
+Le bundle produit est `build-macos/RoomEq.component`. Sans `--install`,
 copiez-le dans `~/Library/Audio/Plug-Ins/Components/` puis retirez
 l'éventuel attribut de quarantaine :
 
 ```bash
-xattr -cr ~/Library/Audio/Plug-Ins/Components/RoomEqAU.component
+xattr -cr ~/Library/Audio/Plug-Ins/Components/RoomEq.component
 ```
 
 > La signature est **ad hoc** (aucun compte développeur nécessaire pour un
