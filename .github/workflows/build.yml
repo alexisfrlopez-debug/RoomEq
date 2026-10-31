@@ -122,6 +122,13 @@ jobs:
           rm -rf ~/Library/Audio/Plug-Ins/Components/RoomEq.component
           cp -R build-core/RoomEq.component ~/Library/Audio/Plug-Ins/Components/
           xattr -cr ~/Library/Audio/Plug-Ins/Components/RoomEq.component || true
+          # diagnostic : structure du bundle et plist (en cas d'échec auval)
+          ls -la ~/Library/Audio/Plug-Ins/Components/RoomEq.component/Contents/
+          plutil -lint ~/Library/Audio/Plug-Ins/Components/RoomEq.component/Contents/Info.plist
+          # forcer le re-scan immédiat de la base des composants (le registrar
+          # tourne en tâche de fond avec un délai) avant de valider
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 3
           auval -v aufx Rmeq Rmeq
 
       - name: Empaqueter l'artefact

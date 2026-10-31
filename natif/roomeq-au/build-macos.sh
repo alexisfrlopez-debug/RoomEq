@@ -20,6 +20,8 @@ echo "── 3/4 Signature ad hoc (chargeable localement) ───────�
 codesign --force --sign - "$COMPONENT"
 
 echo "── 4/4 Validation auval (outil officiel d'Apple) ─────────────────────"
+killall -9 AudioComponentRegistrar 2>/dev/null || true
+sleep 3
 auval -v aufx Rmeq Rmeq
 
 if [ "${1:-}" = "--install" ]; then
