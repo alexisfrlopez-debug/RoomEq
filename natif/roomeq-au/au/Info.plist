@@ -2,44 +2,44 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>fr</string>
-	<key>CFBundleExecutable</key>
-	<string>RoomEq</string>
-	<key>CFBundleIdentifier</key>
-	<string>fr.roomeq.RoomEqAU</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>RoomEq</string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>3.2.0</string>
-	<key>CFBundleVersion</key>
-	<string>30200</string>
-	<key>NSPrincipalClass</key>
-	<string></string>
-	<key>AudioComponents</key>
-	<array>
-		<dict>
-			<key>name</key>
-			<string>RoomEq: Correction</string>
-			<key>description</key>
-			<string>Correction acoustique RoomEq — charge un preset de l'application (.json) ou un preset FabFilter Pro-Q 3 (.ffp)</string>
-			<key>manufacturer</key>
-			<string>Rmeq</string>
-			<key>type</key>
-			<string>aufx</string>
-			<key>subtype</key>
-			<string>Rmeq</string>
-			<key>factoryFunction</key>
-			<string>RoomEqAuFactory</string>
-			<key>sandboxSafe</key>
-			<true/>
-			<key>version</key>
-			<integer>30200</integer>
-		</dict>
-	</array>
+        <key>CFBundleDevelopmentRegion</key>
+        <string>fr</string>
+        <key>CFBundleExecutable</key>
+        <string>RoomEq</string>
+        <key>CFBundleIdentifier</key>
+        <string>fr.roomeq.RoomEqAU</string>
+        <key>CFBundleInfoDictionaryVersion</key>
+        <string>6.0</string>
+        <key>CFBundleName</key>
+        <string>RoomEq</string>
+        <key>CFBundlePackageType</key>
+        <string>BNDL</string>
+        <key>CFBundleShortVersionString</key>
+        <string>3.2.1</string>
+        <key>CFBundleVersion</key>
+        <string>30201</string>
+        <key>NSPrincipalClass</key>
+        <string></string>
+        <key>AudioComponents</key>
+        <array>
+                <dict>
+                        <key>name</key>
+                        <string>RoomEq: Correction</string>
+                        <key>description</key>
+                        <string>Correction acoustique RoomEq — charge un preset de l'application (.json) ou un preset FabFilter Pro-Q 3 (.ffp)</string>
+                        <key>manufacturer</key>
+                        <string>Rmeq</string>
+                        <key>type</key>
+                        <string>aufx</string>
+                        <key>subtype</key>
+                        <string>Rmeq</string>
+                        <key>factoryFunction</key>
+                        <string>RoomEqAuFactory</string>
+                        <key>sandboxSafe</key>
+                        <true/>
+                        <key>version</key>
+                        <integer>30201</integer>
+                </dict>
+        </array>
 </dict>
 </plist>

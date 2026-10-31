@@ -599,8 +599,16 @@ Ableton ».
   (build/install/limites), CARTE (M-AUD-07 + statut), DECISIONS (D18, D19),
   natif/REFERENCE-NATIF.md (N-AU-01, exception « code source vivant »).
 
-**Version 3.2.0** ; packaging `scripts/package_v3.sh` → zips
-RoomEq-3.2.0 ; sauvegarde D7 (commit + GitHub v3-recodage + miroir Drive).
+**Correctif 3.2.1** (même session) : la CI macOS du tag 3.2.0 échoue sur
+le cœur C++ — libc++ (macOS) n'expose pas `std::max` sans `<algorithm>`
+(libstdc++/Linux l'exposait transitivement) → inclusions explicites
+(`biquad.h`, `test_main.cpp`, `RoomEqAu.cpp` — `std::clamp`, vue `.mm`),
+greffon passé en build **universel arm64 + x86_64** (distribution), bump
+3.2.1 (props/package/CMake/plist + docs) ; tags immuables : 3.2.0 conservé
+comme étape à CI rouge (même traitement que v3.0.0/v3.0.1).
+
+**Version 3.2.1** ; packaging `scripts/package_v3.sh` → zips
+RoomEq-3.2.1 ; sauvegarde D7 (commit + GitHub v3-recodage + miroir Drive).
 
 Stage Summary :
 - Un périphérique routé en entrée ne peut plus être la sortie master (et
@@ -610,7 +618,8 @@ Stage Summary :
 - RoomEq entre dans Ableton Live : greffon AU « RoomEq: Correction »
   (.component) chargeant les presets de l'application (.json/.ffp), parité
   bit à bit avec l'application, livré par la CI macOS (auval vert requis).
-- 44 modules 🔒, 461/461 tests verts + 118 vérifications natives.
+- 44 modules 🔒, 461/461 tests verts + 118 vérifications natives ;
+  3.2.1 = correctif CI macOS (includes libc++) + bundle universel.
 - Limites v1 du greffon documentées : lecture seule (préampli/bypass
   pilotables uniquement), coupes Pro-Q 3 raides importées en 12 dB/oct,
   mono/stéréo.

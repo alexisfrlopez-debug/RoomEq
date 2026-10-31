@@ -11,6 +11,7 @@
 
 #include "RoomEqAu.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <vector>

@@ -1,4 +1,4 @@
-RoomEq 3.2.0 — recodage TRIADE + export Pro-Q 3 + greffon Ableton (.component)
+RoomEq 3.2.1 — recodage TRIADE + export Pro-Q 3 + greffon Ableton (.component)
 ===========================================================================
 
 CE QU'EST CETTE VERSION
@@ -29,7 +29,8 @@ CE QU'EST CETTE VERSION
     (bouton ou glisser-déposer), courbe affichée, préampli automatisable,
     bypass standard, état sauvegardé avec le projet (D19, natif/roomeq-au/,
     parité bit à bit avec l'application, validé par auval ; livré dans les
-    releases GitHub : RoomEq-AU-<version>-macos.zip).
+    releases GitHub : RoomEq-AU-<version>-macos.zip, bundle universel
+    arm64 + x86_64 ; 3.2.1 corrige la compilation macOS du greffon).
   • PARITÉ FONCTIONNELLE 2.2.2 ÉTABLIE point par point (docs/PARITE-v2.2.2.md) :
     égaliseur paramétrique, analyseur RTA, calibration multi-signaux, profils
     micro (36), corrections casques (321 modèles AutoEq), preset automatique

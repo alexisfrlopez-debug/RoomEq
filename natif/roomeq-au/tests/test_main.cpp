@@ -7,6 +7,7 @@
 #include "roomeq/json/mini_json.h"
 #include "roomeq/preset/preset_io.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>

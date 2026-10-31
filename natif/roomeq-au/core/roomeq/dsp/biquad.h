@@ -5,6 +5,7 @@
 
 #include "roomeq/dsp/filter_type.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace roomeq::dsp {

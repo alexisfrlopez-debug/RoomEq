@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-project(RoomEqAU VERSION 3.2.0 LANGUAGES C CXX)
+project(RoomEqAU VERSION 3.2.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -58,6 +58,12 @@ add_test(NAME roomeq_au_core_tests COMMAND roomeq_au_tests)
 
 if(APPLE)
     enable_language(OBJCXX)
+
+    # greffon universel (Apple Silicon + Intel) : distribuable sur tous les
+    # Mac ; sans effet sur les tests natifs (exécutés sur l'arch du runner)
+    if(NOT DEFINED CMAKE_OSX_ARCHITECTURES)
+        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+    endif()
 
     # SDK AudioUnit d'Apple (Apache-2.0), vendangé — version 1.4.0.
     add_library(ausdk STATIC

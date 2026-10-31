@@ -11,6 +11,7 @@
 #include <AudioUnitSDK/AUPlugInDispatch.h> // AUBaseFactory (entrée usine)
 #include <CoreFoundation/CoreFoundation.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <string>

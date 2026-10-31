@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.2.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19) |
+| **Projet** | RoomEq **v3.2.1** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19 ; 3.2.1 = correctif CI) |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/roomeq` — branche `main` (recodage), miroirs Drive + GitHub `v3-recodage` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
@@ -16,7 +16,7 @@
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 8 — v3.2.0 : anti-boucle routage + greffon AU)
+## 1. État (fin session 8 — v3.2.1 : anti-boucle routage + greffon AU)
 
 **Session 8 (2026-11-01)** : deux demandes développeur → décisions **D18**
 et **D19** :
@@ -39,8 +39,11 @@ et **D19** :
   session ; CI macOS `plugin-au` (build + signature ad hoc + **auval**) →
   `RoomEq-AU-<version>-macos.zip` dans les releases.
 
-Version **3.2.0**, 44 modules 🔒, **461/461 tests** (237 Core + 145 Audio +
-79 App) + 118 vérifications natives.
+Version **3.2.1** (3.2.0 = premier jet, CI macOS rouge sur les includes
+libc++ — `std::max` sans `<algorithm>` ; correctif conforme au protocole
+« patchs à contrat stable », tag 3.2.0 conservé immuable), 44 modules 🔒,
+**461/461 tests** (237 Core + 145 Audio + 79 App) + 118 vérifications
+natives ; greffon compilé universel (arm64 + x86_64).
 
 **Session 7 (2026-11-01)** : demande développeur « exporter un preset
 d'égalisation en .ffp pour FabFilter Pro-Q 3 » → décision **D17** : nouveau

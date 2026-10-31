@@ -20,7 +20,8 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   44 modules 🔒, 461 tests verts (CI 3 OS) + 118 vérifications natives,
   parité v2.2.2 établie point par
   point (`docs/PARITE-v2.2.2.md`) ; les écarts terrain éventuels seront
-  traités en patchs à contrat stable
+  traités en patchs à contrat stable ; **v3.2.1** : correctif CI du greffon
+  (inclusions libc++ macOS) + bundle universel arm64/x86_64
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D19) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
