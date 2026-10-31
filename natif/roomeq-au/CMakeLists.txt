@@ -64,6 +64,12 @@ if(APPLE)
     if(NOT DEFINED CMAKE_OSX_ARCHITECTURES)
         set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
     endif()
+    # cible de déploiement : macOS 11 (UTType/UniformTypeIdentifiers, 2020) —
+    # sans cela, CMake reprend celle du SDK du runner et le bundle serait
+    # inutilisable sur les Mac plus anciens
+    if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+    endif()
 
     # SDK AudioUnit d'Apple (Apache-2.0), vendangé — version 1.4.0.
     add_library(ausdk STATIC
@@ -106,7 +112,8 @@ if(APPLE)
         "-framework AudioUnit"
         "-framework AudioToolbox"
         "-framework CoreFoundation"
-        "-framework CoreAudio")
+        "-framework CoreAudio"
+        "-framework UniformTypeIdentifiers")
     target_compile_options(RoomEqAU PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wno-unused-parameter>)
     target_compile_definitions(RoomEqAU PRIVATE

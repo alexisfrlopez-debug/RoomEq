@@ -224,7 +224,12 @@ static void ParameterChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
             [types addObject:ffp];
         panel.allowedContentTypes = types;
     } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        // cible de déploiement 11.0 : branche jamais prise, conservée pour la
+        // compilation avec un SDK plus ancien
         panel.allowedFileTypes = @[ @"json", @"ffp" ];
+#pragma clang diagnostic pop
     }
 
     // répertoire par défaut : presets de l'application RoomEq (.NET)

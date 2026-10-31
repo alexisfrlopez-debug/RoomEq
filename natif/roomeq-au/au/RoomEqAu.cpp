@@ -39,7 +39,7 @@ public:
     void Reset() override { chain_.Reset(); }
 
     void Process(const Float32* inSourceP, Float32* inDestP, UInt32 inFramesToProcess,
-        bool& ioSilence) override
+        bool& ioSilence) noexcept override
     {
         // reconfiguration paresseuse : le chargement d'un preset publie un
         // nouveau shared_ptr + version ; la reconstruction se fait ici, au
