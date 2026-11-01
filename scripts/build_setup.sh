@@ -46,7 +46,9 @@ rm "$PUBLISH/RoomEq.App.exe"
 
 echo "── Outil vpk (Velopack $VPK_VERSION, épinglé)…"
 # vpk 1.x n'a pas d'option --version : la bannière de --help la porte.
-INSTALLED=$(vpk --help 2>&1 | grep -oE 'Velopack CLI [0-9.]+' | head -1 | grep -oE '[0-9.]+$')
+# « || true » obligatoire : vpk absent → « command not found » → sans lui,
+# set -euo pipefail tuerait le script ici (au lieu d'installer l'outil).
+INSTALLED=$(vpk --help 2>&1 | grep -oE 'Velopack CLI [0-9.]+' | head -1 | grep -oE '[0-9.]+$' || true)
 if [[ "$INSTALLED" != "$VPK_VERSION" ]]; then
     dotnet tool install -g vpk --version "$VPK_VERSION" 2>/dev/null \
         || dotnet tool update -g vpk --version "$VPK_VERSION"
