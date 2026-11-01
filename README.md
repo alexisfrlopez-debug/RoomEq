@@ -21,9 +21,12 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   parité v2.2.2 établie point par
   point (`docs/PARITE-v2.2.2.md`) ; les écarts terrain éventuels seront
   traités en patchs à contrat stable ; **v3.2.1** : correctif CI du greffon
-  (inclusions libc++ macOS) + bundle universel arm64/x86_64
+  (inclusions libc++ macOS) + bundle universel arm64/x86_64 ; **v3.3.0** :
+  **installation en 1 clic** (D20 — `RoomEq-win-Setup.exe` Windows via
+  Velopack cross-compilé, `.pkg` macOS pour le greffon ; aucune dépendance
+  ajoutée à l'application)
 - **Reprise** : lire `REPRISE.md` en premier
-- **Décisions** : `docs/DECISIONS.md` (D1-D19) · **Carte** : `CARTE.md`
+- **Décisions** : `docs/DECISIONS.md` (D1-D20) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
 - **Greffon AudioUnit** (Ableton Live, macOS) : `natif/roomeq-au/README.md`
 
@@ -37,7 +40,8 @@ docs/       décisions, plan de recodage, audit de parité v2.2.2
 natif/      référence des composants natifs scellés v2.2.2
 perf/       harnais de mesure des marges temps réel (D15 — bash perf/run.sh)
 scripts/    outillage (sync_backup.sh : tests + commit + GitHub + Drive ;
-            package_v3.sh : livrables zips test/public/source)
+            package_v3.sh : livrables zips test/public/source ;
+            build_setup.sh : installateur Windows 1 clic — D20)
 ```
 
 ## Vérification

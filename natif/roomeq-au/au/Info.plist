@@ -15,9 +15,9 @@
         <key>CFBundlePackageType</key>
         <string>BNDL</string>
         <key>CFBundleShortVersionString</key>
-        <string>3.2.1</string>
+        <string>3.3.0</string>
         <key>CFBundleVersion</key>
-        <string>30201</string>
+        <string>30300</string>
         <key>NSPrincipalClass</key>
         <string></string>
         <key>AudioComponents</key>
@@ -38,7 +38,7 @@
                         <key>sandboxSafe</key>
                         <true/>
                         <key>version</key>
-                        <integer>30201</integer>
+                        <integer>30300</integer>
                 </dict>
         </array>
 </dict>

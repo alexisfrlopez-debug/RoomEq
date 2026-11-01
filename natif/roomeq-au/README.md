@@ -15,6 +15,16 @@ RoomEq.component — RoomEq: Correction (aufx / Rmeq / Rmeq)
    • vue : charger un preset (bouton ou glisser-déposer) + courbe de réponse
 ```
 
+## Installer (1 clic — D20)
+
+Les **releases GitHub** fournissent `RoomEq-AU-<version>-macos.pkg` :
+double-clic → `RoomEq.component` est installé dans
+`/Library/Audio/Plug-Ins/Components` (tous les utilisateurs ; le
+postinstall retire l'éventuelle quarantaine et force le re-scan de la base
+des composants — Ableton voit le greffon immédiatement). Aucune ligne de
+commande. Alternative sans .pkg : le zip `RoomEq-AU-<version>-macos.zip`
+(voir « Construire » ci-dessous pour la copie manuelle).
+
 ## Construire (macOS)
 
 Prérequis : Xcode (outils de ligne de commande) et CMake ≥ 3.22.

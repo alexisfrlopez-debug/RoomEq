@@ -2,16 +2,17 @@
 
 > Couche C du protocole TRIADE pour ce dépôt. Index de navigation à adresses
 > stables. **Règle : toute modification de `src/` doit mettre à jour la ligne
-> correspondante de la Carte.** Dernière mise à jour : `v3.2.0` (D18 —
-> anti-boucle au routage, M-AUD-03 v2 ; D19 — greffon AudioUnit, M-AUD-07).
+> correspondante de la Carte.** Dernière mise à jour : `v3.3.0` (D20 —
+> installation « 1 clic » : Setup.exe Windows Velopack + .pkg greffon macOS ;
+> empaquetage pur, aucun module de `src/` modifié).
 
 | En-tête | Valeur |
 |---|---|
-| projet | RoomEq v3.2.1 — égaliseur acoustique temps réel |
+| projet | RoomEq v3.3.0 — égaliseur acoustique temps réel |
 | profil de cible | x86-64-pc-windows-msvc (.NET 8 + Avalonia 11) + macOS (greffon scellé + greffon AudioUnit `natif/roomeq-au/`) |
 | base de référence | v2.2.2 (GitHub alexisfrlopez-debug/RoomEq @ `deff25c`, tag v2.2.2) |
 | empreinte legacy | clone git `roomeq-git-ref` (code, CI verte) + miroir Drive `roomeq-legacy` (docs, 284 fichiers) |
-| statut | 🔒 v3.2.1 (correctif CI : includes libc++ macOS + greffon universel arm64/x86_64 ; D18 : anti-boucle au moment du routage — M-AUD-03 spec v2 ; D19 : greffon AudioUnit « RoomEq Correction » `.component` — module natif M-AUD-07, CI macOS + auval ; 461 tests verts + 118 tests natifs) sur la suite cristallisée v3.0.2 (D14 ; v3.0.0/v3.0.1 = étapes intermédiaires à CI rouge, conservées sans déplacement de tag) — 44 modules 🔒, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
+| statut | 🔒 v3.3.0 (D20 : installation « 1 clic » — `RoomEq-win-Setup.exe` Windows [Velopack, `scripts/build_setup.sh`] + `RoomEq-AU-<v>-macos.pkg` macOS, sans dépendance ajoutée à l'application ; D18 : anti-boucle au moment du routage — M-AUD-03 spec v2 ; D19 : greffon AudioUnit « RoomEq Correction » `.component` — module natif M-AUD-07, CI macOS + auval ; 461 tests verts + 118 tests natifs) sur la suite cristallisée v3.0.2 (D14 ; v3.0.0/v3.0.1 = étapes intermédiaires à CI rouge, conservées sans déplacement de tag) — 44 modules 🔒, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
 
 ## Modules — couche I (intention) / B (code)
 

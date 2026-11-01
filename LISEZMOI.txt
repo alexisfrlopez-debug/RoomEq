@@ -1,4 +1,4 @@
-RoomEq 3.2.1 — recodage TRIADE + export Pro-Q 3 + greffon Ableton (.component)
+RoomEq 3.3.0 — recodage TRIADE + export Pro-Q 3 + greffon Ableton + installation 1 clic
 ===========================================================================
 
 CE QU'EST CETTE VERSION
@@ -31,6 +31,15 @@ CE QU'EST CETTE VERSION
     parité bit à bit avec l'application, validé par auval ; livré dans les
     releases GitHub : RoomEq-AU-<version>-macos.zip, bundle universel
     arm64 + x86_64 ; 3.2.1 corrige la compilation macOS du greffon).
+  • NOUVEAU 3.3.0 — INSTALLATION EN 1 CLIC (D20) : Windows →
+    RoomEq-win-Setup.exe : double-clic, c'est tout — installation
+    utilisateur SANS droits administrateur (%LOCALAPPDATA%\RoomEq),
+    raccourcis Bureau + Menu démarrer, désinstalleur « Paramètres →
+    Applications » ; macOS → RoomEq-AU-<version>-macos.pkg : le greffon
+    Ableton s'installe pareil (double-clic → /Library/Audio/Plug-Ins/
+    Components, base des composants re-scannée). Produits par la CI à
+    chaque release ; aucune dépendance ajoutée à l'application. Les zips
+    portables restent l'alternative sans installation.
   • PARITÉ FONCTIONNELLE 2.2.2 ÉTABLIE point par point (docs/PARITE-v2.2.2.md) :
     égaliseur paramétrique, analyseur RTA, calibration multi-signaux, profils
     micro (36), corrections casques (321 modèles AutoEq), preset automatique
@@ -47,19 +56,33 @@ CE QU'EST CETTE VERSION
 
 INSTALLATION
 ------------
-    1) PILOTE (inchangé, scellé 2.2.2) : RoomEqDriverSetup-2.2.2.exe — la carte
+    1) APPLICATION WINDOWS EN 1 CLIC : RoomEq-win-Setup.exe — double-clic,
+       c'est tout. Installation utilisateur SANS droits administrateur
+       (%LOCALAPPDATA%\RoomEq, dossier inscriptible), raccourcis Bureau +
+       Menu démarrer, désinstalleur « Paramètres → Applications ».
+       Contenu : version publique silencieuse (RoomEq.exe) ; les exécutables
+       et le pilote ne sont PAS téléchargés depuis l'application.
+       Alternative sans installation : zip portable public/test (voir 3).
+    2) PILOTE (inchangé, scellé 2.2.2) : RoomEqDriverSetup-2.2.2.exe — la carte
        son virtuelle « RoomEq Virtual Audio » + le pilote ASIO en un fichier.
        Double-clic -> UAC -> fenêtre graphique (état, journal, boutons
        Installer / Diagnostic complet / Revenir au mode normal / Désinstaller).
        Le mode test est PROPOSÉ en boîte de dialogue (jamais activé en silence,
        défaut : NON). Options console : --status / --uninstall / --mode-normal
        / --accept-testmode / --no-testmode.
-    2) APPLICATION v3 : RoomEq.exe (public, silencieux — aucune journalisation,
-       aucun envoi) ou RoomEq-test.exe (journalisation complète + télémétrie
-       Drive du développement, pilotée par telemetrie.json placé à côté).
-       Au lancement de la version test, une boîte de dialogue propose la
-       version publique. ROOMEQ_TEST=1 force le mode test (développement).
-       Sans pilote, l'onglet Mixage fonctionne en boucle WASAPI.
+    3) APPLICATION SANS INSTALLATION (portable) : RoomEq.exe (public,
+       silencieux — aucune journalisation, aucun envoi) ou RoomEq-test.exe
+       (journalisation complète + télémétrie Drive du développement, pilotée
+       par telemetrie.json placé à côté). Au lancement de la version test,
+       une boîte de dialogue propose la version publique. ROOMEQ_TEST=1
+       force le mode test (développement). Sans pilote, l'onglet Mixage
+       fonctionne en boucle WASAPI.
+    4) GREFFON ABLETON (macOS) EN 1 CLIC : RoomEq-AU-<version>-macos.pkg —
+       double-clic → RoomEq.component installé dans
+       /Library/Audio/Plug-Ins/Components (tous les utilisateurs), attribut
+       de quarantaine retiré et base des composants re-scannée
+       automatiquement au postinstall. Alternative manuelle : zip
+       RoomEq-AU-<version>-macos.zip (natif/roomeq-au/README.md).
     Les réglages et mesures (%APPDATA%\RoomEq : presets, profils micro,
     mixer.json, devicepresets.json, signaux) sont PARTAGÉS avec la 2.2.2 —
     une mesure existante et les presets liés aux sorties sont conservés.
@@ -72,6 +95,8 @@ COMPILER DEPUIS LES SOURCES
                       --self-contained true
     Packaging complet (zips test/public/source + contrôles) :
                   bash scripts/package_v3.sh
+    Installateur 1 clic Windows (RoomEq-win-Setup.exe, Velopack) :
+                  bash scripts/build_setup.sh
 
 SIGNALEMENT DE PROBLÈMES
 ------------------------

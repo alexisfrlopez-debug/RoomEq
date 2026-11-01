@@ -623,3 +623,49 @@ Stage Summary :
 - Limites v1 du greffon documentées : lecture seule (préampli/bypass
   pilotables uniquement), coupes Pro-Q 3 raides importées en 12 dB/oct,
   mono/stéréo.
+
+## Session 9 — 1er novembre 2026 : installation « 1 clic » (D20, v3.3.0)
+
+**Demande développeur** : « peux-tu faire une installation en 1 clic plutôt
+qu'en ligne de commande ? »
+
+**D20 — installation « 1 clic » (empaquetage pur, zéro code applicatif)** :
+- Constat : l'app Windows se distribuait en zip à extraire (pas de
+  raccourcis ni désinstalleur) et le greffon AU macOS s'installait par
+  copie manuelle + `xattr` (ligne de commande documentée).
+- **Windows — `RoomEq-win-Setup.exe`** : Velopack (`vpk` 1.2.161 épinglée),
+  **cross-compilé Linux → win-x64** (directive `vpk "[win]" pack` — aucune
+  machine Windows requise) par le nouveau `scripts/build_setup.sh` :
+  republie win-x64 auto-contenu, renommages AppFlavor, exclusion
+  RoomEq-test.exe/telemetrie.json (variante publique), contrôles (version
+  lue dans `src/Directory.Build.props`, en-tête PE `MZ`, tailles minimales).
+  Double-clic → installation utilisateur **sans admin**
+  (`%LOCALAPPDATA%\RoomEq`, inscriptible — logs\ OK), raccourcis Bureau +
+  Menu démarrer, désinstalleur « Paramètres → Applications ».
+- **macOS — `RoomEq-AU-<v>-macos.pkg`** : étape `pkgbuild` ajoutée au job
+  CI `plugin-au` (après codesign + auval) : `RoomEq.component` installé
+  dans `/Library/Audio/Plug-Ins/Components`, postinstall `xattr -cr` +
+  `killall AudioComponentRegistrar` (re-scan immédiat — recette auval D19).
+- **CI** : nouveau job `setup` (ubuntu, `needs: [tests]`) qui joint le
+  Setup.exe aux releases (même garde « une seule draft par tag » que
+  plugin-au) ; notes de release réécrites ; en-tête CI rafraîchi.
+- **`--skipVeloAppCheck`** : le hook `VelopackApp.Build().Run()` n'est PAS
+  ajouté à l'application (zéro dépendance tierce, philosophie du dépôt) ;
+  les mises à jour automatiques restent une décision future — le nupkg
+  (`RoomEq-<v>-full.nupkg`) est néanmoins produit et conservé en artefact
+  CI.
+- Alternatives rejetées (détail dans `docs/DECISIONS.md` D20) : MSI WiX,
+  MSIX/Store, Inno Setup, hook VelopackApp. **Distinct de la vague 8**
+  (D11 : recodage de l'installateur natif du pilote — non lancé).
+- Docs : LISEZMOI (section INSTALLATION réécrite : Setup.exe → pilote →
+  portable → .pkg), README, CARTE (statut v3.3.0, aucun module touché),
+  REPRISE (session 9), natif/roomeq-au/README (section « Installer (1
+  clic) »), DECISIONS (D20).
+- Versions 3.3.0 partout (`src/Directory.Build.props`,
+  `scripts/package_v3.sh`, CMakeLists du greffon, plist 30300).
+
+**Vérification** : build 0 erreur / 0 avertissement ; 461/461 tests verts
+(aucun code applicatif modifié) ; Setup.exe local : PE32+ GUI x86-64,
+222 fichiers embarqués, raccourcis Desktop + StartMenu confirmés dans le
+journal vpk ; CI poussée avec le tag `v3.3.0` (5 jobs attendus verts dont
+`setup`, release avec zips + Setup.exe + AU zip + AU .pkg).

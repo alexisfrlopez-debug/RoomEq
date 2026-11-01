@@ -3,9 +3,12 @@ name: Build RoomEq v3
 # CI du recodage TRIADE (adaptée de la CI v2.2.2 — décision D10) :
 #   • tests xUnit sur les 3 OS (le code applicatif v3 est multiplateforme) ;
 #   • packaging applicatif (publication win-x64 auto-contenue + zips) ;
-#   • SANS jobs natifs : pilote WDM, DLL ASIO, greffon macOS et installateurs
-#     sont scellés v2.2.2 (décision D1, natif/REFERENCE-NATIF.md) et ne sont
-#     pas recompilés ici — le pilote s'installe via RoomEqDriverSetup-2.2.2.exe.
+#   • installateur Windows « 1 clic » RoomEq-win-Setup.exe (D20 — Velopack
+#     cross-compilé Linux → win-x64, aucune dépendance applicative) ;
+#   • greffon AudioUnit macOS (D19) + son installateur .pkg « 1 clic » (D20) ;
+#   • le pilote WDM et la DLL ASIO restent scellés v2.2.2 (décision D1,
+#     natif/REFERENCE-NATIF.md) : ils s'installent via
+#     RoomEqDriverSetup-2.2.2.exe, non recompilés ici.
 
 on:
   push:
@@ -84,7 +87,7 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           gh release create "$TAG" --draft --title "RoomEq $TAG" \
-            --notes "Recodage TRIADE v3 (parité v2.2.2 — docs/PARITE-v2.2.2.md). Application portable : lancez RoomEq.exe (public) ou RoomEq-test.exe (test). Le pilote et l'ASIO (scellés v2.2.2) s'installent via RoomEqDriverSetup-2.2.2.exe." \
+            --notes "Recodage TRIADE v3 (parité v2.2.2 — docs/PARITE-v2.2.2.md). Windows : RoomEq-win-Setup.exe = installation en 1 clic (raccourcis, désinstalleur, sans admin) ; alternative portable : lancez RoomEq.exe (public) ou RoomEq-test.exe (test). Le pilote et l'ASIO (scellés v2.2.2) s'installent via RoomEqDriverSetup-2.2.2.exe. macOS : RoomEq-AU-*-macos.pkg = greffon Ableton en 1 clic." \
             artifacts/RoomEq-*.zip || \
           gh release upload "$TAG" artifacts/RoomEq-*.zip --clobber
         env:
@@ -140,6 +143,27 @@ jobs:
           cp natif/roomeq-au/README.md artifacts/RoomEq-AU-LISEZMOI.md
           ls -la artifacts/
 
+      - name: Installateur .pkg « 1 clic » (D20)
+        run: |
+          VERSION=$(sed -n 's/^project(RoomEqAU VERSION \([0-9.]*\).*/\1/p' natif/roomeq-au/CMakeLists.txt)
+          PKGROOT="$(mktemp -d)"
+          mkdir -p "$PKGROOT/Library/Audio/Plug-Ins/Components"
+          cp -R build-core/RoomEq.component "$PKGROOT/Library/Audio/Plug-Ins/Components/"
+          # postinstall : retirer la quarantaine éventuelle et forcer le
+          # re-scan immédiat de la base des composants (recette auval, D19)
+          mkdir -p pkg-scripts
+          printf '%s\n' '#!/bin/bash' \
+            'xattr -cr "/Library/Audio/Plug-Ins/Components/RoomEq.component" 2>/dev/null || true' \
+            'killall AudioComponentRegistrar 2>/dev/null || true' \
+            'exit 0' > pkg-scripts/postinstall
+          chmod +x pkg-scripts/postinstall
+          pkgbuild --root "$PKGROOT" \
+            --identifier fr.roomeq.RoomEqAU.pkg \
+            --version "$VERSION" \
+            --scripts pkg-scripts \
+            "artifacts/RoomEq-AU-${VERSION}-macos.pkg"
+          ls -la artifacts/
+
       - uses: actions/upload-artifact@v4
         with:
           name: roomeq-au-component-${{ github.sha }}
@@ -163,6 +187,58 @@ jobs:
             gh release create "$TAG" --draft --title "RoomEq $TAG" \
               --notes "Recodage TRIADE v3 (parité v2.2.2 — docs/PARITE-v2.2.2.md)." \
               artifacts/RoomEq-AU-*
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 4. Installateur Windows « 1 clic » (D20 — Velopack, cross-compilé
+  #    Linux → win-x64) : RoomEq-win-Setup.exe. Double-clic → installé :
+  #    raccourcis Bureau + Menu démarrer, désinstalleur, installation
+  #    utilisateur SANS admin (%LOCALAPPDATA%\RoomEq). Aucune dépendance
+  #    ajoutée à l'application (--skipVeloAppCheck — mises à jour auto =
+  #    décision future). Le nupkg reste un artefact CI, non joint.
+  # ─────────────────────────────────────────────────────────────────────
+  setup:
+    name: Installateur Windows 1 clic (Setup.exe)
+    runs-on: ubuntu-latest
+    needs: [tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Produire RoomEq-win-Setup.exe (publish + Velopack + contrôles)
+        run: |
+          chmod +x scripts/build_setup.sh
+          OUT="$PWD/artifacts" bash scripts/build_setup.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roomeq-v3-setup-${{ github.sha }}
+          path: artifacts/RoomEq-win-Setup.exe
+          if-no-files-found: error
+
+      - name: Joindre au tag (Release) si présent
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # le job « package » crée la release : attendre qu'elle existe pour
+          # ne créer qu'UNE seule draft (créations parallèles = doublon) ;
+          # repli en création si elle n'apparaît pas
+          for i in $(seq 1 30); do
+            gh release view "$TAG" >/dev/null 2>&1 && break
+            sleep 10
+          done
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/RoomEq-win-Setup.exe --clobber
+          else
+            gh release create "$TAG" --draft --title "RoomEq $TAG" \
+              --notes "Recodage TRIADE v3 (parité v2.2.2 — docs/PARITE-v2.2.2.md)." \
+              artifacts/RoomEq-win-Setup.exe
           fi
         env:
           GH_TOKEN: ${{ github.token }}

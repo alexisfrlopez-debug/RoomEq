@@ -534,3 +534,34 @@ requis) ; la quarantaine macOS se retire par `xattr -cr` (documenté dans
 avertissement, 461/461 tests verts. Natif : `g++ -std=c++17 -Wall -Wextra
 -Werror` propre, 118/118 vérifications vertes (parité bit à bit). La CI
 macOS (`plugin-au`) compile le bundle et le valide par `auval` au push.
+
+## D20 — Installation en « 1 clic » : Setup.exe Windows (Velopack) + .pkg macOS du greffon (1er novembre 2026)
+
+| ID | Décision | Choix retenu | Alternatives rejetées |
+|---|---|---|---|
+| D20 | Demande développeur : « une installation en 1 clic plutôt qu'en ligne de commande » | **Une opération d'empaquetage, zéro code applicatif** : (1) Windows — `RoomEq-win-Setup.exe` produit par **Velopack** (`scripts/build_setup.sh`, vpk 1.2.161 épinglée, **cross-compilé Linux → win-x64** : aucune machine Windows requise) : double-clic → installation utilisateur **sans droits admin** (`%LOCALAPPDATA%\RoomEq`), raccourcis Bureau + Menu démarrer, désinstalleur « Paramètres → Applications », variante publique (RoomEq.exe silencieux seul) ; (2) macOS — `RoomEq-AU-<v>-macos.pkg` (job CI `plugin-au`, `pkgbuild`) : double-clic → `RoomEq.component` dans `/Library/Audio/Plug-Ins/Components`, postinstall `xattr -cr` + re-scan du registrar (recette auval D19) | MSI WiX (exigeait WiX + PowerShell en local = ligne de commande ; installation machine + admin ; empiétait sur le périmètre du MSI scellé v2.2.2) ; MSIX/Store (chantier `%LOCALAPPDATA%` + compte Partner, reporté — docs/DISTRIBUTION.md) ; Inno Setup (compilateur Windows uniquement) ; hook `VelopackApp.Build().Run()` (aurait ajouté une dépendance runtime tierce dans l'application, contraire au zéro-dépendance — `--skipVeloAppCheck` ; les **mises à jour automatiques** restent une décision future, le nupkg étant déjà produit en artefact CI) |
+
+**Développement.** L'installateur n'est pas un module applicatif : aucun
+fichier de `src/` ne change, la Carte reste 44 modules 🔒. `build_setup.sh`
+republie win-x64 auto-contenu, applique les renommages AppFlavor
+(RoomEq.exe / RoomEq-test.exe), exclut RoomEq-test.exe et `telemetrie.json`
+de l'empaquetage (variante publique, aucun identifiant embarqué), puis
+`vpk "[win]" pack` (directive de cross-compilation). Contrôles : version
+lue dans `src/Directory.Build.props` (source unique de vérité), en-tête PE
+(`MZ`) et taille minimale du Setup.exe et du nupkg. La CI gagne un job
+`setup` (ubuntu, joint `RoomEq-win-Setup.exe` aux releases) ; le job
+`plugin-au` produit en outre le `.pkg`. Le zip portable et
+`RoomEqDriverSetup-2.2.2.exe` (pilote scellé) restent inchangés et
+coexistent : le Setup n'installe ni ne télécharge le pilote (boucle WASAPI
+par défaut, onglet Mixage pour le pilote). **Distinct de la vague 8**
+(D11, specs `I/installateur/`) : D20 distribue l'application ; la vague 8
+recoderait l'installateur **natif du pilote** scellé (charge utile, Win32,
+GUI pnputil) — toujours non lancée, conditionnée à un environnement
+Windows.
+
+**Vérification R5 (pré-commit).** Build 0 erreur / 0 avertissement,
+461/461 tests verts (aucun code applicatif modifié — versions et
+empaquetage uniquement). Setup.exe local : PE32+ GUI x86-64 vérifié,
+222 fichiers de l'application embarqués, raccourcis Desktop + StartMenu
+confirmés dans le journal vpk. `.pkg` : produit par la CI macOS après
+`auval` vert (job `plugin-au`).
