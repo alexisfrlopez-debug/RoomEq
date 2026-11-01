@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.4
+VERSION=3.9.5
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -163,6 +163,23 @@ grep -B1 -E 'extern bool CloseHandle' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegist
   && [[ -f "$SRC/tests/RoomEq.Audio.Tests/ApoRegistrySecurityPinvokeTests.cs" ]] \
   && grep -qE '"CloseHandle"\] = "kernel32.dll"' "$SRC/tests/RoomEq.Audio.Tests/ApoRegistrySecurityPinvokeTests.cs" \
   && echo "   ✓ v3.9.4 : CloseHandle importé de kernel32.dll (binding verrouillé par test réflexif)"
+
+# --- v3.9.5 : volume qui ne répondait plus après une activation EQ système
+#     (le redémarrage d'audiosrv invalide les objets COM WASAPI — re-ciblage
+#     automatique + auto-guérison du polling) et diagnostic par maillon de
+#     la COURBE (courbe écrite / écriture refusée / bypass / APO qui publie
+#     ou non — lu dans apo.log) + verrou ACL %ProgramData% (icacls silencieux
+#     = EQ muet) ---
+grep -qE 'public bool Reacquire' "$SRC/src/RoomEq.Audio/Routing/EndpointVolumeController.cs" \
+  && grep -qE 'RefreshVolumeTarget' "$SRC/src/RoomEq.App/ViewModels/MixerViewModel.Volume.cs" \
+  && grep -qE 'LastCurveWriteError' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoSystem.cs" \
+  && grep -qE 'ApoAclVerifier.UsersCanModify' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && [[ -f "$SRC/src/RoomEq.Audio/SystemApo/ApoChainText.cs" \
+     && -f "$SRC/src/RoomEq.Audio/SystemApo/ApoAclVerifier.cs" \
+     && -f "$SRC/tests/RoomEq.Audio.Tests/ApoChainTextTests.cs" ]] \
+  && grep -qE 'ApoChainText.Compose' "$SRC/src/RoomEq.App/ViewModels/MixerViewModel.SystemApo.cs" \
+  && grep -qE 'ReadApoLogTail' "$SRC/src/RoomEq.Audio/SystemApo/ApoConfigStore.cs" \
+  && echo "   ✓ v3.9.5 : volume re-ciblé après redémarrage du service audio + chaîne de courbe observable (courbe/écriture/APO) + verrou ACL"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

@@ -2129,3 +2129,104 @@ Stage Summary:
   verdict ✓ attendu, ~1 s de coupure, musique hors RoomEq égalisée ;
   puis Désactiver et vérifier dans regedit que owner/DACL de la clé
   endpoint sont revenus à SYSTEM.
+
+---
+Session : 27 — 2026-11-02
+Agent : main (Z.ai)
+Task : Trois demandes : (0) règle permanente — toujours répondre en
+français (« l'anglais est accepté mais par contre je ne comprends rien au
+chinois ») ; (a) « le routage fonctionne mais je n'entends pas de
+différence de son quand l'eq est activé (pourtant chargé) » ; (b) « la
+modification du volume windows n'a aucun effet sur la barre de volume de
+l'appli, qui elle ne modifie pas le volume entendu non plus ». v3.9.5.
+
+Work Log:
+- **Règle permanente langue** : REPRISE.md § 2 point 2 + ligne du résumé
+  express — TOUJOURS répondre en français, l'anglais est accepté, le
+  chinois est interdit. Consigné comme règle de méthode de travail
+  permanente (lue en premier à chaque session).
+- **Bug (b) volume — cause racine identifiée (corrélation temporelle
+  exacte avec le bug (a))** : l'activation EQ système RÉUSSIE redémarre
+  le service audio (`net stop/start audiosrv` — inévitable, c'est ce qui
+  fait relire les FxProperties). Or ce redémarrage invalide TOUS les
+  objets COM WASAPI de l'application : `EndpointVolumeController` ne
+  re-ciblait le périphérique qu'au CHANGEMENT de sortie — après
+  l'activation, sa cible était un endpoint MORT : les lectures levaient
+  (Available=false DÉFINITIF, plus jamais réessayé) ou figeaient, et les
+  écritures se perdaient. Exactement les deux symptômes rapportés : « la
+  barre de l'appli ne suit plus le volume Windows » + « la barre n'agit
+  plus sur le son entendu ». Les reconnexions Bluetooth produisent le
+  même effet (même id, objet COM neuf).
+  Correctif : `EndpointVolumeController.Reacquire()` — ré-énumération,
+  re-bind du même identifiant, sonde, libération de l'ancien ; appelé
+  (1) immédiatement après toute action EQ système réussie, (2) au
+  rafraîchissement différé +1,5 s, (3) à chaque photographie de
+  périphériques (branchement à chaud), (4) en AUTO-GUÉRISON par le
+  polling de volume (au plus toutes les 2 s tant que la cible est
+  indisponible) — plus jamais d'état gelé définitif. Test de câblage
+  Linux (compteur ReacquireAttempts + affichage cohérent « — »).
+- **Bug (a) EQ inaudible — bilan statique complet, puis réponse en deux
+  volets (fix probable + observabilité)** : la chaîne managée a été
+  revue de bout en bout (preset par sortie → EqViewModel.LoadPreset →
+  Engine.Eq.SetPreset → Changed → debounce 80 ms → PushCurve →
+  WriteCurveIfActive → active.json ; natif : sondage 100 ms, parseur
+  preset D23 identique à celui du VST qui charge les presets de l'app,
+  publication atomique par révision) — COMPLETE sur le papier. Le JSON
+  écrit et le parseur natif vérifiés champ par champ. Deux volets :
+  1. FIX probable — le maillon permissions : `ApplyAcls` exécutait
+     icacls « au mieux effort » (échecs ignorés) : un icacls raté
+     laissait %ProgramData%\RoomEq\apo sans l'entrée
+     Utilisateurs:Modifier → la DLL se chargeait (SYSTEM/Admins
+     lisent) mais l'application non élevée ne pouvait PLUS écrire
+     active.json → EQ muet sans le moindre message. `ApoAclVerifier`
+     (vérification .NET réelle, S-1-5-32-545 doit avoir Modifier) :
+     l'activation ÉCHOUE désormais avec un verdict explicite si les
+     permissions ne sont pas là ; + courbe initiale valide écrite à
+     l'activation si active.json est absent.
+  2. OBSERVABILITÉ — la philosophie v3.9.3 appliquée à la courbe :
+     `ApoChainText` (pur, 8 tests Linux) affiche dans le panneau EQ
+     système CHAQUE maillon : courbe envoyée (bandes actives,
+     préampli, révision — relue d'active.json), écriture refusée
+     (`WindowsApoSystem.LastCurveWriteError`), bypass actif, courbe
+     plate, et publication par le moteur audio (« nouvelle courbe
+     publiee (rev N) » lu dans apo.log via `ReadApoLogTail`, queue de
+     4 Ko, FileShare.ReadWrite). Un EQ activé mais inaudible nomme
+     désormais son maillon défaillant SANS nouvel aller-retour.
+- **Gardes de plateforme** : ApoAclVerifier + ApoSetupCommands
+  [SupportedOSPlatform("windows")], appel --apo-setup refusé hors
+  Windows (code 2) — CA1416 propre, build 0 avertissement.
+- **Tests** : 511/511 xUnit (Core 237, Audio 184 → 199 : +8
+  ApoChainTextTests [chaîne complète, écriture impossible, jamais
+  écrite, bypass, plate, APO sans publication, révision en retard,
+  journal seul] +5 ApoAclVerifierTests [Modifier, FullControl,
+  lecture seule refusée, aucune règle, dossier inexistant] +2
+  ReadApoLogTail [queue tronquée, fichier court/absent] ; App 74 → 75 :
+  +1 re-ciblage volume sans exception ni gel). Build 0 erreur
+  0 avertissement. Natif APO inchangé (harnais 112 non touché — le
+  bug (a) était managé ou environnemental).
+- **Docs** : spec I-AUD-09 v1.6 (as-built p/q/r/s) ;
+  docs/EQ-SYSTEME-APO.md (v3.9.5) ; README (historique) ; LISEZMOI
+  3.9.5 (correctif expliqué en français clair) ; REPRISE.md (règle
+  LANGUE permanente + résumé + état session 27) ; Directory.Build.props
+  + package_v3.sh VERSION 3.9.5 + verrou structurel v3.9.5.
+- **Livrables (D22)** : package_v3.sh (zips test/public/source,
+  contrôles verts dont le verrou v3.9.5) ; build_setup.sh →
+  RoomEq-win-Setup.exe 3.9.5 régénéré et re-téléversé sur Drive
+  (l'ancien 3.9.4 remplacé au premier niveau des Livrables) ; anciens
+  zips 3.9.4 archivés dans Livrables/Archive ; miroir Drive complet +
+  push GitHub.
+
+Stage Summary:
+- v3.9.5 : l'activation fonctionne désormais — et c'est elle-même qui
+  cassait le volume (le redémarrage du service audio tuait les objets
+  COM de l'application, qui ne se ré-acquerraient jamais). Corrigé par
+  re-ciblage automatique + auto-guérison. Et pour l'EQ « chargé mais
+  inaudible » : le maillon permissions est verrouillé (icacls muet =
+  activation refusée avec verdict), et la chaîne de courbe entière est
+  désormais AFFICHÉE dans le panneau — le prochain rapport terrain
+  nommera le maillon tout seul.
+- Prochaine étape : validation terrain Windows — Setup 3.9.5, activer
+  l'EQ, LIRE le panneau « EQ système » (chaîne complète attendue :
+  « Courbe envoyée… ✓ APO : courbe publiée et appliquée ») et vérifier
+  le volume dans les deux sens après activation. Tout ⚠ du panneau =
+  le transmettre tel quel.

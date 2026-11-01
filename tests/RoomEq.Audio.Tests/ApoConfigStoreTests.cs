@@ -130,4 +130,35 @@ public class ApoConfigStoreTests : IDisposable
         var store = new ApoConfigStore(_dir);
         Assert.Null(store.ApoLogLastWriteUtc);
     }
+
+    // ================================================== journal de l'APO (v3.9.5)
+
+    [Fact]
+    public void ReadApoLogTail_RetourneLesDernieresLignes()
+    {
+        var lines = Enumerable.Range(1, 20)
+            .Select(i => "ligne " + i + (i == 12 ? "\r" : "")); // \r\n toléré
+        File.WriteAllText(Path.Combine(_dir, "apo.log"), string.Join("\n", lines));
+
+        var tail = new ApoConfigStore(_dir).ReadApoLogTail(maxLines: 5);
+
+        Assert.Equal(5, tail.Count);
+        Assert.Equal("ligne 16", tail[0]);
+        Assert.Equal("ligne 20", tail[^1]);
+    }
+
+    [Fact]
+    public void ReadApoLogTail_FichierCourtOuAbsent_ListeVideOuComplete()
+    {
+        var store = new ApoConfigStore(_dir);
+
+        // absent : vide, sans exception (distingué de « illisible » par la date)
+        Assert.Empty(store.ReadApoLogTail());
+
+        File.WriteAllText(Path.Combine(_dir, "apo.log"),
+            "LockForProcess : 48000 Hz, 2 canaux\nnouvelle courbe publiee (rev 7, active)");
+        var tail = store.ReadApoLogTail(8);
+        Assert.Equal(2, tail.Count);
+        Assert.Contains("nouvelle courbe publiee (rev 7, active)", tail);
+    }
 }

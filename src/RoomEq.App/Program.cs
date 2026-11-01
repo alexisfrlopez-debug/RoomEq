@@ -15,6 +15,8 @@ internal static class Program
         // pouvoir s'exécuter à côté de l'application ouverte.
         if (args.Length > 0 && args[0] == "--apo-setup")
         {
+            if (!OperatingSystem.IsWindows())
+                return 2; // mode d'installation de l'EQ système : Windows uniquement
             return RoomEq.Audio.SystemApo.ApoSetupCommands.Run(
                 args.Length > 1 ? args[1] : "",
                 args.Skip(2).ToArray(),

@@ -1,4 +1,4 @@
-RoomEq 3.9.4 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.9.5 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,22 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    495 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    511 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
     build 0 erreur 0 avertissement.
+  • CORRECTIF 3.9.5 — VOLUME BLOQUÉ APRÈS ACTIVATION + EQ SYSTÈME
+    SOUS SURVEILLANCE : activer l'EQ système redémarre le service audio de
+    Windows (~1 s de coupure, c'est inévitable) — or ce redémarrage
+    invalidait silencieusement les connexions de volume de l'application :
+    la barre de volume ne suivait plus le mixeur Windows et n'agissait plus
+    sur le son, jusqu'au changement de sortie. Le volume est désormais
+    re-ciblé automatiquement après chaque action EQ système, à chaque
+    branchement à chaud, et se ré-acquiert tout seul toutes les 2 s au pire.
+    En outre, le panneau EQ système affiche désormais la CHAÎNE COMPLÈTE de
+    la courbe : courbe envoyée (bandes, préampli, révision), écriture
+    réussie ou refusée, et ce que le moteur audio en a fait (« courbe
+    publiée et appliquée » lu dans son propre journal) — un EQ activé mais
+    inaudible nomme désormais son maillon défaillant, et l'activation refuse
+    d'elle-même un dossier de données aux permissions incorrectes.
   • CORRECTIF 3.9.4 — ACTIVATION DE L'EQ SYSTÈME : LE SUCCÈS ÉTAIT MASQUÉ
     PAR UN NETTOYAGE : le correctif 3.9.3 a fonctionné — le privilège Windows
     de prise de possession était bien activé — mais l'appel de nettoyage qui

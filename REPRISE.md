@@ -7,14 +7,75 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.9.4** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1 : création FxProperties manquante, v3.9.2 : takeover registre (owner+DACL restitués), v3.9.3 : correctif interop LUID (2×DWORD) + diagnostic par maillon, et **v3.9.4 : CORRECTIF DE BINDING P/INVOKE — c'est le diagnostic v3.9.3 qui a nommé le coupable au premier essai (« le point d'entrée CloseHandle est introuvable dans la DLL advapi32.dll ») : le privilège de prise de possession était BIEN activé mais le CloseHandle du finally, importé de la mauvaise DLL (advapi32 au lieu de kernel32), levait EntryPointNotFoundException qui MASQUAIT le succès → takeover abandonné avant d'écrire. Import corrigé + DLL d'origine des 6 imports natifs verrouillée par 2 tests réflexifs Linux** — 495 tests xUnit + harnais APO 112 vérifications |
+| **Projet** | RoomEq **v3.9.5** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1–v3.9.4 : correctifs activation (FxProperties → takeover registre → LUID interop → binding CloseHandle/kernel32), et **v3.9.5 : après une activation RÉUSSIE — volume re-ciblé automatiquement (le redémarrage du service audio invalidait les objets COM WASAPI : barre de volume gelée dans les deux sens) + chaîne de courbe OBSERVABLE dans le panneau (courbe envoyée / écriture refusée / bypass / APO qui publie, lu dans apo.log — un EQ inaudible nomme son maillon) + verrou ACL %ProgramData% (icacls muet = EQ muet → verdict explicite)** — 511 tests xUnit + harnais APO 112 vérifications |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
+| **LANGUE (permanente)** | Répondre à l'utilisateur TOUJOURS en **français** (anglais accepté, chinois interdit — il ne le comprend pas) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 495 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 511 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
+
+## 1. État (fin session 27 — v3.9.5 : volume re-ciblé + chaîne de courbe observable)
+
+**Session 27 (2026-11-02)** — retours terrain v3.9.4 : ACTIVATION RÉUSSIE
+(« le routage fonctionne »), mais (a) « je n'entends pas de différence de
+son quand l'eq est activé (pourtant chargé) » et (b) « la modification du
+volume windows n'a aucun effet sur la barre de volume de l'appli, qui elle
+ne modifie pas le volume entendu non plus ». + règle permanente : répondre
+TOUJOURS en français (anglais accepté, chinois interdit).
+
+- **Règle permanente (demande utilisateur)** : § 2 point 2 + ligne du résumé
+  express — TOUJOURS français, jamais chinois.
+- **Bug volume — cause racine** : le redémarrage du service audio
+  (`net stop/start audiosrv`, inévitable à chaque activation/désactivation
+  EQ système) invalide les objets COM WASAPI de l'application :
+  `EndpointVolumeController` ne re-ciblait qu'au CHANGEMENT de sortie →
+  lectures figées ou exceptions (Available=false DÉFINITIF), écritures
+  perdues vers un endpoint mort. Reconnexions Bluetooth : même effet.
+  Correctif : `Reacquire()` (ré-énumération + re-bind du même id + sonde),
+  appelé après chaque action EQ système (immédiat + à +1,5 s via
+  `ScheduleLateSystemApoRefresh`), à chaque `ApplySnapshot` (branchement à
+  chaud), et en auto-guérison par le polling (au plus toutes les 2 s).
+- **Bug EQ inaudible — bilan statique** : la chaîne managée est COMPLETE
+  (preset par sortie → Engine.Eq → debounce 80 ms → PushCurve →
+  WriteCurveIfActive → active.json ; le natif sonde toutes les 100 ms et
+  publie la chaîne ; le JSON écrit et le parseur natif ont été vérifiés
+  champ par champ — le VST utilise le MÊME parseur sur les presets de
+  l'app). Aucune cause certaine identifiable à distance : les candidats
+  restants (écriture d'active.json impossible par permissions, audiodg ne
+  lisant pas le fichier, bypass actif, courbe plate, mauvaise sortie)
+  exigent l'observation TERRAIN → la chaîne est désormais OBSERVABLE :
+  `ApoChainText` (pur, 8 tests Linux) compose l'état des maillons dans le
+  panneau : courbe envoyée (bandes/préampli/révision relues d'active.json),
+  `LastCurveWriteError` (écriture refusée), et publication par le moteur
+  (« nouvelle courbe publiee (rev N) » lu dans apo.log via
+  `ReadApoLogTail`, 4 Ko de queue). Un EQ inaudible nomme son maillon.
+- **Verrou ACL (cause la plus probable du bug (a))** : `ApplyAcls`
+  exécutait icacls « au mieux effort » — un échec silencieux laissait
+  %ProgramData%\RoomEq\apo SANS l'entrée Utilisateurs:Modifier : la DLL se
+  chargeait (SYSTEM/Admins lisent) mais l'application non élevée ne pouvait
+  PLUS écrire la courbe → EQ muet sans explication. `ApoAclVerifier`
+  (vérification .NET, échec = activation refusée avec verdict explicite) +
+  courbe initiale écrite à l'activation (preuve d'inscriptibilité).
+- **Tests** : 511/511 xUnit (Core 237, Audio 184 → 199 : +8 chain text,
+  +5 ACL, +2 log tail ; App 74 → 75 : +1 re-ciblage volume) ; build 0
+  erreur 0 avertissement. Natif APO inchangé (harnais 112 non touché).
+- **Docs** : spec I-AUD-09 v1.6 (as-built p/q/r/s) ; docs/EQ-SYSTEME-APO.md
+  (v3.9.5) ; README (historique) ; LISEZMOI 3.9.5 ; REPRISE (règle langue +
+  résumé + état session 27) ; Directory.Build.props + package_v3.sh
+  VERSION 3.9.5 + verrou structurel v3.9.5.
+- **Livrables (D22)** : package_v3.sh (zips test/public/source, contrôles
+  verts) ; build_setup.sh → Setup.exe 3.9.5 régénéré et re-téléversé sur
+  Drive ; anciens zips 3.9.4 archivés dans Livrables/Archive ; miroir Drive
+  complet + push GitHub.
+- **Prochaine étape** : validation terrain Windows — réinstaller via
+  Setup 3.9.5, activer l'EQ, LIRE LE PANNEAU « EQ système » : il affiche
+  désormais la chaîne (courbe envoyée + APO publié ✓, ou le maillon
+  défaillant avec sa cause) ; vérifier que le volume répond dans les deux
+  sens après l'activation. Si un ⚠ apparaît dans le panneau, le transmettre
+  tel quel.
 
 ## 1. État (fin session 26 — v3.9.4 : CloseHandle importé de kernel32.dll)
 
@@ -655,13 +716,19 @@ Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
 ## 2. Méthode de travail (protocole TRIADE appliqué ici)
 
 1. Lire ce fichier, `CARTE.md`, `docs/DECISIONS.md`, `docs/PLAN_RECODAGE.md`.
-2. Choisir le module suivant (ordre des vagues) ; lire sa spec `I/**` si elle
+2. **LANGUE — RÈGLE PERMANENTE (demande utilisateur, session 27)** :
+   TOUJOURS répondre à l'utilisateur **en FRANÇAIS**. L'anglais est
+   accepté si nécessaire (termes techniques, citations) ; le chinois est
+   **INTERDIT** — l'utilisateur n'en comprend pas un mot. S'applique à
+   chaque message, à chaque livrable, à chaque texte d'interface et de
+   document généré. Les commits git restent en français technique.
+3. Choisir le module suivant (ordre des vagues) ; lire sa spec `I/**` si elle
    existe, sinon l'écrire d'après la legacy (`roomeq-git-ref/…`) AVANT le code.
-3. Recoder ; porter les tests legacy correspondants + en ajouter.
-4. **Verify-then-commit** : build 0/0 + tests 100 % verts, sinon on ne committe pas.
-5. Mettre à jour la ligne du module dans `CARTE.md` (⬜→🚧→✅).
-6. `scripts/sync_backup.sh` (commit + GitHub + Drive).
-7. Consigner dans `WORKLOG.md`.
+4. Recoder ; porter les tests legacy correspondants + en ajouter.
+5. **Verify-then-commit** : build 0/0 + tests 100 % verts, sinon on ne committe pas.
+6. Mettre à jour la ligne du module dans `CARTE.md` (⬜→🚧→✅).
+7. `scripts/sync_backup.sh` (commit + GitHub + Drive).
+8. Consigner dans `WORKLOG.md`.
 
 ## 2bis. RÈGLE PERMANENTE — livraison d'une version (D22)
 

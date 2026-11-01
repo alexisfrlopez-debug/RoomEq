@@ -63,6 +63,25 @@
   (2 tests de réflexion pure, exécutables sous Linux) verrouillant la DLL
   d'origine des 6 imports natifs — le binding ne peut plus être recassé.
   Spec I-AUD-09 v1.5, 493 → 495 tests.
+  **v3.9.5 (session 27, 2 novembre 2026)** : deux retours terrain après une
+  activation RÉUSSIE (« le routage fonctionne ») : (a) « je n'entends pas de
+  différence de son quand l'eq est activé (pourtant chargé) » — la chaîne
+  courbe↔moteur audio n'était OBSERVABLE nulle part (une écriture impossible,
+  un bypass ou un fichier non lu par audiodg rendaient l'EQ muet sans le
+  moindre signal) ; (b) « la modification du volume windows n'a aucun effet
+  sur la barre de volume de l'appli, qui elle ne modifie pas le volume
+  entendu » — le redémarrage du service audio (inévitable à chaque
+  activation) invalide les objets COM WASAPI : lectures figées, écritures
+  perdues, plus RIEN ne re-ciblait le périphérique. Correctifs : (1)
+  `EndpointVolumeController.Reacquire()` + re-ciblage après chaque action EQ
+  système, à chaque branchement à chaud, et auto-guérison du polling (2 s) ;
+  (2) diagnostic par maillon de la COURBE dans le panneau (ApoChainText :
+  courbe envoyée / écriture refusée / bypass / courbe plate / APO qui publie
+  — lu dans apo.log écrit par audiodg) ; (3) verrou ACL : l'activation
+  vérifie par .NET que les Utilisateurs ont Modifier sur
+  %ProgramData%\RoomEq\apo (icacls échouait en silence = EQ muet) et échoue
+  avec un verdict explicite sinon ; (4) courbe initiale écrite à
+  l'activation. Spec I-AUD-09 v1.6, 495 → 511 tests.
 - **Question posée** : « Je voudrais que l'application installe son propre
   driver de carte son virtuelle afin de ne plus dépendre de VB-Cable, mais je
   bute sur le problème du driver signé Microsoft qui demande une solution

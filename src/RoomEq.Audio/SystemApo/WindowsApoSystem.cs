@@ -28,6 +28,7 @@ public sealed class WindowsApoSystem : IDisposable
     private EqPreset? _desiredPreset;     // dernière courbe poussée
     private bool _measurementBypass;      // bypass forcé pendant une mesure
     private bool _anyEnabled;             // cache des activations connues
+    private string? _lastCurveWriteError;  // v3.9.5 : dernière erreur d'écriture (maillon 1)
 
     public ApoConfigStore Config { get; }
 
@@ -120,6 +121,26 @@ public sealed class WindowsApoSystem : IDisposable
 
     /// <summary>L'APO s'est-il manifesté récemment ? (journal écrit par audiodg)</summary>
     public DateTime? LastApoLoadUtc => Config.ApoLogLastWriteUtc;
+
+    /// <summary>
+    /// Dernière erreur d'écriture de la courbe (v3.9.5, null = aucune) : le
+    /// panneau l'affiche — une écriture impossible (permissions
+    /// %ProgramData%) rendait l'EQ inaudible SANS le moindre signal visible.
+    /// </summary>
+    public string? LastCurveWriteError
+    {
+        get { lock (_sync) return _lastCurveWriteError; }
+        private set { lock (_sync) _lastCurveWriteError = value; }
+    }
+
+    /// <summary>
+    /// Dernières lignes du journal écrit par l'APO dans audiodg (v3.9.5) :
+    /// « nouvelle courbe publiee (rev N, …) » prouve que le moteur audio a LU
+    /// active.json et applique la courbe ; « LockForProcess » prouve le
+    /// chargement. Liste vide si absent/illisible — jamais d'exception.
+    /// </summary>
+    public IReadOnlyList<string> ReadApoLogTail(int maxLines = 8)
+        => Config.ReadApoLogTail(maxLines);
 
     /// <summary>
     /// L'EQ système est-il actif sur CETTE sortie ? (D26) — sert à l'anti-double-
@@ -259,9 +280,13 @@ public sealed class WindowsApoSystem : IDisposable
             // ne swappe PAS à contenu identique — états de filtres conservés,
             // continuité garantie (test 9 du harnais natif)
             Config.WriteCurve(preset, bypass);
+            LastCurveWriteError = null; // maillon 1 rétabli
         }
         catch (Exception ex)
         {
+            // v3.9.5 : l'erreur est EXPOSÉE (panneau) — une écriture impossible
+            // rendait l'EQ inaudible sans aucun signal visible pour l'utilisateur
+            LastCurveWriteError = ex.Message;
             DiagnosticsLog.Error("EQ système : écriture de la courbe impossible", ex);
         }
     }
@@ -270,11 +295,20 @@ public sealed class WindowsApoSystem : IDisposable
     private void RepushCurve()
     {
         EqPreset? preset;
-        lock (_sync) preset = _desiredPreset;
+        bool bypass;
+        lock (_sync) { preset = _desiredPreset; bypass = _desiredBypass; }
         if (preset != null)
         {
-            try { Config.WriteCurve(preset, _desiredBypass); }
-            catch { /* l'UI affichera l'état au prochain passage */ }
+            try
+            {
+                Config.WriteCurve(preset, bypass);
+                LastCurveWriteError = null;
+            }
+            catch (Exception ex)
+            {
+                LastCurveWriteError = ex.Message; // v3.9.5 : exposé dans le panneau
+                DiagnosticsLog.Error("EQ système : écriture de la courbe impossible", ex);
+            }
         }
     }
 

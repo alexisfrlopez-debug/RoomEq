@@ -22,6 +22,10 @@ public partial class MixerViewModel
     /// <summary>Le volume de la sortie physique est-il accessible ?</summary>
     public bool HasRoutedVolume => _endpointVolume.Available;
 
+    /// <summary>Nombre de re-acquisitions de la cible volume (v3.9.5) —
+    /// instrument de test : prouve le câblage de l'auto-guérison.</summary>
+    public int VolumeReacquireAttempts => _endpointVolume.ReacquireAttempts;
+
     /// <summary>Nom du périphérique dont on règle le volume.</summary>
     public string RoutedVolumeTarget => _endpointVolume.TargetName ?? SelectedOutput?.DisplayName ?? "";
 
@@ -135,17 +139,57 @@ public partial class MixerViewModel
     /// touches du casque, autre logiciel) : en le sondant à chaque battement, les
     /// deux curseurs restent fidèles au réglage réel, quel que soit l'ordre et
     /// l'origine des modifications.
+    /// v3.9.5 — AUTO-GUÉRISON : si la cible est devenue indisponible (objet COM
+    /// invalidé par le redémarrage du service audio d'une activation APO, ou
+    /// reconnexion Bluetooth), on retente l'acquisition au plus tard toutes
+    /// les 2 s — plus jamais d'« Available=false » définitif qui gelait les
+    /// deux curseurs jusqu'au changement de sortie.
     /// </summary>
     private void PollExternalEndpointVolume()
     {
         if (!_endpointVolume.Available)
         {
             _lastEndpointSeen = -1;
+            long now = Environment.TickCount64;
+            if (now - _lastVolumeReacquireMs >= 2000)
+            {
+                _lastVolumeReacquireMs = now;
+                if (_endpointVolume.Reacquire())
+                {
+                    RefreshRoutedVolumeDisplay();
+                    SyncTopBarFromEndpoint();
+                    OnPropertyChanged(nameof(HasRoutedVolume));
+                    OnPropertyChanged(nameof(RoutedVolumeTarget));
+                }
+            }
             return;
         }
         double v = _endpointVolume.VolumeScalar;
         if (!VolumeSyncPolicy.HasChangedSinceLastSeen(_lastEndpointSeen, v)) return;
         RefreshRoutedVolumeDisplay();
         SyncTopBarFromEndpoint();
+    }
+
+    /// <summary>
+    /// Re-acquiert la cible volume SANS condition (v3.9.5) : appelé après une
+    /// action EQ système (le service audio a redémarré — tous les endpoints
+    /// COM de l'application sont morts) et aux rafraîchissements de
+    /// périphériques (reconnexion Bluetooth : le périphérique revient avec le
+    /// même identifiant mais un objet COM neuf). Sans effet si aucune sortie
+    /// n'est ciblée ; jamais d'exception.
+    /// </summary>
+    public void RefreshVolumeTarget()
+    {
+        if (_endpointVolume.Reacquire())
+        {
+            RefreshRoutedVolumeDisplay();
+            SyncTopBarFromEndpoint();
+        }
+        else if (!_endpointVolume.Available)
+        {
+            RefreshRoutedVolumeDisplay(); // réaffiche « — » sans toucher au curseur du haut
+        }
+        OnPropertyChanged(nameof(HasRoutedVolume));
+        OnPropertyChanged(nameof(RoutedVolumeTarget));
     }
 }

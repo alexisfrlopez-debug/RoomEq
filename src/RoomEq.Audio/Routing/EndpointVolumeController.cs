@@ -26,6 +26,12 @@ public sealed class EndpointVolumeController : IDisposable
     /// <summary>Le volume du périphérique cible est-il accessible ?</summary>
     public bool Available { get; private set; }
 
+    /// <summary>
+    /// Nombre de tentatives de re-acquisition (correctif v3.9.5) — instrument
+    /// de test : prouve que l'auto-guérison est bien câblée au polling.
+    /// </summary>
+    public int ReacquireAttempts { get; private set; }
+
     /// <summary>Nom convivial du périphérique cible (pour l'affichage).</summary>
     public string? TargetName { get; private set; }
 
@@ -102,6 +108,53 @@ public sealed class EndpointVolumeController : IDisposable
         }
     }
 
+    /// <summary>
+    /// Re-acquiert le MÊME périphérique (correctif v3.9.5 — « le volume ne
+    /// répond plus » après une activation de l'EQ système). FAIT ÉTABLI : le
+    /// redémarrage du service audio (`net stop/start audiosrv`, inévitable à
+    /// chaque activation/désactivation APO) et les reconnexions Bluetooth
+    /// invalident les objets COM WASAPI détenus par l'application — les
+    /// lectures lèvent (→ plus jamais Available=false définitif : on retente)
+    /// ou gèlent sur la dernière valeur, et les écritures se perdent vers un
+    /// endpoint mort : « la barre de volume ne bouge plus / n'agit plus ».
+    /// <see cref="SetTarget"/> n'est appelé qu'au CHANGEMENT de sortie : la
+    /// cible restait morte pour toujours. Ici : ré-énumération + nouveau
+    /// MMDevice + sonde — l'ancien est libéré, l'état Available est recalculé.
+    /// Idempotent, sans exception ; false si le périphérique est absent.
+    /// </summary>
+    public bool Reacquire()
+    {
+        ReacquireAttempts++;
+        string? raw = _rawDeviceId;
+        if (_disposed || string.IsNullOrEmpty(raw))
+            return false;
+        try
+        {
+            var dev = new MMDeviceEnumerator()
+                .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)
+                .FirstOrDefault(d => d.ID == raw);
+            if (dev == null)
+                return false; // pas encore de retour (BT en reconnexion, service en redémarrage)
+            var old = _device;
+            _device = dev;
+            try
+            {
+                TargetName = dev.FriendlyName;
+                _ = Math.Clamp(dev.AudioEndpointVolume.MasterVolumeLevelScalar, 0.0, 1.0); // sonde
+                Available = true;
+            }
+            catch
+            {
+                Available = false; // endpoint présent mais muet (rare) : retenter plus tard
+            }
+            try { old?.Dispose(); } catch { /* libération tolérante */ }
+            return Available;
+        }
+        catch
+        {
+            return false; // énumération indisponible (service en cours de redémarrage)
+        }
+    }
     /// <summary>Règle le volume (0..1). Renvoi vrai si appliqué.</summary>
     public bool SetVolumeScalar(double value)
     {

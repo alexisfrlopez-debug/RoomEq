@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 
 namespace RoomEq.Audio.SystemApo;
 
@@ -11,6 +12,7 @@ namespace RoomEq.Audio.SystemApo;
 /// inscription COM, opérations du registrar (sauvegarde AVANT écriture),
 /// redémarrage du service audio pour que le moteur relise les FxProperties.
 /// </summary>
+[SupportedOSPlatform("windows")]
 public static class ApoSetupCommands
 {
     /// <summary>
@@ -146,6 +148,36 @@ public static class ApoSetupCommands
                 return ApoInstallResult.Fail("DLL APO " + arch + " absente du dossier « apo » de l'application.");
 
             ApplyAcls(bin);
+
+            // v3.9.5 — VERROU : icacls échouait en silence (« meilleur effort ») et
+            // laissait le dossier sans l'entrée Utilisateurs:Modifier — l'app ne
+            // pouvait plus écrire la courbe, l'EQ restait muet sans explication.
+            // Désormais : vérification .NET réelle, et échec EXPLICITE si absent.
+            if (!ApoAclVerifier.UsersCanModify(ApoConstants.ProgramDataDir))
+                return ApoInstallResult.Fail(
+                    "Les permissions du dossier " + ApoConstants.ProgramDataDir
+                    + " n'ont pas pu être établies (icacls a échoué) : l'application ne "
+                    + "pourrait pas envoyer la courbe à l'égaliseur système. Réessayez "
+                    + "l'activation ; si l'échec persiste, créez le dossier manuellement et "
+                    + "accordez « Modifier » aux Utilisateurs.");
+
+            // v3.9.5 — courbe initiale : garantit qu'active.json existe, appartient
+            // au dossier et est valide DÈS l'activation (l'app l'écrase par la
+            // courbe réelle ~immédiatement après ; le fichier prouve au passage
+            // que le dossier est inscriptible par un processus élevé).
+            try
+            {
+                if (!File.Exists(ApoConstants.ActiveCurvePath))
+                {
+                    var initial = new RoomEq.Core.Eq.EqPreset("Démarrage") { PreampDb = 0.0 };
+                    new ApoConfigStore().WriteCurve(initial, bypass: false);
+                }
+            }
+            catch
+            {
+                // non bloquant : l'application écrira sa courbe juste après —
+                // le verrou d'ACL ci-dessus a déjà couvert le cas d'échec réel
+            }
 
             if (!WindowsApoEndpointStore.ComRegistered(dll))
                 WindowsApoEndpointStore.RegisterCom(dll);

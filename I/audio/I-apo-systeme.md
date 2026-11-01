@@ -1,11 +1,35 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.5 (as-built v3.9.4, 2
-  novembre 2026 — correctif de binding P/Invoke : CloseHandle importé de
-  kernel32.dll) · **Code** : `src/RoomEq.Audio/SystemApo/` + **natif**
-  `natif/roomeq-apo/` (N-APO-01)
+- **Module** : M-AUD-09 · **Version de spec** : 1.6 (as-built v3.9.5, 2
+  novembre 2026 — volume re-ciblé après redémarrage du service audio +
+  chaîne de courbe observable + verrou ACL) · **Code** :
+  `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/` (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.6** : retours terrain v3.9.4 — activation RÉUSSIE (« le
+  routage fonctionne ») mais (a) « je n'entends pas de différence de son
+  quand l'eq est activé (pourtant chargé) » et (b) volume gelé dans les deux
+  sens après l'activation. Correctifs : (p) **volume** — le redémarrage
+  d'audiosrv (`net stop/start`, inévitable à chaque activation/désactivation)
+  invalide les objets COM WASAPI de l'application : `EndpointVolumeController`
+  ne re-ciblait qu'au CHANGEMENT de sortie → lectures figées/écritures
+  perdues pour toujours. `Reacquire()` re-énumère et re-bind le même
+  périphérique ; appelé après chaque action EQ système (immédiat + à +1,5 s),
+  à chaque rafraîchissement de périphériques, et en auto-guérison par le
+  polling (au plus toutes les 2 s) ; (q) **chaîne observable** — le panneau
+  affiche désormais chaque maillon de la courbe via `ApoChainText` (pur,
+  testé Linux) : courbe envoyée (bandes actives/préampli/révision, relue
+  d'active.json), écriture réussie ou refusée (`WindowsApoSystem.
+  LastCurveWriteError`), et publication par le moteur audio (« nouvelle
+  courbe publiee (rev N) » lu dans apo.log via `ReadApoLogTail`) — un EQ
+  inaudible nomme son maillon : jamais écrite / écriture impossible /
+  bypass / plate / APO qui ne publie pas / chaîne complète ✓ ; (r) **verrou
+  ACL** — `ApoAclVerifier` vérifie par .NET (plus icacls au mieux-effort)
+  que les Utilisateurs (S-1-5-32-545) ont Modifier sur le dossier partagé :
+  l'activation ÉCHOUE avec un verdict explicite sinon (un icacls muet
+  laissait l'application incapable d'écrire la courbe → EQ muet sans
+  explication) ; (s) courbe initiale valide écrite à l'activation si
+  active.json est absent (garantie d'existence + preuve d'inscriptibilité).
 - **As-built v1.5** : retour terrain v3.9.3 — le DIAGNOSTIQUE par maillon
   (livré en v3.9.3) a nommé le coupable au premier essai : « impossible
   d'activer le privilège SeTakeOwnershipPrivilege (le point d'entrée

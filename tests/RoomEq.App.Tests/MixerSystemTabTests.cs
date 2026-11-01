@@ -148,6 +148,28 @@ public class MixerSystemTabTests : IDisposable
         Assert.False(system.CoversEndpoint(""));
     }
 
+    // ============================================================ volume (v3.9.5)
+
+    [Fact]
+    public void RefreshVolumeTarget_ReacquiresTheEndpoint_NeverThrowsOrFreezes()
+    {
+        // Retour terrain : « le volume Windows ne bouge plus la barre de
+        // l'appli, qui n'agit plus sur le son » après une activation de l'EQ
+        // système — le redémarrage du service audio invalide les objets COM
+        // WASAPI, et plus RIEN ne re-ciblait le périphérique. La re-acquisition
+        // doit être câblée et inoffensive quand le périphérique est absent
+        // (Linux/CI : jamais Available).
+        var vm = CreateVm();
+        vm.FollowTopBarOutput(new OutputDeviceInfo("wasapi|spk", "Enceintes", "WASAPI"));
+
+        int before = vm.VolumeReacquireAttempts;
+        vm.RefreshVolumeTarget(); // après une action EQ système (service audio relancé)
+
+        Assert.Equal(before + 1, vm.VolumeReacquireAttempts); // la re-acquisition est bien câblée
+        Assert.False(vm.HasRoutedVolume);                     // Linux : indisponible, mais PAS gelé
+        Assert.Equal("—", vm.RoutedVolumeText);               // l'affichage reste cohérent
+    }
+
     // ============================================================ garde d'instance unique
 
     [Fact]

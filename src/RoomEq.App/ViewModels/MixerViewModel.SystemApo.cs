@@ -96,8 +96,11 @@ public partial class MixerViewModel
                 : endpoints.Count == 0
                     ? "Aucune sortie audio détectée."
                     : AnySystemApoEnabled
-                        ? "EQ système actif — la courbe de l'onglet Égaliseur s'applique à tout ce qui sort par les sorties marquées ●"
-                          + (load is { } t ? $" (APO chargé : {t:HH:mm:ss} UTC)" : "")
+                        ? ApoChainText.Compose(new ApoChainState(
+                            SystemApo.Config.Refresh(),
+                            SystemApo.LastCurveWriteError,
+                            SystemApo.ReadApoLogTail(),
+                            load))
                         : "Activez une ou plusieurs sorties : tout leur son traversera l'égaliseur (invite administrateur, réversible).";
     }
 
@@ -158,6 +161,9 @@ public partial class MixerViewModel
             StatusText = result.Message;
             RefreshSystemApoCore();
             ScheduleLateSystemApoRefresh();
+            if (result.Success)
+                RefreshVolumeTarget(); // v3.9.5 : le service audio vient d'être redémarré —
+                                       // les objets COM du volume sont morts, re-acquisition immédiate
         }
         finally
         {
@@ -180,6 +186,7 @@ public partial class MixerViewModel
             {
                 await Task.Delay(1500).ConfigureAwait(true);
                 RefreshSystemApoCore();
+                RefreshVolumeTarget(); // v3.9.5 : seconde chance après le retour du service audio
             }
             catch
             {

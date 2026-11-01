@@ -77,7 +77,13 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   l'activation abandonnait avant d'écrire. CloseHandle importé de
   kernel32.dll, DLL d'origine de chaque import natif verrouillée par 2
   tests réflexifs exécutables sous Linux (spec I-AUD-09 v1.5,
-  493 → 495 tests)
+  493 → 495 tests) ; **v3.9.5** : volume re-ciblé après le redémarrage du
+  service audio d'une activation EQ système (les objets COM WASAPI morts
+  gelaient les deux curseurs : « la barre ne bouge plus / n'agit plus ») +
+  chaîne de courbe observable dans le panneau (courbe envoyée, écriture,
+  publication par le moteur audio lue dans son journal — un EQ inaudible
+  nomme son maillon) + verrou ACL de %ProgramData% (icacls muet = EQ muet)
+  (spec I-AUD-09 v1.6, 495 → 511 tests)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`

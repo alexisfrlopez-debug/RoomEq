@@ -106,6 +106,41 @@ public sealed class ApoConfigStore(string? directoryOverride = null)
         }
     }
 
+    /// <summary>
+    /// Dernières lignes du journal de l'APO (v3.9.5) : écrit par le thread de
+    /// fond de la DLL dans audiodg — « nouvelle courbe publiee (rev N, …) »
+    /// prouve que le moteur audio a LU active.json et applique la courbe,
+    /// « LockForProcess » prouve le chargement. Liste vide si absent ou
+    /// illisible — jamais d'exception (le diagnostic du maillon reste
+    /// possible : un journal illisible est lui-même un symptôme de
+    /// permissions, et il est distingé de « absent » par la date).
+    /// </summary>
+    public IReadOnlyList<string> ReadApoLogTail(int maxLines = 8)
+    {
+        try
+        {
+            var path = Path.Combine(ConfigDirectory, "apo.log");
+            if (!File.Exists(path))
+                return Array.Empty<string>();
+            // queue du fichier (le journal est capé à 1 Mo par la DLL —
+            // on ne charge que ce qui est nécessaire aux dernières lignes)
+            const int tailBytes = 4096;
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            long start = Math.Max(0, fs.Length - tailBytes);
+            fs.Seek(start, SeekOrigin.Begin);
+            using var reader = new StreamReader(fs);
+            string text = reader.ReadToEnd();
+            var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries
+                                                 | StringSplitOptions.TrimEntries);
+            return lines.Length <= maxLines ? lines : lines[^maxLines..];
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
     // ---------------------------------------------------------------- interne
 
     private ActiveCurve? ReadFile()

@@ -38,6 +38,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     private bool _syncingRoutedVolume;                  // écriture PROGRAMMATIQUE de RoutedVolume en cours
     private bool _routedVolumeReady;                    // premier état réel reçu (le binding initial ne doit rien écrire)
     private double _lastEndpointSeen = -1;              // détection des changements faits hors de l'application
+    private long _lastVolumeReacquireMs;                // v3.9.5 : throttle des re-acquisitions (2 s)
 
     private string? _storedOutputId;
 
@@ -223,6 +224,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         OnPropertyChanged(nameof(ShowLegacyDriverCleanup));
         HandleLegacyVirtualDefault(snap);
         RefreshSystemApoCore(); // endpoints ajoutés/retirés à chaud
+        RefreshVolumeTarget();  // v3.9.5 : reconnexion BT/branchement → l'objet COM du volume peut être mort
     }
 
     // ================================================================ fermeture
