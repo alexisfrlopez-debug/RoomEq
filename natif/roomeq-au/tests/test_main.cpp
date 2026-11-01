@@ -1,11 +1,15 @@
 // Tests natifs du cœur C++ du greffon AU (spec I-AUD-07) : parité EXACTE avec
 // RoomEq.Core sur des données de référence générées par le code C#
 // (tools/gen_reference → tests/data), plus robustesse des analyseurs.
-// Sans framework : exécutable autonome, code de sortie non nul si échec.
+// v2 (3.6.0) : écriture JSON (ToJson), banque casques embarquée, noyau
+// d'édition portable (PresetEditor) et auto-chargement par récence.
 #include "roomeq/dsp/biquad.h"
 #include "roomeq/dsp/eq_chain.h"
+#include "roomeq/edit/preset_editor.h"
+#include "roomeq/headphones/headphone_bank.h"
 #include "roomeq/json/mini_json.h"
 #include "roomeq/preset/preset_io.h"
+#include "roomeq/preset/preset_write.h"
 
 #include <algorithm>
 #include <cmath>
@@ -13,8 +17,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
+
+#if !defined(_WIN32)
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 #ifndef ROOMEQ_AU_SOURCE_DIR
 #define ROOMEQ_AU_SOURCE_DIR "."
@@ -451,6 +462,391 @@ static void TestEqChain()
     CHECK(pass1[0] == pass2[0] && pass1[1] == pass2[1]);
 }
 
+// --------------------------------------------------- écriture JSON (v2)
+
+static void TestPresetWrite()
+{
+    std::printf("* écriture JSON (ToJson)\n");
+
+    // preset couvrant les 6 types, gains signés, bande désactivée, nom avec
+    // accents et guillemet (échappement)
+    preset::PresetDef src;
+    src.name = "Édité \"à la main\" (manuellement)"; // guillemet à échapper
+    src.preampDb = -3.5;
+    const dsp::FilterType types[] = { dsp::FilterType::Peaking,
+        dsp::FilterType::LowShelf, dsp::FilterType::HighShelf,
+        dsp::FilterType::LowPass, dsp::FilterType::HighPass,
+        dsp::FilterType::Notch };
+    for (int i = 0; i < 6; ++i) {
+        preset::EqBandDef b;
+        b.type = types[i];
+        b.frequency = 31.5 * (i + 1);
+        b.gainDb = (i % 2 == 0 ? 4.25 : -7.5);
+        b.q = 0.5 + i * 0.75;
+        b.enabled = (i != 5);
+        src.bands.push_back(b);
+    }
+
+    const std::string json = preset::ToJson(src);
+
+    // format exact de l'application : PascalCase, énumérations en chaînes
+    CHECK(json.find("\"Name\":") != std::string::npos);
+    CHECK(json.find("\"PreampDb\":") != std::string::npos);
+    CHECK(json.find("\"Bands\":[") != std::string::npos);
+    CHECK(json.find("\"Type\":\"Peaking\"") != std::string::npos);
+    CHECK(json.find("\"Type\":\"Notch\"") != std::string::npos);
+    CHECK(json.find("\"Enabled\":false") != std::string::npos);
+    CHECK(json.find("\\\"") != std::string::npos); // guillemet échappé
+
+    // aller-retour exact : ToJson → FromJson → preset identique
+    preset::PresetDef back;
+    std::string error;
+    CHECK(preset::FromJson(json, back, error));
+    CHECK(back.name == src.name);
+    CHECK_NEAR(back.preampDb, src.preampDb, 0.0);
+    CHECK(back.bands.size() == src.bands.size());
+    for (size_t i = 0; i < back.bands.size() && i < src.bands.size(); ++i) {
+        CHECK(back.bands[i].type == src.bands[i].type);
+        CHECK_NEAR(back.bands[i].frequency, src.bands[i].frequency, 0.0);
+        CHECK_NEAR(back.bands[i].gainDb, src.bands[i].gainDb, 0.0);
+        CHECK_NEAR(back.bands[i].q, src.bands[i].q, 0.0);
+        CHECK(back.bands[i].enabled == src.bands[i].enabled);
+    }
+
+    // le JSON produit est relisible par le lecteur de l'application (tests
+    // de données réels) : re-sérialiser preset_demo doit redevenir pareil
+    std::vector<uint8_t> demo;
+    if (ReadFileBytes(DataPath("preset_demo.json"), demo)) {
+        preset::PresetDef original;
+        CHECK(preset::FromJson(
+            std::string(reinterpret_cast<const char*>(demo.data()), demo.size()),
+            original, error));
+        const std::string reserialized = preset::ToJson(original);
+        preset::PresetDef reloaded;
+        CHECK(preset::FromJson(reserialized, reloaded, error));
+        CHECK(reloaded.name == original.name);
+        CHECK_NEAR(reloaded.preampDb, original.preampDb, 0.0);
+        CHECK(reloaded.bands.size() == original.bands.size());
+    } else {
+        CHECK(!"preset_demo.json illisible");
+    }
+}
+
+// ------------------------------------------------- banque casques (v2)
+
+static void TestHeadphoneBank()
+{
+    std::printf("* banque casques embarquée\n");
+
+    const auto& bank = bank::HeadphoneBank();
+    CHECK(bank.size() >= 300); // 321 modèles AutoEq intégrés à l'application
+
+    // structure défensive : chaque modèle est exploitable
+    for (const auto& m : bank) {
+        CHECK(!m.brand.empty());
+        CHECK(!m.model.empty());
+        CHECK(m.typeCode >= 0 && m.typeCode <= 3);
+    }
+
+    // libellés de type
+    CHECK(std::strcmp(bank::HeadphoneTypeLabel(0), "Casque circum-aural") == 0);
+    CHECK(std::strcmp(bank::HeadphoneTypeLabel(1), "Écouteurs intra-aural") == 0);
+
+    // conversion : miroir de HeadphonePresetLibrary.ToEqPreset — clamps
+    // préampli [-15, 0] et bornes de bandes, preset JSON relisible
+    // (les préamplis de la ressource sont tous dans [-8,7 ; -1,2] : le
+    // clamp défensif n'est jamais déclenché par les données réelles)
+    for (const auto& m : bank) {
+        const preset::PresetDef preset = bank::HeadphonePreset(m);
+        CHECK(preset.preampDb >= -15.0 && preset.preampDb <= 0.0);
+        CHECK(preset.name == m.brand + " " + m.model);
+        CHECK(preset.bands.size() == m.filters.size());
+        for (const auto& b : preset.bands) {
+            CHECK(b.frequency >= 20.0 && b.frequency <= 20000.0);
+            CHECK(b.gainDb >= -24.0 && b.gainDb <= 24.0);
+            CHECK(b.q >= 0.1 && b.q <= 20.0);
+            CHECK(b.enabled);
+        }
+        // un preset de banque est audible (sinon la banque ne sert à rien)
+        edit::PresetEditor probe;
+        double preamp = 0.0;
+        std::string error;
+        const std::string json = preset::ToJson(preset);
+        CHECK(probe.ApplyBytes(reinterpret_cast<const uint8_t*>(json.data()),
+            json.size(), preamp, error));
+        CHECK(probe.PresetHasEffect());
+    }
+
+    // aller-retour : preset de banque → JSON → identique
+    if (!bank.empty()) {
+        const preset::PresetDef p = bank::HeadphonePreset(bank[0]);
+        preset::PresetDef back;
+        std::string error;
+        CHECK(preset::FromJson(preset::ToJson(p), back, error));
+        CHECK(back.name == p.name);
+        CHECK_NEAR(back.preampDb, p.preampDb, 0.0);
+        CHECK(back.bands.size() == p.bands.size());
+    }
+}
+
+// -------------------------------------------- noyau d'édition (v2)
+
+static void TestPresetEditor()
+{
+    std::printf("* noyau d'édition (PresetEditor)\n");
+
+    edit::PresetEditor editor;
+    std::string error;
+    double preamp = 0.0;
+
+    // état initial : transparent, sans effet, version 1
+    CHECK(!editor.HasPreset());
+    CHECK(!editor.PresetHasEffect());
+    CHECK(editor.CurrentPreset()->name == "Transparent");
+    CHECK(editor.Version() == 1);
+    CHECK(editor.BandCount() == 0);
+
+    // notifications : comptées à chaque mutation réussie
+    int notifications = 0;
+    editor.SetNotify([&notifications] { ++notifications; });
+
+    // preset réel des données de test
+    std::vector<uint8_t> demo;
+    CHECK(ReadFileBytes(DataPath("preset_demo.json"), demo));
+    CHECK(editor.ApplyBytes(demo.data(), demo.size(), preamp, error));
+    CHECK(editor.HasPreset());
+    CHECK(editor.Version() == 2);
+    CHECK(notifications == 1);
+    const size_t demoBands = editor.BandCount();
+    CHECK(demoBands > 0);
+    CHECK(editor.CurrentPreset()->bands.size() == demoBands);
+
+    // octets vides / données invalides : refus, état INCHANGÉ
+    const uint64_t versionBefore = editor.Version();
+    CHECK(!editor.ApplyBytes(nullptr, 0, preamp, error));
+    const uint8_t garbage[] = "ceci n'est pas un preset";
+    CHECK(!editor.ApplyBytes(garbage, sizeof(garbage), preamp, error));
+    CHECK(editor.Version() == versionBefore);
+    CHECK(editor.BandCount() == demoBands);
+    CHECK(notifications == 1);
+
+    // édition : bornes de l'application appliquées côté greffon
+    double f = 5.0, g = 40.0, q = 0.01;
+    CHECK(editor.EditBand(0, &f, &g, &q) == 0);
+    preset::EqBandDef band;
+    CHECK(editor.BandAt(0, band));
+    CHECK_NEAR(band.frequency, 20.0, 0.0);    // clamp bas fréquence
+    CHECK_NEAR(band.gainDb, 24.0, 0.0);       // clamp haut gain
+    CHECK_NEAR(band.q, 0.1, 0.0);             // clamp bas Q
+    f = 50000.0;
+    g = -40.0;
+    q = 100.0;
+    CHECK(editor.EditBand(0, &f, &g, &q) == 0);
+    CHECK(editor.BandAt(0, band));
+    CHECK_NEAR(band.frequency, 20000.0, 0.0); // clamp haut fréquence
+    CHECK_NEAR(band.gainDb, -24.0, 0.0);      // clamp bas gain
+    CHECK_NEAR(band.q, 20.0, 0.0);            // clamp haut Q
+
+    // édition sélective : pointeur nul = champ inchangé
+    double onlyGain = 6.5;
+    CHECK(editor.EditBand(0, nullptr, &onlyGain, nullptr) == 0);
+    CHECK(editor.BandAt(0, band));
+    CHECK_NEAR(band.frequency, 20000.0, 0.0);
+    CHECK_NEAR(band.gainDb, 6.5, 0.0);
+
+    // index invalides
+    CHECK(editor.EditBand(demoBands + 10, &f, nullptr, nullptr) == -1);
+    CHECK(!editor.BandAt(demoBands + 10, band));
+    CHECK(!editor.RemoveBand(demoBands + 10));
+    CHECK(!editor.SetBandEnabled(demoBands + 10, false));
+    CHECK(!editor.SetBandType(demoBands + 10, dsp::FilterType::Notch));
+
+    // chunk : après édition, les octets sont du JSON exact — rechargement
+    // dans un SECOND éditeur (round-trip complet, miroir SetChunk VST)
+    const std::vector<uint8_t> bytes = editor.Bytes();
+    CHECK(!bytes.empty());
+    edit::PresetEditor restored;
+    CHECK(restored.ApplyBytes(bytes.data(), bytes.size(), preamp, error));
+    CHECK(restored.BandCount() == editor.BandCount());
+    preset::EqBandDef bandA, bandB;
+    CHECK(restored.BandAt(0, bandA) && editor.BandAt(0, bandB));
+    CHECK_NEAR(bandA.frequency, bandB.frequency, 0.0);
+    CHECK_NEAR(bandA.gainDb, bandB.gainDb, 0.0);
+    CHECK_NEAR(bandA.q, bandB.q, 0.0);
+    CHECK(bandA.type == bandB.type);
+
+    // ajout : première bande d'un TRANSPARENT → preset « Manuel »
+    edit::PresetEditor fresh;
+    const int added = fresh.AddBand(1000.0, 3.0);
+    CHECK(added == 0);
+    CHECK(fresh.CurrentPreset()->name == "Manuel");
+    CHECK(fresh.BandCount() == 1);
+    CHECK(fresh.PresetHasEffect());
+    CHECK(fresh.HasPreset()); // l'édition produit un chunk (état de session)
+    int added2 = fresh.AddBand(95000.0, 90.0);
+    CHECK(added2 == 1);
+    CHECK(fresh.BandAt(1, band));
+    CHECK_NEAR(band.frequency, 20000.0, 0.0);
+    CHECK_NEAR(band.gainDb, 24.0, 0.0);
+
+    // activation/désactivation : une bande désactivée ne compte plus
+    CHECK(fresh.SetBandEnabled(0, false));
+    CHECK(fresh.PresetHasEffect()); // l'autre bande reste active
+    CHECK(fresh.SetBandEnabled(1, false));
+    CHECK(!fresh.PresetHasEffect()); // tout désactivé → plat
+    CHECK(fresh.SetBandEnabled(0, true));
+    CHECK(fresh.PresetHasEffect());
+
+    // type filtrant : coupe le signal même à 0 dB (jamais transparent)
+    CHECK(fresh.SetBandEnabled(0, false));
+    CHECK(fresh.SetBandType(1, dsp::FilterType::Notch));
+    CHECK(fresh.SetBandEnabled(1, true)); // la bande Notch est active
+    preset::EqBandDef notchBand;
+    CHECK(fresh.BandAt(1, notchBand));
+    notchBand.gainDb = 0.0;
+    CHECK(fresh.EditBand(1, nullptr, &notchBand.gainDb, nullptr) == 1);
+    CHECK(fresh.PresetHasEffect()); // Notch à 0 dB → effet audible
+
+    // suppression
+    const size_t before = fresh.BandCount();
+    CHECK(fresh.RemoveBand(0));
+    CHECK(fresh.BandCount() == before - 1);
+    CHECK(!fresh.RemoveBand(before));
+
+    // preset PLAT : chargé mais sans effet audible
+    preset::PresetDef flat;
+    flat.name = "Plat";
+    flat.preampDb = 0.0;
+    for (int i = 0; i < 10; ++i) {
+        preset::EqBandDef b;
+        b.frequency = 100.0 * (i + 1);
+        b.gainDb = 0.0;
+        flat.bands.push_back(b);
+    }
+    edit::PresetEditor flatEditor;
+    const std::string flatJson = preset::ToJson(flat);
+    CHECK(flatEditor.ApplyBytes(
+        reinterpret_cast<const uint8_t*>(flatJson.data()), flatJson.size(),
+        preamp, error));
+    CHECK(flatEditor.HasPreset());
+    CHECK(!flatEditor.PresetHasEffect());
+
+    // banque : chargement d'un modèle (préampli retourné pour le paramètre)
+    edit::PresetEditor bankEditor;
+    const auto& bank = bank::HeadphoneBank();
+    CHECK(!bankEditor.LoadHeadphone(bank.size(), preamp)); // index invalide
+    CHECK(bankEditor.LoadHeadphone(0, preamp));
+    CHECK(bankEditor.HasPreset());
+    CHECK(bankEditor.PresetHasEffect());
+    CHECK(preamp == bankEditor.CurrentPreset()->preampDb);
+    CHECK(bankEditor.CurrentPreset()->name
+        == bank[0].brand + " " + bank[0].model);
+}
+
+// --------------------------------------------- auto-chargement (v2)
+
+#if !defined(_WIN32)
+static void TestAutoLoad()
+{
+    std::printf("* auto-chargement par récence\n");
+
+    char dirTemplate[] = "/tmp/roomeq-au-tests-XXXXXX";
+    const char* dir = mkdtemp(dirTemplate);
+    CHECK(dir != nullptr);
+    if (dir == nullptr)
+        return;
+    const std::string store(dir);
+
+    // trois presets : le plus récent est PLAT (à sauter), le suivant est
+    // corrompu (à sauter), le troisième est la vraie correction
+    const std::string flatJson = [] {
+        preset::PresetDef flat;
+        flat.name = "Plat recent";
+        for (int i = 0; i < 10; ++i) {
+            preset::EqBandDef b;
+            b.frequency = 100.0 * (i + 1);
+            flat.bands.push_back(b);
+        }
+        return preset::ToJson(flat);
+    }();
+    const std::string realJson = [] {
+        preset::PresetDef real;
+        real.name = "Vraie correction";
+        real.preampDb = -2.5;
+        preset::EqBandDef b;
+        b.frequency = 120.0;
+        b.gainDb = -5.5;
+        b.q = 1.4;
+        real.bands.push_back(b);
+        return preset::ToJson(real);
+    }();
+
+    const auto writeAt = [&store](const char* name, const std::string& content) {
+        std::ofstream f(store + "/" + name, std::ios::binary);
+        f << content;
+    };
+    writeAt("01-plat.json", flatJson);
+    writeAt("02-corrompu.json", "{ pas du json");
+    writeAt("03-vrai.json", realJson);
+
+    // récence : plat le plus récent, corrompu, puis la vraie correction
+    const auto setMtime = [&store](const char* name, long secondsAgo) {
+        const std::string path = store + "/" + name;
+        struct stat st;
+        if (stat(path.c_str(), &st) != 0)
+            return;
+        struct timespec times[2];
+        times[0] = st.st_atim;
+        times[1].tv_sec = st.st_mtim.tv_sec - secondsAgo;
+        times[1].tv_nsec = st.st_mtim.tv_nsec;
+        utimensat(AT_FDCWD, path.c_str(), times, 0);
+    };
+    setMtime("01-plat.json", 0);     // le plus récent
+    setMtime("02-corrompu.json", 60);
+    setMtime("03-vrai.json", 3600);  // le plus ancien des trois
+
+    edit::PresetEditor editor;
+    double preamp = 0.0;
+    std::string summary;
+    CHECK(editor.AutoLoadFromDir(store, preamp, summary));
+    CHECK(editor.HasPreset());
+    CHECK(editor.CurrentPreset()->name == "Vraie correction");
+    CHECK_NEAR(editor.CurrentPreset()->preampDb, -2.5, 0.0);
+    CHECK_NEAR(preamp, -2.5, 0.0);
+    CHECK(summary.find("Vraie correction") != std::string::npos);
+
+    // l'état déjà chargé reste maître (double appel inactif)
+    CHECK(!editor.AutoLoadFromDir(store, preamp, summary));
+    CHECK(editor.CurrentPreset()->name == "Vraie correction");
+
+    // magasin sans preset audible : rien à charger
+    edit::PresetEditor onlyFlat;
+    writeAt("01-plat.json", flatJson);
+    const auto removeFile = [&store](const char* name) {
+        std::remove((store + "/" + name).c_str());
+    };
+    removeFile("02-corrompu.json");
+    removeFile("03-vrai.json");
+    CHECK(!onlyFlat.AutoLoadFromDir(store, preamp, summary));
+    CHECK(!onlyFlat.HasPreset());
+    CHECK(summary.find("aucun preset") != std::string::npos);
+
+    // répertoire absent : échec propre, jamais d'exception
+    edit::PresetEditor missing;
+    CHECK(!missing.AutoLoadFromDir("/tmp/roomeq-au-inexistant-xyz", preamp, summary));
+    CHECK(!missing.HasPreset());
+
+    // DefaultPresetsDir : la variable d'environnement a priorité
+    setenv("ROOMEQ_PRESETS_DIR", "/tmp/roomeq-au-envdir", 1);
+    CHECK(edit::DefaultPresetsDir() == "/tmp/roomeq-au-envdir");
+    unsetenv("ROOMEQ_PRESETS_DIR");
+
+    // nettoyage
+    removeFile("01-plat.json");
+    rmdir(store.c_str());
+}
+#endif
+
 // ------------------------------------------------------------- main
 
 int main(int argc, char** argv)
@@ -464,6 +860,12 @@ int main(int argc, char** argv)
     TestBiquad();
     TestParity();
     TestEqChain();
+    TestPresetWrite();
+    TestHeadphoneBank();
+    TestPresetEditor();
+#if !defined(_WIN32)
+    TestAutoLoad();
+#endif
 
     std::printf("\n%d vérifications, %d échec(s)\n", g_checks, g_failures);
     if (g_failures != 0)

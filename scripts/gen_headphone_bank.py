@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Génère natif/roomeq-vst/vst/headphone_bank.h : bibliothèque de corrections
-casques/écouteurs embarquée dans le greffon VST (format binaire compact).
+"""Génère natif/roomeq-au/core/roomeq/headphones/headphone_bank_data.h :
+bibliothèque de corrections casques/écouteurs embarquée dans les greffons
+(AU et VST partagent ce fichier depuis la v3.6.0 — décision D23).
 
 Source : src/RoomEq.Core/Headphones/headphone_presets.json (321 modèles,
 données AutoEq — MIT, intégrées à l'application ; le greffon embarque les
@@ -25,7 +26,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / "src/RoomEq.Core/Headphones/headphone_presets.json"
-DST = REPO / "natif/roomeq-vst/vst/headphone_bank_data.h"
+DST = REPO / "natif/roomeq-au/core/roomeq/headphones/headphone_bank_data.h"
 
 TYPES_MODEL = {"over-ear": 0, "in-ear": 1, "earbud": 2, "gaming": 3}
 TYPES_FILTRE = {"peaking": 0, "low-shelf": 1, "high-shelf": 2}
@@ -72,7 +73,7 @@ def main():
         "",
         "#include <cstddef>",
         "",
-        "namespace roomeq_vst {",
+        "namespace roomeq::bank {",
         "",
         "/// Banque casques/écouteurs embarquée (format « RHP1 », voir",
         "/// scripts/gen_headphone_bank.py) — décodée par headphone_bank.cpp.",
@@ -85,7 +86,7 @@ def main():
         "};",
         f"inline constexpr size_t kHeadphoneBankSize = sizeof(kHeadphoneBankData);",
         "",
-        "} // namespace roomeq_vst",
+        "} // namespace roomeq::bank",
         "",
     ]
     content = "\n".join(lines)

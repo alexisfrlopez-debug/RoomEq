@@ -15,9 +15,9 @@
         <key>CFBundlePackageType</key>
         <string>BNDL</string>
         <key>CFBundleShortVersionString</key>
-        <string>3.3.0</string>
+        <string>3.6.0</string>
         <key>CFBundleVersion</key>
-        <string>30300</string>
+        <string>30600</string>
         <key>NSPrincipalClass</key>
         <string></string>
         <key>AudioComponents</key>
@@ -26,7 +26,7 @@
                         <key>name</key>
                         <string>RoomEq: Correction</string>
                         <key>description</key>
-                        <string>Correction acoustique RoomEq — charge un preset de l'application (.json) ou un preset FabFilter Pro-Q 3 (.ffp)</string>
+                        <string>Correction acoustique RoomEq — égaliseur éditable, banque casques embarquée, presets .json / .ffp</string>
                         <key>manufacturer</key>
                         <string>Rmeq</string>
                         <key>type</key>
@@ -38,7 +38,7 @@
                         <key>sandboxSafe</key>
                         <true/>
                         <key>version</key>
-                        <integer>30300</integer>
+                        <integer>30600</integer>
                 </dict>
         </array>
 </dict>

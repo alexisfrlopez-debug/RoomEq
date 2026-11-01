@@ -7,16 +7,59 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.5.2** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2, **v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics**, **v3.5.1 : fenêtre du greffon entière (rect kEffEditGetRect = 560×320, source unique editor_geometry.h)** et **v3.5.2 : ABI AEffect réparée — cinq rangs manquants comblés, l'hôte appelle enfin processReplacing** |
+| **Projet** | RoomEq **v3.6.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2, v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics, v3.5.1 : fenêtre du greffon entière, v3.5.2 : ABI AEffect réparée — l'hôte appelle enfin processReplacing, et **v3.6.0 : l'AU rejoint la parité fonctionnelle du VST (D23 — édition à la souris, banque, VU, auto-chargement, journal)** |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 17 — v3.5.2 : le DAW appelle enfin le traitement)
+## 1. État (fin session 18 — v3.6.0 : l'AU en parité fonctionnelle du VST)
+
+**Session 18 (2026-11-01)** : « parfait, tout fonctionne [VST 3.5.2].
+Maintenant il me faut la version pour Ableton sur macOS en AU » — livrer
+l'AU **avec la même expérience que le VST validé** (édition directe,
+banque casques, VU-mètres), décision **D23**.
+
+- **Cœur partagé élargi (D23)** : `headphone_bank.*` + `headphone_bank_data.h`
+  et `preset_write.*` déplacés de `natif/roomeq-vst/vst/` vers le cœur
+  `natif/roomeq-au/core/roomeq/{headphones,preset}/` (ports de
+  RoomEq.Core : HeadphonePresetLibrary, sérialisation EqPreset) — namespaces
+  `roomeq::bank` / `roomeq::preset::ToJson` ; le VST les consomme depuis le
+  cœur (includes + CMake ajustés, **zéro changement de comportement** :
+  430 + 41 verts) ; `gen_headphone_bank.py` régénère au nouvel emplacement.
+- **Couche d'édition portable** `natif/roomeq-au/edit/preset_editor.{h,cpp}`
+  (`roomeq::edit::PresetEditor`) : état de preset éditable thread-safe
+  (json/ffp, clamps des bornes de l'application, re-sérialisation JSON à
+  chaque mutation, banque, auto-chargement par récence avec saut des
+  presets plats) — **testée sous Linux**, l'intégration AU reste mince.
+- **AU v3.6.0** : nouvelles propriétés custom bornées (`'RPbd'` instantané
+  binaire des bandes, `'RPeb'`/`'RPab'`/`'RPbo'` édition, `'RPlh'` banque,
+  `'RPlv'` VU) ; vue Cocoa réécrite en miroir de l'éditeur VST 560×320
+  (glisser/molette/double-clic/menu contextuel, listes casques, VU 30 Hz,
+  bannières orange, version) ; auto-chargement du magasin
+  `~/.config/RoomEq/presets` à la construction (l'état du projet reste
+  maître) ; journal `~/Library/Logs/RoomEq/roomeq-au.log` (open /
+  auto-chargement / initialisation / premier bloc / close avec blocs
+  traités) ; VU + compteur alimentés par le noyau du canal 0 (atomiques).
+- **Validation** : AU **15 671 vérifications** natives (+ écriture JSON
+  aller-retour exact, banque 321 modèles, éditeur, auto-chargement par
+  récence avec mtimes nanosecondes) ; VST 430 + 41 non régressé ; xUnit
+  461/461. Info.plist 3.6.0/30600, CMake AU 3.6.0, props + package_v3.sh
+  alignés. Spec I-AUD-07 passée en **v2**.
+- **Livrable** : `RoomEq-AU-3.6.0-macos.zip` + `.pkg` construits par la CI
+  macOS (build + signature ad hoc + `auval -v aufx Rmeq Rmeq`), joints à la
+  release du tag `v3.6.0`, puis miroir Drive + archivage D22 (l'AU 3.3.0
+  part automatiquement dans `Livrables/Archive`).
+- **Test utilisateur décisif** : installer le .pkg, insérer « RoomEq:
+  Correction » dans Live (AU activés dans les préférences) — le preset le
+  plus récent de l'application se charge tout seul ; sinon choisir un
+  casque dans les listes ; les VU In/Out doivent bouger à la lecture et le
+  journal doit montrer « process : … preset « … » … ».
+
+## 1bis. État (fin session 17 — v3.5.2 : le DAW appelle enfin le traitement)
 
 **Session 17 (2026-11-01)** : cinquième retour VST — « les VU-mètres In/Out
 n'affichent rien quand le VST est actif, toujours pas de modification du
@@ -378,6 +421,11 @@ Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
   requête refusée (R2/R4/R5, D1), mesure substituée — harnais `perf/` : thread
   audio à 152× temps réel et 0 allocation mesurés (2 vCPU partagés) ; aucun
   problème de performance à corriger, `src/` intact.
+- **D23** parité fonctionnelle AU ↔ VST : banque casques + écriture JSON
+  déplacées dans le cœur C++ partagé (`roomeq::bank`, `roomeq::preset::ToJson`
+  — ports de RoomEq.Core, consommés par les DEUX greffons), couche d'édition
+  portable `natif/roomeq-au/edit/` testée Linux, AU v3.6.0 (édition à la
+  souris, banque, VU, auto-chargement, journal).
 - **D22** règle permanente de livraison (§ 2bis) : synchro Git + Drive
   **obligatoire** à chaque livraison + **archivage automatique des anciennes
   versions** dans `Equalizer/RoomEq-v3/Livrables/Archive` — au premier niveau,

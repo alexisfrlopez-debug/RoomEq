@@ -624,3 +624,26 @@ immédiatement à l'adoption : 24 anciens fichiers déplacés (appli
 `RoomEq-AU-3.3.0-macos.pkg`, `RoomEq-VST-3.5.1-win32.zip`,
 `RoomEq-win-Setup.exe` et les deux LISEZMOI. Validation R5 : 461/461 tests
 xUnit verts (aucun code applicatif modifié — `src/` et `natif/` intacts).
+
+## D23 — Parité AU/VST : cœur partagé élargi (banque casques + écriture JSON) et couche d'édition portable (1er novembre 2026)
+
+| | |
+|---|---|
+| **D23** | Demande développeur : « il me faut la version pour Ableton sur macOS en AU » — après validation du VST Windows 3.5.2 (édition directe, banque casques, VU-mètres), l'AU devait offrir LA MÊME expérience, sans dupliquer le code ni risquer le VST livré |
+| **Décision** | **(1) Le cœur partagé (`natif/roomeq-au/core/`) absorbe la banque casques et l'écriture JSON** du VST : `headphone_bank.*` + `headphone_bank_data.h` → `core/roomeq/headphones/` (namespace `roomeq::bank`), `preset_write.*` → `core/roomeq/preset/` (`roomeq::preset::ToJson`). Ce sont des ports de RoomEq.Core (`HeadphonePresetLibrary.ToEqPreset`, sérialisation `EqPreset`) : ils appartiennent au cœur que les DEUX greffons compilent déjà (le VST compile le cœur AU depuis D21, sans copie). Le VST consomme les fichiers déplacés (includes + CMake ajustés, **zéro changement de comportement** : 430 + 41 vérifications vertes) ; `scripts/gen_headphone_bank.py` régénère vers le nouvel emplacement. **(2) Couche d'édition portable `natif/roomeq-au/edit/preset_editor.{h,cpp}`** (`roomeq::edit::PresetEditor`) : état de preset éditable thread-safe (chargement json/ffp, édition bornée aux bornes de l'application, banque, auto-chargement par récence avec saut des presets plats), testable sous Linux — l'intégration AudioUnit (`RoomEqAu.cpp`, macOS seule) reste mince : propriétés custom + paramètre + notifications. **(3) AU v3.6.0** : égaliseur modifiable à la souris (glisser/molette/double-clic/menu contextuel), banque des 321 casques par listes déroulantes, VU-mètres in/out, version affichée, auto-chargement du magasin `~/.config/RoomEq/presets`, journal `~/Library/Logs/RoomEq/roomeq-au.log` (miroir de roomeq-vst.log — diagnostic à distance du « aucune différence de son ») |
+| **Alternatives écartées** | Compiler les sources du module VST depuis l'AU (couplage croisé VST↔AU, namespace `roomeq_vst` au sein du greffon AU — incohérent avec le modèle « chaque module propriétaire de ses sources ») ; dupliquer la logique d'édition dans `RoomEqAu.cpp` (non compilable sous Linux = non testable avant la CI macOS) ; migrer AUSSI le VST vers `PresetEditor` dans le même changement (toucher le VST 3.5.2 juste livré et validé par l'utilisateur pour un bénéfice nul — migration reportée à une session dédiée) ; AUv3 (Ableton consomme l'AUv2, validé par auval depuis D19) |
+| **Validation** | AU : **15 671 vérifications natives** (parité DSP inchangée + écriture JSON aller-retour exact + banque 321 modèles + éditeur : clamps/round-trip chunk/« Manuel »/plat + auto-chargement par récence avec mtimes nanosecondes). VST non régressé : 430 + 41. xUnit : 461/461. CI macOS : build + signature ad hoc + `auval -v aufx Rmeq Rmeq` + artefacts `RoomEq-AU-3.6.0-macos.{zip,pkg}` |
+
+**Détail technique — communication vue ↔ greffon (AUv2).** La vue Cocoa ne
+peut pas atteindre l'objet C++ derrière le handle `AudioUnit` : l'édition
+passe par des propriétés custom aux payloads binaires bornés — `'RPbd'`
+(get, instantané « RBP1 » : préampli, nom, bandes complètes), `'RPeb'`
+(set, édition masquée fréquence/gain/Q), `'RPab'` (set, ajout), `'RPbo'`
+(set, suppression/activation/type), `'RPlh'` (set, modèle de banque),
+`'RPlv'` (get, VU entrée/sortie). Chaque mutation re-sérialise le preset au
+JSON exact de l'application (l'état de session du projet DAW emporte
+l'édition) et notifie par `PropertyChanged(kRoomEqPropertyStatus)`. La
+banque, données statiques du bundle, est lue directement par la vue (aucune
+propriété nécessaire). Les VU-mètres sont des atomiques écrits par le noyau
+du canal 0 au rendu et sondés par la vue à 30 Hz (décroissance locale,
+jamais de verrou au rendu — invariant 4 respecté).

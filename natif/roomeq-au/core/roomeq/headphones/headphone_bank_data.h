@@ -6,7 +6,7 @@
 
 #include <cstddef>
 
-namespace roomeq_vst {
+namespace roomeq::bank {
 
 /// Banque casques/écouteurs embarquée (format « RHP1 », voir
 /// scripts/gen_headphone_bank.py) — décodée par headphone_bank.cpp.
@@ -2890,4 +2890,4 @@ inline constexpr unsigned char kHeadphoneBankData[] = {
 };
 inline constexpr size_t kHeadphoneBankSize = sizeof(kHeadphoneBankData);
 
-} // namespace roomeq_vst
+} // namespace roomeq::bank

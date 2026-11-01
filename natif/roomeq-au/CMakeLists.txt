@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-project(RoomEqAU VERSION 3.3.0 LANGUAGES C CXX)
+project(RoomEqAU VERSION 3.6.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,9 +36,28 @@ add_library(roomeq_au_core STATIC
     core/roomeq/json/mini_json.cpp
     core/roomeq/preset/preset_json.cpp
     core/roomeq/preset/preset_ffp.cpp
+    core/roomeq/preset/preset_write.cpp
+    core/roomeq/headphones/headphone_bank.cpp
 )
 target_include_directories(roomeq_au_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/core)
+# Pas de -Werror sur le cœur (aligné sur le CMakeLists VST, même raison) :
+# gcc 14 émet un faux positif maybe-uninitialized sur le switch de
+# biquad.cpp (toutes les valeurs de l'énumération sont couvertes) ; la
+# parité numérique est garantie par les tests natifs, pas par -Werror.
 target_compile_options(roomeq_au_core PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>)
+
+# --------------------------------------------- couche d'édition portable (v3.6.0)
+# État de preset éditable partagé par le greffon AU (et réutilisable par tout
+# greffon futur) : chargement json/ffp, édition bornée, banque casques,
+# auto-chargement. Testable sous Linux (l'intégration AU est macOS seule).
+
+add_library(roomeq_au_edit STATIC
+    edit/roomeq/edit/preset_editor.cpp
+)
+target_link_libraries(roomeq_au_edit PUBLIC roomeq_au_core)
+target_include_directories(roomeq_au_edit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/edit)
+target_compile_options(roomeq_au_edit PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Werror>)
 
 # ---------------------------------------------------------------- tests natifs
@@ -46,7 +65,7 @@ target_compile_options(roomeq_au_core PRIVATE
 enable_testing()
 
 add_executable(roomeq_au_tests tests/test_main.cpp)
-target_link_libraries(roomeq_au_tests PRIVATE roomeq_au_core)
+target_link_libraries(roomeq_au_tests PRIVATE roomeq_au_core roomeq_au_edit)
 target_compile_definitions(roomeq_au_tests PRIVATE
     ROOMEQ_AU_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_options(roomeq_au_tests PRIVATE
@@ -107,6 +126,7 @@ if(APPLE)
         COMPILE_OPTIONS "-fobjc-arc")
     target_link_libraries(RoomEqAU PRIVATE
         roomeq_au_core
+        roomeq_au_edit
         ausdk
         "-framework AppKit"
         "-framework AudioUnit"

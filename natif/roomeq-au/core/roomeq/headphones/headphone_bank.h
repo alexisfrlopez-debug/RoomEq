@@ -1,7 +1,8 @@
-// RoomEq VST — banque de corrections casques/écouteurs embarquée (v3.5.0).
-// Données : headphone_bank.h (généré depuis la bibliothèque intégrée de
+// RoomEq — banque de corrections casques/écouteurs embarquée (v3.5.0 VST,
+// partagée par les greffons AU et VST depuis la v3.6.0 — décision D23).
+// Données : headphone_bank_data.h (généré depuis la bibliothèque intégrée de
 // l'application, données AutoEq — MIT). Le greffon n'exige PAS que
-// l'application soit installée : la banque vit dans la DLL.
+// l'application soit installée : la banque vit dans le composant.
 #pragma once
 
 #include "roomeq/dsp/filter_type.h"
@@ -10,12 +11,12 @@
 #include <string>
 #include <vector>
 
-namespace roomeq_vst {
+namespace roomeq::bank {
 
 /// Un filtre d'une correction de casque (types produits par AutoEq : peaking,
 /// low-shelf, high-shelf — les mêmes que la bibliothèque C#).
 struct HeadphoneFilterDef {
-    roomeq::dsp::FilterType type = roomeq::dsp::FilterType::Peaking;
+    dsp::FilterType type = dsp::FilterType::Peaking;
     double frequency = 1000.0;
     double gainDb = 0.0;
     double q = 1.0;
@@ -43,6 +44,6 @@ const char* HeadphoneTypeLabel(int typeCode);
 /// Convertit un modèle en preset d'égaliseur — miroir EXACT de
 /// HeadphonePresetLibrary.ToEqPreset (clamps identiques : préampli
 /// [-15, 0], fréquence [20, 20000], gain [-24, 24], Q [0.1, 20]).
-roomeq::preset::PresetDef HeadphonePreset(const HeadphoneModelDef& model);
+preset::PresetDef HeadphonePreset(const HeadphoneModelDef& model);
 
-} // namespace roomeq_vst
+} // namespace roomeq::bank

@@ -2,22 +2,22 @@
 
 > Couche C du protocole TRIADE pour ce dépôt. Index de navigation à adresses
 > stables. **Règle : toute modification de `src/` doit mettre à jour la ligne
-> correspondante de la Carte.** Dernière mise à jour : `v3.5.2` (correctif
-> ABI du greffon VST 2 32 bits — module natif M-AUD-08/N-VST-01 : cinq rangs
-> de la structure `AEffect` manquaient entre `initialDelay` et `uniqueID`
-> (dépréciés VST 1.x + pointeurs libres) → `processReplacing` décalé de
-> 20 octets, lu NULL par l'hôte : le DAW n'appelait JAMAIS le traitement
-> (son intact, VU morts, « 0 blocs traités » — bug présent depuis v3.4.0) ;
-> rangs comblés + verrou d'ABI (static_asserts d'offsets + test « vue hôte
-> externe » par offsets en dur) ; spec I-AUD-08 v3, 430 + 41 vérifications).
+> correspondante de la Carte.** Dernière mise à jour : `v3.6.0` (parité
+> fonctionnelle AU ↔ VST — module natif M-AUD-07/N-AU-01, décision D23 :
+> l'AU gagne l'égaliseur éditable à la souris, la banque casques embarquée
+> (321 modèles), les VU-mètres in/out, l'auto-chargement du magasin de
+> l'application et le journal ~/Library/Logs/RoomEq/roomeq-au.log ; banque
+> + écriture JSON déplacées dans le cœur C++ partagé (ports de RoomEq.Core),
+> nouvelle couche d'édition portable `natif/roomeq-au/edit/` testée sous
+> Linux ; spec I-AUD-07 v2, 15 671 vérifications natives AU).
 
 | En-tête | Valeur |
 |---|---|
-| projet | RoomEq v3.5.2 — égaliseur acoustique temps réel |
+| projet | RoomEq v3.6.0 — égaliseur acoustique temps réel |
 | profil de cible | x86-64-pc-windows-msvc (.NET 8 + Avalonia 11) + macOS (greffon scellé + greffon AudioUnit `natif/roomeq-au/`) |
 | base de référence | v2.2.2 (GitHub alexisfrlopez-debug/RoomEq @ `deff25c`, tag v2.2.2) |
 | empreinte legacy | clone git `roomeq-git-ref` (code, CI verte) + miroir Drive `roomeq-legacy` (docs, 284 fichiers) |
-| statut | 🔒 v3.5.2 (correctif ABI M-AUD-08 : rangs `AEffect` dépréciés/pointeurs manquants comblés — l'hôte lit enfin `processReplacing` et traite l'audio, verrouillé par static_asserts + test « vue hôte externe » [430 + mini-hôte 41] ; v3.5.1 : fenêtre du greffon entière — rect kEffEditGetRect = 560×320, source unique editor_geometry.h ; v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics ; v3.4.1/v3.4.2 : auto-chargement du preset de l'application + presets plats ignorés ; D22 : règle de livraison — synchro Git+Drive + archivage automatique ; D20 : installation « 1 clic » — `RoomEq-win-Setup.exe` Windows [Velopack, `scripts/build_setup.sh`] + `RoomEq-AU-<v>-macos.pkg` macOS, sans dépendance ajoutée à l'application ; D18 : anti-boucle au moment du routage — M-AUD-03 spec v2 ; D19 : greffon AudioUnit « RoomEq Correction » `.component` — module natif M-AUD-07, CI macOS + auval ; 461 tests verts + 118 tests natifs ; D21 : greffon VST 2 32 bits Windows « RoomEq Correction » `.dll` — module natif M-AUD-08/N-VST-01, ABI VST 2 autodéclarée, CI `plugin-vst`) sur la suite cristallisée v3.0.2 (D14 ; v3.0.0/v3.0.1 = étapes intermédiaires à CI rouge, conservées sans déplacement de tag) — 45 modules 🔒, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
+| statut | 🔒 v3.6.0 (AU M-AUD-07 en parité fonctionnelle du VST 3.5.x, D23 : égaliseur éditable à la souris, banque casques embarquée 321 modèles, VU-mètres in/out, auto-chargement du magasin, journal ~/Library/Logs — couche d'édition portable testée Linux, banque + écriture JSON déplacées dans le cœur partagé [AU 15 671 vérifications] ; v3.5.2 (correctif ABI M-AUD-08 : rangs `AEffect` dépréciés/pointeurs manquants comblés — l'hôte lit enfin `processReplacing` et traite l'audio, verrouillé par static_asserts + test « vue hôte externe » [430 + mini-hôte 41] ; v3.5.1 : fenêtre du greffon entière — rect kEffEditGetRect = 560×320, source unique editor_geometry.h ; v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics ; v3.4.1/v3.4.2 : auto-chargement du preset de l'application + presets plats ignorés ; D22 : règle de livraison — synchro Git+Drive + archivage automatique ; D20 : installation « 1 clic » — `RoomEq-win-Setup.exe` Windows [Velopack, `scripts/build_setup.sh`] + `RoomEq-AU-<v>-macos.pkg` macOS, sans dépendance ajoutée à l'application ; D18 : anti-boucle au moment du routage — M-AUD-03 spec v2 ; D19 : greffon AudioUnit « RoomEq Correction » `.component` — module natif M-AUD-07, CI macOS + auval ; 461 tests verts ; D21 : greffon VST 2 32 bits Windows « RoomEq Correction » `.dll` — module natif M-AUD-08/N-VST-01, ABI VST 2 autodéclarée, CI `plugin-vst`) sur la suite cristallisée v3.0.2 (D14 ; v3.0.0/v3.0.1 = étapes intermédiaires à CI rouge, conservées sans déplacement de tag) — 45 modules 🔒, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
 
 ## Modules — couche I (intention) / B (code)
 
@@ -55,7 +55,7 @@
 | M-AUD-04 | Pont ASIO | `I/audio/I-pont-asio.md` | `…/Asio/AsioBridgeInterop.cs` + `AsioBridgeHost.cs` + `AsioManager.cs` | `…/AsioBridgeTests.cs` | 🔒 |
 | M-AUD-05 | Pont macOS | `I/audio/I-pont-macos.md` | `…/Mac/CoreAudioApi.cs` + `CoreAudioCatalog.cs` + `CoreAudioOutput.cs` + `CoreAudioCapture.cs` + `MacAudioBridge.cs` | `…/DeviceBridgeTests.cs` | 🔒 |
 | M-AUD-06 | Moteur de mesure | `I/audio/I-moteur-mesure.md` | `…/Measurement/RoomMeasurementEngine.cs` | `…/MeasurementEngineTests.cs` | 🔒 |
-| M-AUD-07 | Greffon AudioUnit macOS | `I/audio/I-greffon-au.md` | **natif** `natif/roomeq-au/` (N-AU-01 : cœur C++ + AUv2 ausdk + vue Cocoa + CI macOS/auval) | natifs : `natif/roomeq-au/tests/` (118 vérifications, parité bit à bit RoomEq.Core) + CI `plugin-au` (auval) | 🔒 |
+| M-AUD-07 | Greffon AudioUnit macOS | `I/audio/I-greffon-au.md` | **natif** `natif/roomeq-au/` (N-AU-01 : cœur C++ + couche d'édition portable `edit/` + AUv2 ausdk + vue Cocoa éditable + CI macOS/auval) | natifs : `natif/roomeq-au/tests/` (15 671 vérifications : parité bit à bit RoomEq.Core, écriture JSON, banque casques, éditeur, auto-chargement) + CI `plugin-au` (auval) | 🔒 |
 | M-AUD-08 | Greffon VST 2 32 bits Windows | `I/audio/I-greffon-vst.md` **v3** (ABI verrouillée : rangs AEffect exacts + offsets statiques) | **natif** `natif/roomeq-vst/` (N-VST-01 : ABI VST 2 autodéclarée + cœur C++ réutilisé de roomeq-au + éditeur Win32 + mini-hôte) | natifs : `natif/roomeq-vst/tests/` (430 vérifications, dont vue hôte externe de l'ABI) + mini-hôte ABI (41) + CI `plugin-vst` (PE32/exports) | 🔒 |
 | M-APP-01 | Shell + MVVM | `I/app/I-shell.md` | `src/RoomEq.App/…` (Program, App, MainWindow, MainViewModel, TestSignalMenu, OutputPresetCoordinator) | `…/OutputPresetCoordinatorTests.cs` + `…/SecondaryTabsTests.cs` | 🔒 |
 | M-APP-02 | Onglet calibration | `I/app/I-onglet-calibration.md` | `…/Views/CalibrationTab…` + `ViewModels/CalibrationViewModel.cs` + `CalibrationOptions.cs` + `LiveMicMonitor.cs` | `…/SecondaryTabsTests.cs` | 🔒 |

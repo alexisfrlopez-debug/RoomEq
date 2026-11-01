@@ -1,11 +1,12 @@
-// RoomEq VST — sérialisation JSON d'un preset (v3.5.0) : implémentation.
-#include "preset_write.h"
+// RoomEq — sérialisation JSON d'un preset (v3.5.0 VST, partagée par les
+// greffons AU et VST depuis la v3.6.0 — décision D23) : implémentation.
+#include "roomeq/preset/preset_write.h"
 
 #include <cmath>
 #include <cstdio>
 #include <string>
 
-namespace roomeq_vst {
+namespace roomeq::preset {
 namespace {
 
 const char* TypeName(roomeq::dsp::FilterType type)
@@ -60,7 +61,7 @@ void AppendString(std::string& out, const std::string& text)
 
 } // namespace
 
-std::string PresetToJson(const roomeq::preset::PresetDef& preset)
+std::string ToJson(const PresetDef& preset)
 {
     std::string out = "{";
     out += "\"Name\":";
@@ -88,4 +89,4 @@ std::string PresetToJson(const roomeq::preset::PresetDef& preset)
     return out;
 }
 
-} // namespace roomeq_vst
+} // namespace roomeq::preset

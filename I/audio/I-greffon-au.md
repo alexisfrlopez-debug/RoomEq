@@ -1,8 +1,9 @@
 # I-AUD-07 — Greffon AudioUnit « RoomEq Correction » (.component)
 
-- **Module** : M-AUD-07 · **Version de spec** : 1 (v3.2.0) · **Code** :
+- **Module** : M-AUD-07 · **Version de spec** : 2 (v3.6.0) · **Code** :
   `natif/roomeq-au/` (composant natif N-AU-01, décision D19) — cœur `core/`,
-  greffon `au/`, tests natifs `tests/`, SDK vendangé `thirdparty/AudioUnitSDK/`
+  couche d'édition portable `edit/`, greffon `au/`, tests natifs `tests/`,
+  SDK vendangé `thirdparty/AudioUnitSDK/`
 
 ## Intention
 
@@ -15,50 +16,65 @@ inséré sur une piste ou le master du DAW. Le greffon **applique** la correctio
 l'application — un greffon ne peut pas piloter le son système ni la boucle de
 mesure.
 
+**v2 (3.6.0) — parité fonctionnelle avec le VST 3.5.x** (retours utilisateurs
+Windows transposés à macOS) : l'égaliseur est **modifiable directement dans le
+greffon** (glisser un point, molette = Q, double-clic = créer/activer, clic
+droit = type/suppression), la **banque casques/écouteurs de l'application est
+embarquée** (données AutoEq, listes déroulantes marque/modèle), un
+**VU-mètre entrée/sortie** diagnostique le flux audio, le preset de
+l'application est **auto-chargé** à l'insertion, et un **journal de diagnostic**
+trace le démarrage du rendu (même rôle que roomeq-vst.log côté Windows).
+
 ## Périmètre et non-buts
 
 - **Formats d'entrée** : presets RoomEq `.json` (format exact de l'application,
   énumérations en chaînes) et `.ffp` FabFilter Pro-Q 3 (module M-IO-06) —
   détection par magie (« FQ3p » → binaire, « { » → JSON).
-- **Non-buts v1** : édition des bandes dans le greffon (lecture seule + préampli
-  automatisable), mesure intégrée, bandes dynamiques Pro-Q 3, pentes de coupe
+- **Non-buts** : mesure intégrée, bandes dynamiques Pro-Q 3, pentes de coupe
   raides du Pro-Q 3 (l'import FFP applique la pente 12 dB/oct des biquads ;
-  les pentes 24/48 importées sont approchées par 12 dB/oct), format VST3.
+  les pentes 24/48 importées sont approchées par 12 dB/oct), format VST3,
+  sauvegarde de presets depuis le greffon (l'édition reste en mémoire + état
+  de session du projet — l'application reste l'outil de mesure/export).
 
 ## Contrat public (extraits)
 
 ```cpp
 // Cœur C++ portable (testé sous Linux, sans framework) — port EXACT de
-// RoomEq.Core (BiquadFilter.cs / EqChain.cs / FabFilterProQ3.cs)
+// RoomEq.Core (BiquadFilter.cs / EqChain.cs / FabFilterProQ3.cs /
+// HeadphonePresetLibrary.cs / EqPreset.cs) :
 namespace roomeq {
 enum class FilterType { Peaking, LowShelf, HighShelf, LowPass, HighPass, Notch };
 
 struct EqBandDef { FilterType type; double frequency; double gainDb; double q; bool enabled; };
 struct PresetDef { std::string name; double preampDb; std::vector<EqBandDef> bands; };
 
-namespace json {  // analyseur JSON minimal (aucune dépendance)
-    struct Value;  // null / bool / nombre / chaîne / tableau / objet
-    bool Parse(std::string_view text, Value& out, std::string& error);
-}
-
 namespace preset {
     bool FromJson(const std::string& text, PresetDef& out, std::string& error);
     bool FromFfp(const uint8_t* data, size_t size, PresetDef& out, std::string& error);
+    std::string ToJson(const PresetDef&);   // v2 — écriture, format EXACT de
+                                            // l'application (aller-retour FromJson)
+}
+namespace bank {                            // v2 — banque casques embarquée
+    const std::vector<HeadphoneModelDef>& HeadphoneBank();  // blob « RHP1 »
+    PresetDef HeadphonePreset(const HeadphoneModelDef&);    // miroir ToEqPreset
+}
 }
 
-namespace dsp {
-    class BiquadFilter {  // RBJ, Transposed Direct Form II, double précision
-        Configure(type, fs, f0, gainDb, q);  // bornes : f0 ∈ [1 ; fs·0,499], Q ∈ [0,05 ; 50]
-        double Process(double); void Reset();
-        double MagnitudeAt(f); double ResponseDb(f);
-    };
-    class EqChain {       // cascade multi-canaux + préampli
-        Configure(sampleRate, channels); SetPreset(const PresetDef&);
-        SetPreampDb(db); SetBypass(bool); Reset();
-        Process(float* interleaved, size_t sampleCount);
-        double ResponseDb(freq);
-    };
-}
+// Couche d'édition portable (v2, edit/preset_editor.h — testée sous Linux ;
+// l'intégration AudioUnit est macOS seule) :
+namespace roomeq::edit {
+class PresetEditor {
+    // état : preset shared_ptr + octets + version atomique (comme le noyau AU)
+    bool ApplyBytes(const uint8_t*, size_t, double& preampOut, std::string& error);
+    bool LoadHeadphone(size_t index, double& preampOut);
+    bool AutoLoadFromDir(const std::string& dir, std::string& summary);
+    int  EditBand(size_t, const double* freq, const double* gain, const double* q);
+    int  AddBand(double frequency, double gainDb);   // → preset « Manuel »
+    bool RemoveBand(size_t); bool SetBandEnabled(size_t, bool);
+    bool SetBandType(size_t, FilterType);
+    // chaque mutation : bornes de l'application, re-sérialisation JSON,
+    // version++, notification (l'intégration appelle PropertyChanged)
+};
 }
 
 // Greffon AUv2 (macOS uniquement, ausdk Apache-2.0 vendangé)
@@ -70,6 +86,13 @@ class RoomEqAu : public ausdk::AUEffectBase {   // 'aufx' / 'Rmeq' / 'Rmeq'
     //   'RPDT' (set) : CFData = octets du fichier .json/.ffp → preset appliqué
     //   'RPST' (get) : CFDictionary { name, bands, preampDb, version }
     //   'RPcv' (get) : CFData = courbe (paires double f/Hz, dB) 97 points
+    //   'RPbd' (get) : CFData = instantané binaire « RBP1 » du preset édité
+    //                  (préampli, nom, bandes complètes — dessin/édition de la vue)
+    //   'RPeb' (set) : CFData { index, masque, freq, gain, Q } → EditBand
+    //   'RPab' (set) : CFData { freq, gain } → AddBand
+    //   'RPbo' (set) : CFData { index, opération } → RemoveBand/toggle/SetBandType
+    //   'RPlh' (set) : CFData { index } → LoadHeadphone (banque embarquée)
+    //   'RPlv' (get) : CFData { peak entrée f32, peak sortie f32 } — VU-mètres
     // État (SaveState/RestoreState) : dictionnaire standard + blob preset.
     std::unique_ptr<ausdk::AUKernelBase> NewKernel();  // 1 EqChain par canal
 };
@@ -93,17 +116,43 @@ class RoomEqAu : public ausdk::AUEffectBase {   // 'aufx' / 'Rmeq' / 'Rmeq'
 4. **Temps réel** : `Process` n'alloue ni ne bloque pas ; le chargement d'un
    preset publie un `shared_ptr` + un compteur de version atomique, chaque
    noyau reconstruit sa chaîne au bloc suivant (rare, action utilisateur —
-   documenté).
+   documenté). Les VU-mètres sont des atomiques écrits par les noyaux et lus
+   par la vue (jamais de verrou au rendu).
 5. **Canaux/taux** : 1 ou 2 canaux, tout taux (chaîne configurée au taux réel
    du flux) ; remise à zéro des états à `Reset` et au changement de format.
 6. **État de session** : la sauvegarde du projet DAW restaure le preset
-   (blob brut) et le préampli ; le paramètre « Préampli » reste automatisable.
-7. **Dépendances** : aucune bibliothèque tierce au runtime ; le SDK
-   AudioUnitSDK d'Apple (Apache-2.0) est vendangé dans
-   `thirdparty/AudioUnitSDK/` avec sa licence — version 1.4.0, fixée.
-8. **Vie du dépôt** : le composant est compilé et validé par la CI macOS
-   (`auval`, l'outil officiel d'Apple) ; le binaire `.component` signé ad hoc
-   est attaché aux releases.
+   (blob brut — JSON dès qu'une édition a eu lieu) et le préampli ; le
+   paramètre « Préampli » reste automatisable.
+7. **Édition (v2)** : bornes IDENTIQUES à l'application — fréquence
+   [20 ; 20 000] Hz, gain [−24 ; +24] dB, Q [0,1 ; 20] ; chaque mutation
+   re-sérialise le preset au JSON exact de l'application (un preset `.ffp`
+   édité devient du JSON, relisible partout) et incrémente la version : le
+   rendu bascule au bloc suivant, l'état de session emporte l'édition. Un
+   payload de propriété malformé est refusé (`kAudioUnitErr_InvalidPropertyValue`),
+   jamais interprété.
+8. **Banque embarquée (v2)** : les modèles de la bibliothèque intégrée de
+   l'application (données AutoEq — MIT) sont compilés dans le greffon (blob
+   « RHP1 », décodage défensif : blob corrompu = banque tronquée, jamais de
+   hors-zone) ; la conversion en preset est le miroir EXACT de
+   `HeadphonePresetLibrary.ToEqPreset` (préampli clamp [−15 ; 0], mêmes clamps
+   par bande). Le greffon n'exige PAS que l'application soit installée.
+9. **Auto-chargement (v2)** : à l'insertion, le greffon charge le preset le
+   plus récent du magasin de l'application (`~/.config/RoomEq/presets`,
+   variable `ROOMEQ_PRESETS_DIR` en priorité) EN SAUTANT les presets sans
+   effet audible (plats) ; l'état du projet DAW (restauré après construction)
+   reste maître — il écrase toujours l'auto-chargement.
+10. **Journal (v2)** : best-effort, `~/Library/Logs/RoomEq/roomeq-au.log`
+    (une ligne = un fopen/append/fclose) — ouverture (version),
+    auto-chargement, initialisation (taux/canaux), premier bloc (preset actif,
+    effet audible), fermeture (blocs traités). Il diagnostique à distance
+    « l'audio ne passe pas » (0 bloc) vs « passe sans effet » (preset plat),
+    comme roomeq-vst.log côté Windows.
+11. **Dépendances** : aucune bibliothèque tierce au runtime ; le SDK
+    AudioUnitSDK d'Apple (Apache-2.0) est vendangé dans
+    `thirdparty/AudioUnitSDK/` avec sa licence — version 1.4.0, fixée.
+12. **Vie du dépôt** : le composant est compilé et validé par la CI macOS
+    (`auval`, l'outil officiel d'Apple) ; le binaire `.component` signé ad hoc
+    est attaché aux releases.
 
 ## Critères de test
 
@@ -117,5 +166,15 @@ class RoomEqAu : public ausdk::AUEffectBase {   // 'aufx' / 'Rmeq' / 'Rmeq'
     références C# (fichiers `tests/data/*.f32`), preset de bordes (bornes de
     fréquence et de Q), bypass transparent, Reset, courbe de réponse (97
     points) vs référence C# ;
+  - **v2 — écriture** : `ToJson` round-trip (preset → JSON → FromJson →
+    identique, y compris noms accents/échappements), format exact de
+    l'application (PascalCase, énumérations en chaînes) ;
+  - **v2 — banque** : nombre de modèles, libellés, index invalide refusé,
+    clamps de conversion, préampli recalé ;
+  - **v2 — éditeur** : application de bytes (json/ffp), édition/clamps aux
+    bornes de l'application, suppression/activation/type, « Manuel » sur
+    première bande d'un greffon transparent, chunk round-trip (bytes →
+    réapplication), auto-chargement par récence + saut des presets plats +
+    magasin absent (v2 § 9) ;
 - CI macOS : build 0 erreur, signature ad hoc, `auval -v aufx Rmeq Rmeq` vert,
   artefact `RoomEq-AU-<version>-macos.zip`.

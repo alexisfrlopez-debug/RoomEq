@@ -1246,3 +1246,106 @@ Stage Summary:
   greffons, lancer la lecture : les VU In/Out doivent bouger et le
   journal doit montrer « taux d'echantillonnage », « taille de bloc »,
   « mains : resume » puis « process : … preset « JBL Tune Flex 2 » … ».
+
+---
+Session : 18 — 2026-11-01
+Agent : main (Z.ai)
+Task : « parfait, tout fonctionne. Maintenant il me faut la version pour
+Ableton sur MacOS en AU » — livrer le greffon AudioUnit avec LA MÊME
+expérience que le VST 3.5.2 validé (édition directe, banque casques,
+VU-mètres), décision D23.
+
+Work Log:
+- CONSTAT INITIAL : l'AU (3.3.0, v1 « lecture seule ») n'avait ni l'édition
+  directe, ni la banque casques, ni les VU-mètres, ni l'auto-chargement, ni
+  le journal — tout ce qui a fait le succès du VST 3.5.x après les retours
+  utilisateurs. Le ref de suivi git affichait « ahead 11 » : simple ref
+  obsolète (ls-remote + fetch ont confirmé distant = local = 3c7fd69, D22
+  respectée).
+- SPEC D'ABORD (TRIADE) : I-greffon-au.md passée en **v2** — l'édition des
+  bandes sort des non-buts, ajout des invariants 7 (édition : bornes
+  application, re-sérialisation JSON, version++), 8 (banque embarquée,
+  miroir ToEqPreset), 9 (auto-chargement, plats sautés, état projet
+  maître), 10 (journal) + critères de test correspondants.
+- D23 — CŒUR PARTAGÉ ÉLARGI : headphone_bank.{h,cpp} +
+  headphone_bank_data.h et preset_write.{h,cpp} DÉPLACÉS de
+  natif/roomeq-vst/vst/ vers natif/roomeq-au/core/roomeq/{headphones,
+  preset}/ — ce sont des ports de RoomEq.Core (HeadphonePresetLibrary,
+  sérialisation EqPreset) : ils appartiennent au cœur que les deux greffons
+  compilent déjà. Namespaces roomeq::bank / roomeq::preset::ToJson ;
+  gen_headphone_bank.py régénère au nouvel emplacement (57505 octets,
+  321 modèles, identiques). Le VST consomme les fichiers déplacés
+  (includes + CMake ajustés) : **zéro changement de comportement** vérifié
+  (430 + 41 verts). Au passage : -Werror retiré du cœur côté CMake AU
+  (même faux positif gcc 14 maybe-uninitialized que le VST avait déjà
+  neutralisé, même justification documentée).
+- COUCHE D'ÉDITION PORTABLE : natif/roomeq-au/edit/preset_editor.{h,cpp}
+  (roomeq::edit::PresetEditor) — état de preset éditable thread-safe
+  (mutex interface + shared_ptr atomique/ version pour le rendu) :
+  ApplyBytes json/ffp, EditBand/AddBand/RemoveBand/SetBandEnabled/
+  SetBandType avec clamps des bornes de l'application (20 Hz–20 kHz,
+  ±24 dB, Q 0,1–20), re-sérialisation JSON à chaque mutation (l'état de
+  session DAW emporte l'édition), LoadHeadphone, AutoLoadFromDir (récence
+  nanoseconde, saut des presets plats — jumeaux exacts des prédicats VST),
+  DefaultPresetsDir (ROOMEQ_PRESETS_DIR > ~/.config/RoomEq/presets).
+  Testable sous Linux : l'intégration AU (macOS seule) reste mince.
+- GREFFON AU v3.6.0 (RoomEqAu.{h,cpp}) : l'état de preset migre vers
+  l'éditeur ; nouvelles propriétés custom bornées — 'RPbd' (get, instantané
+  binaire « RBP1 » : préampli/nom/bandes complètes), 'RPeb' (set, édition
+  masquée fréquence/gain/Q), 'RPab' (set, ajout), 'RPbo' (set,
+  suppression/activation/type), 'RPlh' (set, modèle de banque), 'RPlv'
+  (get, VU in/out) ; Status enrichi de hasPreset (la vue distingue
+  « aucun preset » de « preset plat ») ; auto-chargement à la construction
+  (l'état du projet, restauré après, reste maître — drapeau restoring_
+  suspend les notifications pendant RestoreState) ; journal
+  ~/Library/Logs/RoomEq/roomeq-au.log (open, auto-chargement,
+  initialisation taux/canaux, premier bloc avec preset actif, close avec
+  blocs traités — miroir de roomeq-vst.log qui a diagnostiqué le VST) ;
+  noyau du canal 0 : VU atomiques + compteur de blocs + ligne premier
+  bloc. Info.plist 3.6.0/30600.
+- VUE COCOA RÉÉCRITE (RoomEqAuView.mm) : miroir de l'éditeur VST 560×320
+  (mêmes constantes de mise en page) — glisser un point (fréquence X +
+  gain Y), molette/trackpad sur un point = Q (accumulateur par cran),
+  double-clic courbe = créer, double-clic point = activer/désactiver,
+  clic droit = menu type/activation/suppression (étiquettes codées
+  bande<<8|code), listes casques marque/modèle + Appliquer (banque lue
+  directement — données statiques du même bundle), VU sondés à 30 Hz avec
+  décroissance locale (NSTimer à bloc faible, pas de cycle de rétention),
+  bannières orange « aucun preset »/« preset plat », version en bas à
+  droite, glisser-déposer .json/.ffp conservé. Extension de classe pour
+  les signatures typées (double/BOOL/C++).
+- TESTS (+15 553 → 15 671) : écriture JSON (aller-retour exact %.17g, y
+  compris nom avec guillemet échappé, format PascalCase/énumérations en
+  chaînes, re-sérialisation de preset_demo), banque (321 modèles, structure
+  défensive, clamps, libellés, aller-retour JSON, chaque preset audible),
+  éditeur (clamps bas/haut, édition sélective, index invalides, chunk
+  round-trip entre éditeurs, « Manuel », désactivation → plat, Notch à
+  0 dB audible, suppression, preset plat, banque), auto-chargement (récence
+  par mtimes nanosecondes : plat récent sauté, corrompu sauté, vrai
+  chargé ; double appel inactif ; magasin sans preset audible ;
+  répertoire absent ; ROOMEQ_PRESETS_DIR prioritaire). 4 échecs initiaux
+  étaient des bugs des TESTS (guillemets français au lieu d'ASCII, bande
+  Notch laissée désactivée, attente de résumé, clamp jamais déclenché —
+  préamplis sources tous dans [-8,7 ; -1,2], vérifié par script) : corrigés.
+- Versions alignées : CMake AU 3.6.0, Directory.Build.props 3.6.0,
+  package_v3.sh 3.6.0. CARTE.md (en-tête + statut + M-AUD-07 avec la
+  couche edit/ et 15 671 vérifications), DECISIONS.md (D23 complète),
+  REFERENCE-NATIF.md (N-AU-01/N-VST-01), README AU réécrit (édition,
+  banque, VU, diagnostic, journal), REPRISE.md (résumé + état session 18 +
+  D23 dans la liste § 3 + ligne Vérifier mise à jour cmake/15671).
+
+Stage Summary:
+- v3.6.0 : l'AU rejoint la parité fonctionnelle du VST — égaliseur
+  modifiable directement à la souris, banque des 321 casques/écouteurs
+  embarquée, VU-mètres in/out, auto-chargement du magasin de l'application,
+  journal de diagnostic macOS. D23 : banque + écriture JSON dans le cœur
+  partagé (un seul exemplaire pour les deux greffons), couche d'édition
+  portable testée sous Linux.
+- Validation : AU 15 671 vérifications natives ; VST 430 + 41 non régressé ;
+  xUnit 461/461 ; CI macOS = build + signature ad hoc + auval + artefacts.
+- Livrable : RoomEq-AU-3.6.0-macos.zip + RoomEq-AU-3.6.0-macos.pkg (CI,
+  release du tag v3.6.0) — installer le .pkg, activer les AudioUnits dans
+  Live, insérer « RoomEq: Correction » : le preset le plus récent de
+  l'application se charge seul, sinon choisir un casque dans les listes ;
+  VU In/Out mobiles à la lecture + journal ~/Library/Logs/RoomEq/
+  roomeq-au.log (« process : … preset « … » »).

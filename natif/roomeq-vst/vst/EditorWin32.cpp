@@ -20,8 +20,8 @@
 #if defined(_WIN32) && !defined(ROOMEQ_VST_NO_EDITOR)
 
 #include "editor_geometry.h"
-#include "headphone_bank.h"
-#include "preset_write.h"
+#include "roomeq/headphones/headphone_bank.h"
+#include "roomeq/preset/preset_write.h"
 #include "roomeq/preset/preset.h"
 
 #include <algorithm>
@@ -518,7 +518,7 @@ void ShowBandMenu(EditorState& st, int bandIndex, int x, int y)
 /// première marque. L'item data du combo modèle = index dans la banque.
 void FillHeadphoneCombos(EditorState& st)
 {
-    const auto& bank = roomeq_vst::HeadphoneBank();
+    const auto& bank = roomeq::bank::HeadphoneBank();
     SendMessageW(st.brandCombo, CB_RESETCONTENT, 0, 0);
     SendMessageW(st.modelCombo, CB_RESETCONTENT, 0, 0);
 
@@ -561,7 +561,7 @@ void OnBrandChanged(EditorState& st)
         reinterpret_cast<LPARAM>(wide.data()));
     const std::string brand(wide.begin(), wide.end() - 1); // ASCII attendu
 
-    const auto& bank = roomeq_vst::HeadphoneBank();
+    const auto& bank = roomeq::bank::HeadphoneBank();
     SendMessageW(st.modelCombo, CB_RESETCONTENT, 0, 0);
     for (size_t i = 0; i < bank.size(); ++i) {
         if (bank[i].brand == brand) {

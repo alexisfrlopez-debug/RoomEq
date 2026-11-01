@@ -13,8 +13,8 @@
 #include "RoomEqVst.h"
 
 #include "editor_geometry.h"
-#include "headphone_bank.h"
-#include "preset_write.h"
+#include "roomeq/headphones/headphone_bank.h"
+#include "roomeq/preset/preset_write.h"
 #include "roomeq/preset/preset_io.h"
 
 #include <algorithm>
@@ -710,7 +710,7 @@ void RoomEqVst::CommitEditedPresetLocked(
 {
     // re-sérialisation : le chunk passe au JSON de l'application (format
     // exact) — un preset .ffp édité devient du JSON, relisible partout.
-    const std::string json = roomeq_vst::PresetToJson(*edited);
+    const std::string json = roomeq::preset::ToJson(*edited);
     presetBytes_.assign(json.begin(), json.end());
     preset_ = std::move(edited);
     presetVersion_.fetch_add(1, std::memory_order_release);
@@ -841,12 +841,12 @@ void RoomEqVst::SetPreampDb(double db)
 
 size_t RoomEqVst::HeadphoneCount() const
 {
-    return roomeq_vst::HeadphoneBank().size();
+    return roomeq::bank::HeadphoneBank().size();
 }
 
 std::string RoomEqVst::HeadphoneLabel(size_t index) const
 {
-    const auto& bank = roomeq_vst::HeadphoneBank();
+    const auto& bank = roomeq::bank::HeadphoneBank();
     if (index >= bank.size())
         return {};
     return bank[index].brand + " " + bank[index].model;
@@ -854,14 +854,14 @@ std::string RoomEqVst::HeadphoneLabel(size_t index) const
 
 bool RoomEqVst::LoadHeadphone(size_t index)
 {
-    const auto& bank = roomeq_vst::HeadphoneBank();
+    const auto& bank = roomeq::bank::HeadphoneBank();
     if (index >= bank.size())
         return false;
 
     // conversion miroir de HeadphonePresetLibrary.ToEqPreset (clamps
     // identiques), puis application comme un preset interactif
     auto preset = std::make_shared<const roomeq::preset::PresetDef>(
-        roomeq_vst::HeadphonePreset(bank[index]));
+        roomeq::bank::HeadphonePreset(bank[index]));
 
     double preampOfPreset = 0.0;
     size_t bandCount = 0;
@@ -871,7 +871,7 @@ bool RoomEqVst::LoadHeadphone(size_t index)
         preampOfPreset = preset->preampDb;
         bandCount = preset->bands.size();
         name = preset->name;
-        const std::string json = roomeq_vst::PresetToJson(*preset);
+        const std::string json = roomeq::preset::ToJson(*preset);
         presetBytes_.assign(json.begin(), json.end());
         preset_ = std::move(preset);
         programName_ = Shorten("Casque",

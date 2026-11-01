@@ -34,7 +34,9 @@ endif()
 
 # ------------------------------------------------------------------- cœur C++
 # (réutilisé du module AU — spec I-AUD-07, parité bit à bit vérifiée là-bas
-#  et re-vérifiée ici à travers le greffon VST)
+#  et re-vérifiée ici à travers le greffon VST ; depuis la v3.6.0/D23 la
+#  banque casques et l'écriture JSON vivent aussi dans ce cœur partagé —
+#  ports de RoomEq.Core : HeadphonePresetLibrary, EqPreset)
 
 set(ROOMEQ_AU_CORE ${CMAKE_CURRENT_SOURCE_DIR}/../roomeq-au/core)
 
@@ -44,6 +46,8 @@ add_library(roomeq_vst_core STATIC
     ${ROOMEQ_AU_CORE}/roomeq/json/mini_json.cpp
     ${ROOMEQ_AU_CORE}/roomeq/preset/preset_json.cpp
     ${ROOMEQ_AU_CORE}/roomeq/preset/preset_ffp.cpp
+    ${ROOMEQ_AU_CORE}/roomeq/preset/preset_write.cpp
+    ${ROOMEQ_AU_CORE}/roomeq/headphones/headphone_bank.cpp
 )
 target_include_directories(roomeq_vst_core PUBLIC ${ROOMEQ_AU_CORE})
 # PIC : la bibliothèque statique alimente le MODULE chargeable (RoomEqVst.so)
@@ -59,9 +63,7 @@ target_compile_options(roomeq_vst_core PRIVATE
 # ------------------------------------------------------------------ greffon
 
 set(ROOMEQ_VST_SOURCES
-    vst/RoomEqVst.cpp
-    vst/headphone_bank.cpp
-    vst/preset_write.cpp)
+    vst/RoomEqVst.cpp)
 if(WIN32)
     list(APPEND ROOMEQ_VST_SOURCES vst/EditorWin32.cpp)
 endif()

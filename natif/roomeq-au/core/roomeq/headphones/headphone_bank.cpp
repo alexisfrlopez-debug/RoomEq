@@ -1,16 +1,17 @@
-// RoomEq VST — décodage de la banque casques embarquée (v3.5.0).
+// RoomEq — décodage de la banque casques embarquée (v3.5.0 VST, partagée
+// par les greffons AU et VST depuis la v3.6.0 — décision D23).
 // Le format binaire « RHP1 » est produit par scripts/gen_headphone_bank.py ;
 // ce décodeur est volontairement défensif (bornes vérifiées à chaque pas :
 // un blob corrompu donne une banque tronquée, jamais un accès hors zone).
-#include "headphone_bank.h"
-#include "headphone_bank_data.h"
+#include "roomeq/headphones/headphone_bank.h"
+#include "roomeq/headphones/headphone_bank_data.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 
-namespace roomeq_vst {
+namespace roomeq::bank {
 namespace {
 
 /// Curseur de lecture borné sur le blob embarqué.
@@ -161,4 +162,4 @@ roomeq::preset::PresetDef HeadphonePreset(const HeadphoneModelDef& model)
     return preset;
 }
 
-} // namespace roomeq_vst
+} // namespace roomeq::bank
