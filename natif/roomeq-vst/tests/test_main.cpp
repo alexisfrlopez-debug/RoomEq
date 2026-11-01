@@ -857,6 +857,355 @@ static void TestAutoLoadSkipsFlat()
 
 
 
+// ================================================================ v3.5.0
+
+/// Rendu OUT-OF-PLACE (troisième retour utilisateur : « vérifie s'il n'y a
+/// pas un problème de routage ») : un hôte peut passer à processReplacing
+/// des pointeurs d'entrée et de sortie DIFFÉRENTS. Le greffon doit copier
+/// l'entrée vers la sortie avant de traiter — parité avec la référence C#
+/// (comparée ici à travers des buffers distincts pré-remplis de déchets).
+static void TestOutOfPlaceRendering()
+{
+    std::puts("— routage : rendu out-of-place (buffers entrée/sortie distincts)");
+    RoomEqVst plugin(&DummyHost);
+    plugin.SetSampleRate(48000.0);
+    const auto bytes = LoadData("preset_demo.json");
+    std::string error;
+    CHECK(plugin.ApplyPresetBytes(bytes.data(), bytes.size(), true, error));
+
+    std::vector<float> expected;
+    if (!ReadFloats(DataPath("impulse_demo_48k_stereo.f32"), expected)) {
+        ++g_failures;
+        std::printf("ÉCHEC lecture référence\n");
+        return;
+    }
+
+    std::vector<std::vector<float>> planar;
+    Deinterleave(MakeReferenceInput(48000, 2), 2, planar);
+    std::vector<std::vector<float>> out(2);
+    for (int c = 0; c < 2; ++c)
+        out[static_cast<size_t>(c)].assign(planar[0].size(), -9999.0f); // déchets
+
+    const size_t frames = planar[0].size();
+    const int32_t blockSize = 512;
+    for (size_t start = 0; start < frames; start += static_cast<size_t>(blockSize)) {
+        const int32_t n = static_cast<int32_t>(
+            std::min(static_cast<size_t>(blockSize), frames - start));
+        float* in[2] = { planar[0].data() + start, planar[1].data() + start };
+        float* o[2] = { out[0].data() + start, out[1].data() + start };
+        RoomEqVst::ProcessReplace(&plugin, in, o, n); // in ≠ out
+    }
+
+    double worst = ComparePlanarToReference(out, expected, 2);
+    ++g_checks;
+    if (worst > 2e-6) {
+        ++g_failures;
+        std::printf("ÉCHEC parité out-of-place : écart max %.3g\n", worst);
+    } else {
+        std::printf("  %-34s écart max %.2e — %zu échantillons\n",
+            "out-of-place 48k stereo", worst, expected.size());
+    }
+
+    // le buffer d'entrée ne doit PAS être modifié par le rendu out-of-place
+    std::vector<std::vector<float>> virgin;
+    Deinterleave(MakeReferenceInput(48000, 2), 2, virgin);
+    bool inputIntact = true;
+    for (int c = 0; c < 2; ++c)
+        for (size_t i = 0; i < frames; ++i)
+            if (planar[static_cast<size_t>(c)][i] != virgin[static_cast<size_t>(c)][i])
+                inputIntact = false;
+    ++g_checks;
+    if (!inputIntact) {
+        ++g_failures;
+        std::printf("ÉCHEC : le rendu out-of-place a modifié le buffer d'entrée\n");
+    }
+}
+
+/// Suspension/reprise (effMainsChanged) : après resume, le rendu doit
+/// corriger exactement comme au premier démarrage (Reset puis re-parité).
+static void TestSuspendResumeKeepsProcessing()
+{
+    std::puts("— suspension/reprise : le rendu corrige toujours après resume");
+    RoomEqVst plugin(&DummyHost);
+    plugin.SetSampleRate(48000.0);
+    const auto bytes = LoadData("preset_demo.json");
+    std::string error;
+    CHECK(plugin.ApplyPresetBytes(bytes.data(), bytes.size(), true, error));
+
+    // un bloc est traité AVANT la suspension (états temporels non nuls)
+    {
+        std::vector<std::vector<float>> planar;
+        Deinterleave(MakeReferenceInput(48000, 2), 2, planar);
+        float* in[2] = { planar[0].data(), planar[1].data() };
+        RoomEqVst::ProcessReplace(&plugin, in, in, 256);
+    }
+
+    // suspend → resume (ce que fait un DAW en pause/reprise du moteur)
+    RoomEqVst::Dispatcher(&plugin, vst::kEffMainsChanged, 0, 0, nullptr, 0.0f);
+    RoomEqVst::Dispatcher(&plugin, vst::kEffMainsChanged, 0, 1, nullptr, 0.0f);
+
+    // le reset d'états doit redonner la parité EXACTE sur tout le signal
+    CheckParity("apres resume 48k stereo", plugin,
+        "impulse_demo_48k_stereo.f32", 48000, 2, 2e-6);
+}
+
+/// Édition directe du preset (v3.5.0) : création, modification, clamps,
+/// chunk JSON round-trip et parité DSP du preset édité.
+static void TestPresetEditing()
+{
+    std::puts("— édition directe du preset (drag/molette/double-clic)");
+
+    // -- création depuis l'identité : « Manuel », une bande, chunk non vide
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(plugin.BandCount() == 0);
+        const int index = plugin.AddBand(1000.0, 6.0);
+        CHECK(index == 0);
+        CHECK(plugin.BandCount() == 1);
+        CHECK(plugin.HasPreset()); // le chunk suit l'édition
+        preset::EqBandDef band;
+        CHECK(plugin.BandAt(0, band));
+        CHECK(band.type == dsp::FilterType::Peaking);
+        CHECK(band.frequency == 1000.0);
+        CHECK(band.gainDb == 6.0);
+        CHECK(band.q == 1.1);
+        CHECK(plugin.CurrentPreset().name == "Manuel");
+        CHECK(plugin.PresetHasEffect()); // +6 dB : audible
+
+        // -- modification + clamps aux bornes de l'application
+        const double freq = 5.0, gain = 99.0, q = 0.001;
+        CHECK(plugin.EditBand(0, &freq, &gain, &q) == 0);
+        CHECK(plugin.BandAt(0, band));
+        CHECK(band.frequency == 20.0);   // clamp bas
+        CHECK(band.gainDb == 24.0);      // clamp haut
+        CHECK(band.q == 0.1);            // clamp Q
+
+        // -- invalides : index hors bornes
+        CHECK(plugin.EditBand(7, nullptr, nullptr, nullptr) == -1);
+        CHECK(!plugin.BandAt(7, band));
+        CHECK(!plugin.RemoveBand(7));
+        CHECK(!plugin.SetBandEnabled(7, false));
+        CHECK(!plugin.SetBandType(7, dsp::FilterType::Notch));
+    }
+
+    // -- type / activation / suppression sur un preset chargé
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        const auto bytes = LoadData("preset_demo.json");
+        std::string error;
+        CHECK(plugin.ApplyPresetBytes(bytes.data(), bytes.size(), true, error));
+        const size_t before = plugin.BandCount();
+        CHECK(before > 0);
+
+        CHECK(plugin.SetBandType(0, dsp::FilterType::Notch));
+        preset::EqBandDef band;
+        CHECK(plugin.BandAt(0, band));
+        CHECK(band.type == dsp::FilterType::Notch);
+
+        CHECK(plugin.SetBandEnabled(0, false));
+        CHECK(plugin.BandAt(0, band));
+        CHECK(!band.enabled);
+
+        const int added = plugin.AddBand(250.0, -3.0);
+        CHECK(added == static_cast<int>(before));
+        CHECK(plugin.BandCount() == before + 1);
+
+        CHECK(plugin.RemoveBand(static_cast<size_t>(added)));
+        CHECK(plugin.BandCount() == before);
+        CHECK(plugin.RemoveBand(0));
+        CHECK(plugin.BandCount() == before - 1);
+    }
+
+    // -- chunk round-trip : le preset ÉDITÉ survit à une sauvegarde de
+    // session (GetChunk → SetChunk sur une autre instance)
+    {
+        RoomEqVst source(&DummyHost);
+        source.SetSampleRate(48000.0);
+        const auto bytes = LoadData("preset_demo.json");
+        std::string error;
+        CHECK(source.ApplyPresetBytes(bytes.data(), bytes.size(), true, error));
+        CHECK(source.EditBand(0, nullptr, nullptr, nullptr) >= 0); // no-op
+        const double f = 1234.0, g = -7.5, q = 2.5;
+        CHECK(source.EditBand(0, &f, &g, &q) == 0);
+        source.SetBandType(0, dsp::FilterType::LowShelf);
+
+        void* chunk = nullptr;
+        const vst::IntPtr size = RoomEqVst::Dispatcher(&source, vst::kEffGetChunk,
+            1, 0, &chunk, 0.0f);
+        CHECK(size > 0 && chunk != nullptr);
+        std::vector<uint8_t> blob(static_cast<const uint8_t*>(chunk),
+            static_cast<const uint8_t*>(chunk) + size);
+
+        RoomEqVst restored(&DummyHost);
+        restored.SetSampleRate(48000.0);
+        CHECK(RoomEqVst::Dispatcher(&restored, vst::kEffSetChunk, 1,
+                  static_cast<vst::IntPtr>(blob.size()), blob.data(), 0.0f)
+            == 1);
+        CHECK(restored.CurrentPreset().bands.size()
+            == source.CurrentPreset().bands.size());
+        preset::EqBandDef restoredBand, sourceBand;
+        CHECK(restored.BandAt(0, restoredBand));
+        CHECK(source.BandAt(0, sourceBand));
+        CHECK(restoredBand.type == dsp::FilterType::LowShelf);
+        CHECK(restoredBand.frequency == sourceBand.frequency);
+        CHECK(restoredBand.gainDb == sourceBand.gainDb);
+        CHECK(restoredBand.q == sourceBand.q);
+
+        // le chunk édité est du JSON relisible par le lecteur du cœur
+        preset::PresetDef reparsed;
+        std::string jsonError;
+        CHECK(preset::FromJson(
+                  std::string(blob.begin(), blob.end()), reparsed, jsonError));
+        CHECK(reparsed.bands.size() == source.CurrentPreset().bands.size());
+    }
+
+    // -- parité DSP : le rendu du preset édité = chaîne directe équivalente
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(plugin.AddBand(1000.0, 6.0) == 0);
+        CHECK(plugin.AddBand(200.0, -4.0) == 1);
+        plugin.SetBandType(1, dsp::FilterType::LowShelf);
+        plugin.SetPreampDb(-2.0);
+
+        const auto got = ProcessThrough(plugin, 48000, 2);
+
+        // référence : une chaîne par canal (miroir exact du greffon)
+        std::vector<std::vector<float>> planar;
+        Deinterleave(MakeReferenceInput(48000, 2), 2, planar);
+        dsp::EqChain refChains[2];
+        for (int c = 0; c < 2; ++c) {
+            refChains[c].Configure(48000.0, 1);
+            refChains[c].SetPreset(plugin.CurrentPreset());
+            refChains[c].SetPreampDb(-2.0);
+            refChains[c].Process(planar[static_cast<size_t>(c)].data(),
+                planar[static_cast<size_t>(c)].size());
+        }
+
+        double worst = 0.0;
+        for (size_t i = 0; i < planar[0].size(); ++i)
+            for (int c = 0; c < 2; ++c)
+                worst = std::max(worst,
+                    std::fabs(static_cast<double>(got[static_cast<size_t>(c)][i])
+                        - planar[static_cast<size_t>(c)][i]));
+        ++g_checks;
+        if (worst > 2e-6) {
+            ++g_failures;
+            std::printf("ÉCHEC parité preset édité : écart max %.3g\n", worst);
+        } else {
+            std::printf("  %-34s écart max %.2e — %zu échantillons\n",
+                "preset édité vs chaîne directe", worst, planar[0].size() * 2);
+        }
+    }
+}
+
+/// Banque casques/écouteurs embarquée (v3.5.0) : décodage du blob,
+/// libellés, chargement (clamps + préampli recalcé) et parité DSP.
+static void TestHeadphoneBank()
+{
+    std::puts("— banque casques/écouteurs embarquée");
+    RoomEqVst plugin(&DummyHost);
+    plugin.SetSampleRate(48000.0);
+
+    const size_t count = plugin.HeadphoneCount();
+    CHECK(count > 300); // 321 modèles dans la bibliothèque intégrée
+    std::printf("  %-34s %zu modèles\n", "banque décodée", count);
+
+    // libellés « Marque Modèle » non vides et distincts en quantité
+    size_t nonEmpty = 0;
+    for (size_t i = 0; i < count; ++i)
+        if (!plugin.HeadphoneLabel(i).empty())
+            ++nonEmpty;
+    CHECK(nonEmpty == count);
+
+    // index invalide refusé
+    CHECK(!plugin.LoadHeadphone(count));
+
+    // chargement du premier modèle : bandes, clamps, préampli audible
+    CHECK(plugin.LoadHeadphone(0));
+    const preset::PresetDef preset = plugin.CurrentPreset();
+    CHECK(!preset.bands.empty());
+    CHECK(preset.preampDb <= 0.0); // clamps de ToEqPreset : [-15, 0]
+    for (const auto& b : preset.bands) {
+        CHECK(b.frequency >= 20.0 && b.frequency <= 20000.0);
+        CHECK(b.gainDb >= -24.0 && b.gainDb <= 24.0);
+        CHECK(b.q >= 0.1 && b.q <= 20.0);
+    }
+    // le paramètre Preamp suit le préampli du preset casque (audible seul)
+    CHECK_NEAR(plugin.PreampParam(), static_cast<float>(preset.preampDb), 1e-6);
+    // la correction est réputée audible (bandes non plates)
+    CHECK(plugin.PresetHasEffect());
+    // le chunk est du JSON relisible
+    const auto blob = plugin.PresetBytes();
+    preset::PresetDef reparsed;
+    std::string jsonError;
+    CHECK(preset::FromJson(std::string(blob.begin(), blob.end()), reparsed,
+        jsonError));
+    CHECK(reparsed.bands.size() == preset.bands.size());
+
+    // parité DSP : rendu du greffon vs chaîne directe du preset casque
+    {
+        const auto got = ProcessThrough(plugin, 48000, 2);
+        std::vector<std::vector<float>> planar;
+        Deinterleave(MakeReferenceInput(48000, 2), 2, planar);
+        dsp::EqChain refChains[2];
+        for (int c = 0; c < 2; ++c) {
+            refChains[c].Configure(48000.0, 1);
+            refChains[c].SetPreset(preset);
+            refChains[c].SetPreampDb(preset.preampDb);
+            refChains[c].Process(planar[static_cast<size_t>(c)].data(),
+                planar[static_cast<size_t>(c)].size());
+        }
+
+        double worst = 0.0;
+        for (size_t i = 0; i < planar[0].size(); ++i)
+            for (int c = 0; c < 2; ++c)
+                worst = std::max(worst,
+                    std::fabs(static_cast<double>(got[static_cast<size_t>(c)][i])
+                        - planar[static_cast<size_t>(c)][i]));
+        ++g_checks;
+        if (worst > 2e-6) {
+            ++g_failures;
+            std::printf("ÉCHEC parité preset casque : écart max %.3g\n", worst);
+        } else {
+            std::printf("  %-34s écart max %.2e — %zu échantillons\n",
+                "preset casque vs chaîne directe", worst, planar[0].size() * 2);
+        }
+    }
+}
+
+/// VU-mètre et compteur de blocs (v3.5.0) : preuve chiffrée que l'audio
+/// traverse le greffon (diagnostic « aucune différence de son »).
+static void TestVuMeterAndBlockCount()
+{
+    std::puts("— VU-mètre et compteur de blocs (diagnostic du flux)");
+    RoomEqVst plugin(&DummyHost);
+    plugin.SetSampleRate(48000.0);
+    CHECK(plugin.BlocksProcessed() == 0);
+    CHECK(plugin.InputLevel() == 0.0f);
+
+    const auto got = ProcessThrough(plugin, 48000, 2, 512);
+    const uint64_t blocks = plugin.BlocksProcessed();
+    const size_t frames = got[0].size();
+    CHECK(blocks == (frames + 511) / 512);
+    CHECK(plugin.InputLevel() > 0.05f); // le signal de référence est non nul
+    CHECK(plugin.OutputLevel() > 0.05f); // identité : sortie = entrée
+
+    // après un rendu corrigé, la sortie reste non nulle
+    RoomEqVst corrected(&DummyHost);
+    corrected.SetSampleRate(48000.0);
+    const auto bytes = LoadData("preset_demo.json");
+    std::string error;
+    CHECK(corrected.ApplyPresetBytes(bytes.data(), bytes.size(), true, error));
+    ProcessThrough(corrected, 48000, 2, 512);
+    CHECK(corrected.OutputLevel() > 0.0f);
+    CHECK(corrected.BlocksProcessed() > 0);
+}
+
+
+
 int main(int argc, char** argv)
 {
     g_dataDir = argc > 1 ? argv[1]
@@ -874,6 +1223,11 @@ int main(int argc, char** argv)
     TestCloseThroughAbi();
     TestAutoLoad();
     TestAutoLoadSkipsFlat();
+    TestOutOfPlaceRendering();
+    TestSuspendResumeKeepsProcessing();
+    TestPresetEditing();
+    TestHeadphoneBank();
+    TestVuMeterAndBlockCount();
 
     std::printf("\n%d vérifications, %d échecs\n", g_checks, g_failures);
     if (g_failures > 0) {

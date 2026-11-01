@@ -7,16 +7,39 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.4.2** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21), correctifs v3.4.1 (auto-chargement du preset) et v3.4.2 (presets plats ignorés, bandes visibles sur la courbe) |
+| **Projet** | RoomEq **v3.5.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2 et **v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics** |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (297 + 38) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*`) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (403 + 38) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 13 — v3.4.2 : correctif « preset plat » + synchro Drive/Git)
+## 1. État (fin session 14 — v3.5.0 : égaliseur éditable + banque casques + diagnostic)
+
+**Session 14 (2026-11-01)** : troisième retour VST (« toujours aucune
+modification du son — vérifie le routage ») + deux demandes (égaliseur
+modifiable dans le greffon, banque écouteurs/casques en liste déroulante).
+
+- **Routage audité et couvert** : ProcessChannels gère correctement in-place,
+  out-of-place, accumulation et suspension/reprise — trois nouveaux tests
+  (parité 0.00e+00). Aucun défaut de câblage côté greffon.
+- **Édition directe (v3.5.0)** : drag d'un point (fréquence + gain), molette
+  = Q, double-clic courbe = nouvelle bande, double-clic point = activer/
+  désactiver, clic droit = menu type/supprimer. API thread-safe dans le
+  greffon, chunk re-sérialisé en JSON au format exact de l'application
+  (preset_write.cpp — le cœur AU reste scellé), bornes identiques à l'app.
+- **Banque casques embarquée (v3.5.0)** : 321 modèles AutoEq dans la DLL
+  (blob binaire « RHP1 » 57,5 Ko généré par scripts/gen_headphone_bank.py,
+  décodage défensif, conversion miroir de ToEqPreset) ; deux listes
+  déroulantes marque/modèle + bouton « Appliquer » dans l'éditeur.
+- **Diagnostic intégré** : VU-mètre In/Out, version affichée en bas à
+  droite, compteur de blocs au journal de fermeture.
+- **Validation** : 403 + 38 vérifications (parité 0.00e+00, +106 tests),
+  461/461 xUnit. Livrable : RoomEq-VST-3.5.0-win32.zip (DLL 588 Ko).
+
+## 1bis. État (fin session 13 — v3.4.2 : correctif « preset plat » + synchro Drive/Git)
 
 **Session 12 (2026-11-01)** : second retour utilisateur du greffon VST —
 « le VST affiche 10 bandes de fréquence mais sur la courbe je ne vois pas

@@ -12,6 +12,8 @@
 //     avec process — accès simples pour la configuration du flux.
 #include "RoomEqVst.h"
 
+#include "headphone_bank.h"
+#include "preset_write.h"
 #include "roomeq/preset/preset_io.h"
 
 #include <algorithm>
@@ -363,7 +365,12 @@ vst::IntPtr RoomEqVst::HandleDispatcher(int32_t opcode, int32_t index,
         return HandleOpen();
 
     case vst::kEffClose:
-        Log("close");
+        // Journal de close enrichi (v3.5.0) : le nombre de blocs traités
+        // tranche à distance « l'audio ne passe pas » (0 bloc) vs « passe
+        // sans effet audible » (preset plat) vs « corrige ».
+        Log("close : %llu blocs traites", static_cast<unsigned long long>(
+                                          blocksProcessed_.load(
+                                              std::memory_order_relaxed)));
         delete this;
         return 0;
 
@@ -667,6 +674,196 @@ roomeq::preset::PresetDef RoomEqVst::CurrentPreset() const
     return *preset_;
 }
 
+// ------------------------------------------------------- édition (v3.5.0)
+
+namespace {
+/// Bornes de l'application (EqBand/HeadphoneFilter) : identiques de bout en
+/// bout pour qu'un preset édité dans le greffon se comporte comme dans l'app.
+constexpr double kFreqMin = 20.0, kFreqMax = 20000.0;
+constexpr double kGainMin = -24.0, kGainMax = 24.0;
+constexpr double kQMin = 0.1, kQMax = 20.0;
+} // namespace
+
+void RoomEqVst::CommitEditedPresetLocked(
+    std::shared_ptr<const roomeq::preset::PresetDef> edited)
+{
+    // re-sérialisation : le chunk passe au JSON de l'application (format
+    // exact) — un preset .ffp édité devient du JSON, relisible partout.
+    const std::string json = roomeq_vst::PresetToJson(*edited);
+    presetBytes_.assign(json.begin(), json.end());
+    preset_ = std::move(edited);
+    presetVersion_.fetch_add(1, std::memory_order_release);
+}
+
+void RoomEqVst::NotifyHostDisplayChanged()
+{
+    if (host_ != nullptr)
+        host_(this, vst::kAudioMasterUpdateDisplay, 0, 0, nullptr, 0.0f);
+}
+
+size_t RoomEqVst::BandCount() const
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    return preset_->bands.size();
+}
+
+bool RoomEqVst::BandAt(size_t index, roomeq::preset::EqBandDef& out) const
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    if (index >= preset_->bands.size())
+        return false;
+    out = preset_->bands[index];
+    return true;
+}
+
+int RoomEqVst::EditBand(size_t index, const double* frequency, const double* gainDb,
+    const double* q)
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    if (index >= preset_->bands.size())
+        return -1;
+
+    auto edited = std::make_shared<roomeq::preset::PresetDef>(*preset_);
+    auto& band = edited->bands[index];
+    if (frequency != nullptr)
+        band.frequency = std::clamp(*frequency, kFreqMin, kFreqMax);
+    if (gainDb != nullptr)
+        band.gainDb = std::clamp(*gainDb, kGainMin, kGainMax);
+    if (q != nullptr)
+        band.q = std::clamp(*q, kQMin, kQMax);
+    CommitEditedPresetLocked(std::move(edited));
+
+    NotifyHostDisplayChanged();
+    return static_cast<int>(index);
+}
+
+int RoomEqVst::AddBand(double frequency, double gainDb)
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+
+    auto edited = std::make_shared<roomeq::preset::PresetDef>(*preset_);
+    // première bande d'un greffon transparent : le preset devient « Manuel »
+    // (l'identité « Transparent » ne décrit plus l'état).
+    if (edited->bands.empty() && edited->name == "Transparent") {
+        edited->name = "Manuel";
+        programName_ = "Manuel";
+    }
+    roomeq::preset::EqBandDef band;
+    band.type = roomeq::dsp::FilterType::Peaking;
+    band.frequency = std::clamp(frequency, kFreqMin, kFreqMax);
+    band.gainDb = std::clamp(gainDb, kGainMin, kGainMax);
+    band.q = 1.1;
+    band.enabled = true;
+    edited->bands.push_back(band);
+    const int index = static_cast<int>(edited->bands.size() - 1);
+    CommitEditedPresetLocked(std::move(edited));
+
+    NotifyHostDisplayChanged();
+    return index;
+}
+
+bool RoomEqVst::RemoveBand(size_t index)
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    if (index >= preset_->bands.size())
+        return false;
+
+    auto edited = std::make_shared<roomeq::preset::PresetDef>(*preset_);
+    edited->bands.erase(edited->bands.begin() + static_cast<ptrdiff_t>(index));
+    CommitEditedPresetLocked(std::move(edited));
+
+    NotifyHostDisplayChanged();
+    return true;
+}
+
+bool RoomEqVst::SetBandEnabled(size_t index, bool enabled)
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    if (index >= preset_->bands.size())
+        return false;
+
+    auto edited = std::make_shared<roomeq::preset::PresetDef>(*preset_);
+    edited->bands[index].enabled = enabled;
+    CommitEditedPresetLocked(std::move(edited));
+
+    NotifyHostDisplayChanged();
+    return true;
+}
+
+bool RoomEqVst::SetBandType(size_t index, roomeq::dsp::FilterType type)
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    if (index >= preset_->bands.size())
+        return false;
+
+    auto edited = std::make_shared<roomeq::preset::PresetDef>(*preset_);
+    edited->bands[index].type = type;
+    CommitEditedPresetLocked(std::move(edited));
+
+    NotifyHostDisplayChanged();
+    return true;
+}
+
+void RoomEqVst::SetPreampDb(double db)
+{
+    const float value = static_cast<float>(
+        std::clamp(db, static_cast<double>(kPreampMinDb),
+            static_cast<double>(kPreampMaxDb)));
+    preampParam_.store(value, std::memory_order_relaxed);
+    if (host_ != nullptr) {
+        host_(this, vst::kAudioMasterAutomate, kParamPreampDb, 0, nullptr, value);
+        host_(this, vst::kAudioMasterUpdateDisplay, 0, 0, nullptr, 0.0f);
+    }
+}
+
+// -------------------------------------------------- banque casques (v3.5.0)
+
+size_t RoomEqVst::HeadphoneCount() const
+{
+    return roomeq_vst::HeadphoneBank().size();
+}
+
+std::string RoomEqVst::HeadphoneLabel(size_t index) const
+{
+    const auto& bank = roomeq_vst::HeadphoneBank();
+    if (index >= bank.size())
+        return {};
+    return bank[index].brand + " " + bank[index].model;
+}
+
+bool RoomEqVst::LoadHeadphone(size_t index)
+{
+    const auto& bank = roomeq_vst::HeadphoneBank();
+    if (index >= bank.size())
+        return false;
+
+    // conversion miroir de HeadphonePresetLibrary.ToEqPreset (clamps
+    // identiques), puis application comme un preset interactif
+    auto preset = std::make_shared<const roomeq::preset::PresetDef>(
+        roomeq_vst::HeadphonePreset(bank[index]));
+
+    double preampOfPreset = 0.0;
+    size_t bandCount = 0;
+    std::string name;
+    {
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        preampOfPreset = preset->preampDb;
+        bandCount = preset->bands.size();
+        name = preset->name;
+        const std::string json = roomeq_vst::PresetToJson(*preset);
+        presetBytes_.assign(json.begin(), json.end());
+        preset_ = std::move(preset);
+        programName_ = Shorten("Casque",
+            static_cast<size_t>(vst::kMaxProgNameLen) - 1);
+    }
+    presetVersion_.fetch_add(1, std::memory_order_release);
+
+    SetPreampDb(preampOfPreset);
+    Log("preset casque charge : « %s » (%zu bandes, preamp %+.1f dB)",
+        name.c_str(), bandCount, preampOfPreset);
+    return true;
+}
+
 std::vector<uint8_t> RoomEqVst::PresetBytes() const
 {
     std::lock_guard<std::mutex> lock(stateMutex_);
@@ -797,6 +994,14 @@ void RoomEqVst::ProcessChannels(float** inputs, float** outputs,
         if (src == nullptr || dst == nullptr)
             continue;
 
+        // VU-mètre (v3.5.0) : peak d'entrée avant traitement
+        if (c == 0) {
+            float peak = 0.0f;
+            for (int32_t i = 0; i < sampleFrames; ++i)
+                peak = std::max(peak, std::fabs(src[i]));
+            inPeak_.store(peak, std::memory_order_relaxed);
+        }
+
         if (!accumulate) {
             // remplacer : traitement en place après copie éventuelle
             if (src != dst)
@@ -812,7 +1017,17 @@ void RoomEqVst::ProcessChannels(float** inputs, float** outputs,
             for (int32_t i = 0; i < sampleFrames; ++i)
                 dst[i] += scratch_[static_cast<size_t>(i)];
         }
+
+        // VU-mètre : peak de sortie après traitement (canal 0 seulement,
+        // l'éditeur affiche une barre stéréo par max des deux canaux)
+        if (c == 0) {
+            float peak = 0.0f;
+            for (int32_t i = 0; i < sampleFrames; ++i)
+                peak = std::max(peak, std::fabs(dst[i]));
+            outPeak_.store(peak, std::memory_order_relaxed);
+        }
     }
+    blocksProcessed_.fetch_add(1, std::memory_order_relaxed);
 }
 
 void RoomEqVst::ProcessReplace(vst::AEffect* effect, float** inputs,

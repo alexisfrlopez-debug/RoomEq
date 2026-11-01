@@ -9,10 +9,30 @@ une piste ou le master. Spécification : `I/audio/I-greffon-vst.md`
 
 Le cœur DSP est **celui du greffon AU** (`natif/roomeq-au/core` — parité bit
 à bit avec `RoomEq.Core` vérifiée par ses 118 tests natifs et re-vérifiée ici
-par 335 vérifications à travers le greffon VST (tests + mini-hôte)).
+par 441 vérifications à travers le greffon VST (tests + mini-hôte)).
 
 ## Ce que fait le greffon
 
+- **ÉGALISEUR MODIFIABLE DIRECTEMENT (v3.5.0)** : l'onglet Égaliseur de
+  l'application, dans le greffon — glissez un point de bande pour régler sa
+  fréquence (axe X) et son gain (axe Y), molette sur un point pour le facteur
+  de qualité Q, double-clic sur la courbe pour créer une bande, double-clic
+  sur un point pour activer/désactiver, clic droit pour le menu (type de
+  filtre : cloche/shelf/notch/passe-bas/passe-haut, suppression). Les bornes
+  sont celles de l'application (20 Hz–20 kHz, ±24 dB, Q 0,1–20) ; chaque
+  édition re-sérialise le chunk (JSON au format exact de l'application) — la
+  session DAW sauvegarde/restaure l'état édité, et un preset édité est
+  relisible par l'application.
+- **BANQUE CASQUES/ÉCOUTEURS INTÉGRÉE (v3.5.0)** : les 321 modèles de la
+  bibliothèque de l'application (données AutoEq — MIT) sont EMBARQUÉS dans
+  la DLL : deux listes déroulantes (marque, modèle) et un bouton « Appliquer »
+  — aucune dépendance à l'application installée, aucun fichier à chercher
+  (réponse au besoin « obligé d'aller chercher un fichier de preset
+  enregistré via l'appli .exe »).
+- **VU-MÈTRE ENTRÉE/SORTIE + VERSION AFFICHÉE (v3.5.0)** : diagnostic du
+  « aucune différence de son » — si les barres In/Out (coin haut droit)
+  bougent, l'audio traverse réellement le greffon ; la version affichée en
+  bas à droite vérifie d'un coup d'œil que la bonne DLL est installée.
 - **Applique un preset** RoomEq : `.json` (format exact de l'application) ou
   `.ffp` FabFilter Pro-Q 3 (module M-IO-06) — détection automatique.
 - **Auto-chargement (v3.4.1)** : à l'ouverture, le preset le plus récent du
@@ -27,33 +47,30 @@ par 335 vérifications à travers le greffon VST (tests + mini-hôte)).
   actives sont à 0 dB (sans préampli) ne corrige rien — c'est le cas de
   « Plat », l'état par défaut de l'onglet Égaliseur de l'application (10
   bandes à 0 dB) sauvegardé tel quel. L'auto-chargement le SAUTE et prend
-  le preset avec effet le plus récent (second retour utilisateur : « le
-  VST affiche 10 bandes mais la courbe est plate et le son ne change pas »
-  — cause racine). Les bandes Notch/LowPass/HighPass, elles, filtrent même
-  à 0 dB : un preset qui en contient reste audible.
+  le preset avec effet le plus récent. Les bandes Notch/LowPass/HighPass,
+  elles, filtrent même à 0 dB : un preset qui en contient reste audible.
 - **Chargement manuel** : bouton « Charger… » ou glisser-déposer un fichier
   sur la fenêtre du greffon ; l'état du projet DAW (chunk VST) restaure le
   preset.
 - **Bannière « Aucun preset chargé »** : sans preset actif, l'éditeur
-  l'affiche en orange au centre — le greffon est TRANSPARENT dans cet état
-  (retour utilisateur v3.4.0 : « aucune différence de son », cause racine).
+  l'affiche en orange au centre — le greffon est TRANSPARENT dans cet état.
 - **Bannière « Preset plat » (v3.4.2)** : un preset chargé (manuellement ou
   par chunk de session) dont toutes les bandes sont à 0 dB est signalé en
-  orange — « Preset plat — le son n'est pas corrigé » — au lieu d'un
-  silencieux « 10 bandes » sous une courbe plate.
+  orange — « Preset plat — le son n'est pas corrigé ».
 - **Points de bandes sur la courbe (v3.4.2)** : chaque bande active est
   marquée d'un point à sa fréquence centrale — les bandes sont visibles,
-  même à 0 dB (elles se posent alors sur la ligne 0 dB). L'entête affiche
-  le gain maximal des bandes (« gain max 5.8 dB »).
+  même à 0 dB. L'entête affiche le gain maximal des bandes.
 - **Paramètre unique** « Preamp » (dB, −36…+36, automatisable) ; le préampli
-  du preset chargé le recalc au chargement.
+  du preset chargé le recalc au chargement (les presets casque ont un
+  préampli négatif typique de −4 à −8 dB : c'est audible dès l'application).
 - **Bypass** par l'opcode VST officiel (`effSetBypass`) — sortie = entrée bit
   à bit.
 - Stéréo 2 entrées / 2 sorties, tout taux d'échantillonnage, zéro latence.
 
-Ce que le greffon ne fait PAS (v1, comme l'AU) : édition des bandes (lecture
-seule — la mesure et l'édition restent dans l'application), mesure intégrée,
-bandes dynamiques Pro-Q 3, pentes de coupe raides (12 dB/oct des biquads).
+Ce que le greffon ne fait PAS : mesure intégrée, bandes dynamiques
+Pro-Q 3, pentes de coupe raides (12 dB/oct des biquads), édition graphique
+au point près de la courbe complète (l'édition se fait bande par bande, par
+les points — comme l'application).
 
 ## Installation (utilisateur)
 
@@ -67,22 +84,33 @@ bandes dynamiques Pro-Q 3, pentes de coupe raides (12 dB/oct des biquads).
 4. **Rien à faire de plus si l'application RoomEq est installée** : le
    preset le plus récent du magasin (`%APPDATA%\RoomEq\presets`) est
    chargé automatiquement — le nom du preset actif s'affiche en haut du
-   greffon. Sinon, ouvrez le greffon et cliquez « Charger… » (ou déposez)
-   un preset `.json`/`.ffp` exporté depuis l'application RoomEq.
+   greffon. Sinon : choisissez votre casque dans les listes déroulantes
+   (banque intégrée), cliquez « Charger… » (ou déposez) un preset
+   `.json`/`.ffp`, ou double-cliquez sur la courbe et réglez les bandes
+   directement.
+5. **Si le son semble inchangé** : vérifiez la version affichée en bas à
+   droite du greffon (une ancienne DLL peut rester installée), regardez le
+   VU-mètre In/Out (barres figées = l'audio ne passe pas par le greffon —
+   routage du DAW à vérifier), puis le journal (ci-dessous).
 
 Le greffon exige un processeur SSE2 (Pentium 4 / 2001 ou postérieur). Le
 journal de diagnostic (peu bavard) est écrit dans
 `%LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log` — il consigne l'ouverture,
-l'auto-chargement, les chargements/refus de presets et **une ligne au
-premier bloc audio** (taux, preset actif, bandes, préampli, bypass) : c'est
-la première chose à consulter si le son semble inchangé.
+l'auto-chargement, les chargements/refus de presets, **une ligne au
+premier bloc audio** (taux, preset actif, bandes, préampli, bypass) et,
+**à la fermeture, le nombre de blocs audio traités** (v3.5.0 — 0 bloc =
+l'audio n'est jamais passé par le greffon) : c'est la première chose à
+consulter si le son semble inchangé.
 
 ## Construction
 
 ```bash
+# 0) régénérer la banque casques embarquée (si la bibliothèque change)
+python3 scripts/gen_headphone_bank.py
+
 # 1) cœur + greffon Linux + tests natifs + mini-hôte (tout OS)
 cmake -S natif/roomeq-vst -B build && cmake --build build
-./build/roomeq_vst_tests                     # 297 vérifications
+./build/roomeq_vst_tests                     # 403 vérifications
 ./build/roomeq_vst_host build/RoomEqVst.so \
     natif/roomeq-au/tests/data               # 38 vérifications (ABI par dlopen)
 
@@ -99,7 +127,7 @@ arithmétique double identique au build 64 bits, exporte `VSTPluginMain` et
 
 | étage | quoi | résultat |
 | --- | --- | --- |
-| tests natifs (Linux x86-64, liés) | parité vs références C# (48 k stéréo, 44,1 k mono, bordes, transparent), chunks, préampli, bypass, accumulation, chaînes ABI, rejets, **auto-chargement (magasin factice : plus récent, repli sur valide, précédence du chunk, .ffp, répertoire absent)**, **presets plats ignorés (v3.4.2 : plat plus récent → correction plus ancienne chargée, plat explicite signalé, notch/préampli audibles, magasin plat seul → transparent)** | **297 vérifications, 0 échec** — parité **0.00e+00** (bit à bit), y compris après auto-chargement |
+| tests natifs (Linux x86-64, liés) | parité vs références C# (48 k stéréo, 44,1 k mono, bordes, transparent), chunks, préampli, bypass, accumulation, chaînes ABI, rejets, **auto-chargement (magasin factice : plus récent, repli sur valide, précédence du chunk, .ffp, répertoire absent)**, **presets plats ignorés (v3.4.2)**, **routage out-of-place (v3.5.0 : buffers entrée/sortie distincts + entrée intacte)**, **suspension/reprise (v3.5.0)**, **édition directe (v3.5.0 : création « Manuel », clamps, type/activation/suppression, chunk round-trip JSON, parité du preset édité)**, **banque casques (v3.5.0 : 321 modèles décodés, clamps, préampli recalcé, parité du preset casque)**, **VU-mètre/compteur de blocs (v3.5.0)** | **403 vérifications, 0 échec** — parité **0.00e+00** (bit à bit) |
 | mini-hôte (Linux x86-64, dlopen) | cycle de vie complet par l'ABI C : `VSTPluginMain`, champs `AEffect`, open/setSampleRate/setBlockSize/mainsChanged/setChunk/processReplacing 512/getChunk/setBypass/setParameter/close, entrée historique `main` | **38 vérifications, 0 échec** — parité **0.00e+00** |
 | exécution 32 bits (qemu-i386, sémantique d'instructions exacte) | suite complète des 228 vérifications v3.4.0 compilée `x86-linux-gnu` + SSE2 | **228 vérifications, 0 échec** — parité **0.00e+00** (v3.4.1 : les 36 nouvelles vérifications d'auto-chargement n'ont pas été rejouées sous qemu, voir limites) |
 | cycle 32 bits par dlopen (qemu-i386) | open → processReplacing → chunk → bypass → close → `main` → close, étape par étape | OK jusqu'à `dlclose` (voir limite ci-dessous) |
@@ -126,7 +154,12 @@ arithmétique double identique au build 64 bits, exporte `VSTPluginMain` et
   la ligne « premier bloc » du journal permet de vérifier le comportement
   en situation réelle. v3.4.2 : 297 vérifications (33 de plus, presets
   plats), mêmes conditions — le code ajouté est de la seule logique de
-  choix de preset, aucune arithmétique DSP.
+  choix de preset, aucune arithmétique DSP. v3.5.0 : 403 vérifications
+  (106 de plus : routage out-of-place, suspension/reprise, édition,
+  banque casques, VU) — mêmes conditions ; l'éditeur Win32 élargi
+  (560×320) n'est compilé que pour la DLL Windows (exclu du build Linux),
+  l'édition/banque est du C++ standard sans arithmétique DSP nouvelle
+  (les clamps et la conversion sont ceux de l'application C#).
 - **Premier retour utilisateur (Live 9, v3.4.0)** : « aucune différence de
   son quand le greffon est activé » — cause : aucun preset chargé (état
   transparent par défaut). Corrigé en v3.4.1 par l'auto-chargement, la
@@ -140,6 +173,18 @@ arithmétique double identique au build 64 bits, exporte `VSTPluginMain` et
   v3.4.2 : l'auto-chargement saute les presets sans effet audible, l'éditeur
   marque chaque bande d'un point sur la courbe, signale les presets plats
   et affiche le gain maximal.
+- **Troisième retour utilisateur (Live 9, v3.4.2)** : « toujours aucune
+  modification du son perçue — vérifie s'il n'y a pas un problème de
+  routage ». Audit du câblage : `ProcessChannels` gère correctement le
+  in-place ET l'out-of-place (copie entrée→sortie avant traitement), le
+  mode accumulation et la suspension/reprise — tout est désormais COUVERT
+  PAR LES TESTS (parité 0.00e+00 en out-of-place, entrée intacte, après
+  resume). v3.5.0 ajoute les outils qui tranchent côté utilisateur :
+  VU-mètre In/Out (l'audio passe-t-il par le greffon ?), version affichée
+  (la bonne DLL est-elle installée ?), compteur de blocs au journal de
+  fermeture, et surtout l'édition directe + banque casques intégrée (un
+  preset casque à préampli −6 dB est immédiatement audible ; glisser une
+  bande à +15 dB aussi).
 - Mono : le greffon est stéréo 2/2 (un signal mono est dupliqué sur les deux
   canaux par l'hôte, comme pour tout greffon stéréo).
 
@@ -160,9 +205,13 @@ natif/roomeq-vst/
 ├── build-vst.sh          # cross-compilation Zig → dist/RoomEq.dll (win32)
 ├── vst/
 │   ├── vst2_abi.h        # ABI VST 2.4 minimale autodéclarée (vérifiée)
-│   ├── RoomEqVst.h/.cpp  # le greffon (params, chunk, bypass, rendu)
-│   ├── EditorWin32.cpp   # éditeur Win32 : Charger…, glisser-déposer, courbe
+│   ├── RoomEqVst.h/.cpp  # le greffon (params, chunk, bypass, rendu, édition)
+│   ├── EditorWin32.cpp   # éditeur Win32 : drag/molette/double-clic, combos
+│   │                     # casques, VU-mètre, version, Charger…, glisser-déposer
+│   ├── preset_write.h/.cpp     # sérialisation JSON (format application)
+│   ├── headphone_bank.h/.cpp   # banque casques : décodage + conversion
+│   ├── headphone_bank_data.h   # GÉNÉRÉ (scripts/gen_headphone_bank.py)
 │   └── roomeq_vst.def    # exports : VSTPluginMain + main (alias)
 ├── host/mini_host.cpp    # mini-hôte de test (ABI par dlopen, Linux)
-└── tests/                # 297 vérifications + utilitaires partagés
+└── tests/                # 403 vérifications + utilitaires partagés
 ```

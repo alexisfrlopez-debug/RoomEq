@@ -22,7 +22,7 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-project(RoomEqVST VERSION 3.4.2 LANGUAGES C CXX)
+project(RoomEqVST VERSION 3.5.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -58,7 +58,10 @@ target_compile_options(roomeq_vst_core PRIVATE
 
 # ------------------------------------------------------------------ greffon
 
-set(ROOMEQ_VST_SOURCES vst/RoomEqVst.cpp)
+set(ROOMEQ_VST_SOURCES
+    vst/RoomEqVst.cpp
+    vst/headphone_bank.cpp
+    vst/preset_write.cpp)
 if(WIN32)
     list(APPEND ROOMEQ_VST_SOURCES vst/EditorWin32.cpp)
 endif()

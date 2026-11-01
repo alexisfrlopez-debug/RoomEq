@@ -994,3 +994,89 @@ Stage Summary:
   par disparaître.
 - Validation : 461/461 xUnit verts (aucun src/ modifié) ; aucune donnée
   sensible dans le commit (jetons hors dépôt, vérifié).
+
+---
+Session : 14 — 2026-11-01
+Agent : main (Z.ai)
+Task : Troisième retour VST + deux demandes — « toujours aucune modification
+du son perçue quand je l'active sur la piste, vérifie s'il n'y a pas un
+problème de routage » ; « l'équalizer du vst n'est pas modifiable
+directement, j'aimerais pouvoir le modifier » ; « la banque de presets
+écouteurs/casque doit être accessible dans le vst via liste déroulante ».
+
+Work Log:
+- AUDIT ROUTAGE (réponse à la demande) : revue complète de ProcessChannels —
+  le câblage est CORRECT : processReplacing copie l'entrée vers la sortie
+  quand les buffers diffèrent (out-of-place) puis traite en place ; le mode
+  accumulation traite une copie et additionne ; effMainsChanged(0) ne fait
+  qu'un Reset propre des états. Le mini-hôte ne testait que le in-place :
+  TROIS angles morts sont désormais couverts par des tests — out-of-place
+  (parité 0.00e+00 vs référence C# + entrée intacte), suspension/reprise
+  (parité exacte après resume), accumulate inchangé. Conclusion : si le son
+  ne change toujours pas côté Live, les causes restantes sont côté hôte
+  (ancienne DLL installée, preset chargé plat, audio non routé dans la
+  piste) → d'où les outils de diagnostic ci-dessous.
+- DIAGNOSTIC CÔTÉ UTILISATEUR (v3.5.0) : VU-mètre In/Out dans l'éditeur
+  (barres figées = l'audio ne traverse pas le greffon), version affichée
+  en bas à droite (vérifie la DLL installée en un coup d'œil), compteur de
+  blocs consigné au journal de fermeture (« close : N blocs traités » —
+  0 = jamais appelé), préampli des presets casque immédiatement audible.
+- ÉDITION DIRECTE (v3.5.0) : API thread-safe dans le greffon — BandCount/
+  BandAt/EditBand/AddBand/RemoveBand/SetBandEnabled/SetBandType/SetPreampDb.
+  Chaque édition copie le preset, applique les bornes de l'application
+  (20 Hz–20 kHz, ±24 dB, Q 0,1–20), re-sérialise le chunk en JSON (format
+  EXACT de l'application : PascalCase, enums en chaînes — preset_write.cpp,
+  le cœur AU scellé reste en lecture seule) et incrémente la version : le
+  thread audio reconstruit les chaînes au bloc suivant, l'hôte reçoit
+  updateDisplay. AddBand sur l'identité crée le preset « Manuel ».
+  L'éditeur Win32 (560×320) : glisser un point (fréquence X + gain Y),
+  molette sur point = Q (pas ×1,12), double-clic courbe = nouvelle bande,
+  double-clic point = activer/désactiver (point grisé), clic droit = menu
+  type (cloche/shelf bas/haut/passe-bas/passe-haut/notch)/supprimer,
+  curseur main/souris de déplacement, CS_DBLCLKS.
+- BANQUE CASQUES (v3.5.0) : les 321 modèles de la bibliothèque intégrée de
+  l'application (données AutoEq — MIT) sont EMBARQUÉS dans la DLL —
+  scripts/gen_headphone_bank.py convertit headphone_presets.json en blob
+  binaire compact « RHP1 » (57,5 Ko : chaînes préfixées + floats little-
+  endian) → headphone_bank_data.h ; headphone_bank.cpp décode
+  défensivement (blob corrompu = banque tronquée, jamais de hors-zone) et
+  convertit en PresetDef (miroir EXACT de HeadphonePresetLibrary.ToEqPreset :
+  préampli clamp [-15, 0], mêmes clamps par bande). L'éditeur expose deux
+  listes déroulantes (marque — 58 marques, modèle) + bouton « Appliquer » :
+  plus besoin d'aller chercher un fichier via l'application.
+- Tests (+106 → 403) : out-of-place (parité + entrée intacte),
+  suspension/reprise (parité exacte après resume), édition (création
+  « Manuel », clamps aux bornes, invalides refusés, type/activation/
+  suppression, chunk round-trip GetChunk→SetChunk entre instances, JSON
+  relisible par le lecteur du cœur, PARITÉ du preset édité vs chaîne directe
+  0.00e+00), banque (321 modèles, libellés, refus index invalide, clamps,
+  préampli recalcé, parité 0.00e+00), VU/compteur (blocs comptés, niveaux
+  non nuls).
+- Livrable : DLL reconstruite (588 Ko, banque embarquée +57,5 Ko) par
+  build-vst.sh (Zig 0.14.1 re-téléchargé — ~/tools recyclé encore une fois),
+  PE32 i386, exports VSTPluginMain+main, zip RoomEq-VST-3.5.0-win32.zip
+  (DLL + LISEZMOI régénéré) dans download/. kVersion 3500, CMake 3.5.0,
+  Directory.Build.props + package_v3.sh alignés. Correction au passage :
+  VstEditorIdle manquait dans les friend du header (invisible sous Linux
+  car l'éditeur y est exclu — le compilateur Windows l'a révélée).
+- R5 : 461/461 xUnit verts (aucun src/ modifié hors numéro de version).
+
+Stage Summary:
+- v3.5.0 : le greffon devient autonome et éditable — égaliseur modifiable
+  directement à la souris (drag/molette/double-clic/menu contextuel),
+  banque des 321 casques/écouteurs embarquée et accessible par listes
+  déroulantes, et diagnostic intégré du « aucune différence de son »
+  (VU-mètre In/Out, version affichée, compteur de blocs au journal).
+- Routage : audité et couvert par les tests — in-place, out-of-place,
+  accumulation et suspension/reprise en parité bit à bit ; aucun défaut
+  de câblage côté greffon.
+- Validation : 403 + 38 vérifications natives/ABI (parité 0.00e+00),
+  461/461 xUnit ; DLL win32 588 Ko reconstruite et contrôlée.
+- Livrable : RoomEq-VST-3.5.0-win32.zip dans download/ — REMPLACER la DLL
+  (l'ancienne 3.4.2 peut être restée installée : la version affichée en bas
+  à droite du greffon tranche) puis rescanner les greffons.
+- Test utilisateur décisif : appliquer un preset casque (préampli négatif
+  typique −6 dB, audible immédiatement) ou glisser une bande à +15 dB —
+  si le VU bouge mais que le son ne change pas, le journal
+  %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log (ligne premier bloc + close)
+  dit exactement quel preset est actif et combien de blocs ont été traités.

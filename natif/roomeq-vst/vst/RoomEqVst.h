@@ -11,6 +11,7 @@
 #include "roomeq/preset/preset.h"
 
 #include <atomic>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -30,7 +31,7 @@ public:
     static constexpr float kPreampDefaultDb = 0.0f;
 
     static constexpr int32_t kUniqueId = vst::CConst('R', 'm', 'e', 'q');
-    static constexpr int32_t kVersion = 3402; // 3.4.2
+    static constexpr int32_t kVersion = 3500; // 3.5.0
 
     // Canaux audio (stéréo, comme le master d'un DAW).
     static constexpr int kChannels = 2;
@@ -55,6 +56,32 @@ public:
     /// réapplique lui-même les paramètres sauvegardés.
     bool ApplyPresetBytes(const uint8_t* data, size_t size, bool updateParameter,
         std::string& error);
+
+    // ---- édition directe du preset (v3.5.0, thread interface)
+    /// L'égaliseur est modifiable dans le greffon : chaque édition remplace
+    /// le preset en mémoire, re-sérialise le chunk (JSON, format exact de
+    /// l'application) et incrémente la version — le thread audio reconstruit
+    /// les chaînes au bloc suivant. Bornes identiques à l'application :
+    /// fréquence [20, 20000] Hz, gain [-24, +24] dB, Q [0.1, 20].
+    /// Nombre de bandes du preset courant (désactivées comprises).
+    size_t BandCount() const;
+    /// Copie d'une bande — faux si index invalide.
+    bool BandAt(size_t index, roomeq::preset::EqBandDef& out) const;
+    /// Modifie une bande (pointeur nul = champ inchangé) — faux si index
+    /// invalide. Retourne l'index édité (‑1 si échec) pour l'éditeur.
+    int EditBand(size_t index, const double* frequency, const double* gainDb,
+        const double* q);
+    /// Ajoute une bande peaking (Q 1.1, active) — index de la bande créée.
+    int AddBand(double frequency, double gainDb);
+    /// Supprime une bande — faux si index invalide.
+    bool RemoveBand(size_t index);
+    /// Active/désactive une bande.
+    bool SetBandEnabled(size_t index, bool enabled);
+    /// Change le type d'une bande.
+    bool SetBandType(size_t index, roomeq::dsp::FilterType type);
+    /// Préampli (édition interactive) — recalc le paramètre « Preamp » et
+    /// notifie l'hôte (automatisation).
+    void SetPreampDb(double db);
 
     /// Preset courant (copie). Thread interface uniquement.
     roomeq::preset::PresetDef CurrentPreset() const;
@@ -98,6 +125,30 @@ public:
     /// log-répartis de 20 Hz à 20 kHz — paires (Hz, dB).
     std::vector<double> ResponseCurve() const;
 
+    // ---- banque casques/écouteurs embarquée (v3.5.0)
+    /// Nombre de modèles de la banque intégrée (données AutoEq de
+    /// l'application, embarquées — aucune dépendance à l'application).
+    size_t HeadphoneCount() const;
+    /// Libellé d'affichage « Marque Modèle » du i-ème modèle.
+    std::string HeadphoneLabel(size_t index) const;
+    /// Applique la correction du i-ème modèle (comme un chargement de
+    /// preset : paramètre recalcé, hôte notifié) — faux si index invalide.
+    bool LoadHeadphone(size_t index);
+
+    // ---- niveaux pour l'éditeur (v3.5.0, diagnostic du flux audio)
+    /// Peak récent de l'entrée (0…1, échantillon absolu maximal du bloc).
+    /// L'éditeur fait décroître la valeur à l'affichage — l'audio écrit,
+    /// l'interface lit.
+    float InputLevel() const { return inPeak_.load(std::memory_order_relaxed); }
+    /// Peak récent de la sortie (0…1).
+    float OutputLevel() const { return outPeak_.load(std::memory_order_relaxed); }
+
+    /// Blocs audio traités depuis l'ouverture (journal de close).
+    uint64_t BlocksProcessed() const
+    {
+        return blocksProcessed_.load(std::memory_order_relaxed);
+    }
+
 private:
     vst::IntPtr HandleOpen();
     vst::IntPtr HandleDispatcher(int32_t opcode, int32_t index, vst::IntPtr value,
@@ -105,6 +156,14 @@ private:
     void ProcessChannels(float** inputs, float** outputs, int32_t sampleFrames,
         bool accumulate);
     void SyncChainsFromFormat();
+
+    /// Valide un preset édité : sérialise le chunk JSON, remplace l'état et
+    /// incrémente la version. APPELÉ SOUS stateMutex_.
+    void CommitEditedPresetLocked(
+        std::shared_ptr<const roomeq::preset::PresetDef> edited);
+
+    /// Notifie l'hôte que l'affichage/état a changé (après édition).
+    void NotifyHostDisplayChanged();
 
     /// v3.4.1 : charge automatiquement le preset le plus récent du magasin
     /// de l'application (%APPDATA%\RoomEq\presets) à l'ouverture, pour que
@@ -137,9 +196,15 @@ private:
     void* editorState_ = nullptr;     // état de l'éditeur (EditorWin32.cpp)
     std::atomic<bool> loggedFirstBlock_ { false }; // diagnostic : 1er bloc
 
+    // ---- diagnostic du flux audio (v3.5.0) : VU-mètre + compteur de blocs
+    std::atomic<float> inPeak_ { 0.0f };
+    std::atomic<float> outPeak_ { 0.0f };
+    std::atomic<uint64_t> blocksProcessed_ { 0 };
+
     // l'éditeur Win32 (fonctions libres) gère editorState_ lui-même
     friend bool VstEditorOpen(RoomEqVst& plugin, void* systemWindow);
     friend void VstEditorClose(RoomEqVst& plugin);
+    friend void VstEditorIdle(RoomEqVst& plugin);
 };
 
 /// Fabrique de l'entrée usine VST 2 (définie dans RoomEqVst.cpp).

@@ -36,6 +36,8 @@ echo "— Zig      : $ZIG_BIN ($("$ZIG_BIN" version))"
 SOURCES=(
     "$HERE/vst/RoomEqVst.cpp"
     "$HERE/vst/EditorWin32.cpp"
+    "$HERE/vst/headphone_bank.cpp"
+    "$HERE/vst/preset_write.cpp"
     "$AU_CORE/roomeq/dsp/biquad.cpp"
     "$AU_CORE/roomeq/dsp/eq_chain.cpp"
     "$AU_CORE/roomeq/json/mini_json.cpp"
