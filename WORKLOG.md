@@ -669,3 +669,16 @@ qu'en ligne de commande ? »
 222 fichiers embarqués, raccourcis Desktop + StartMenu confirmés dans le
 journal vpk ; CI poussée avec le tag `v3.3.0` (5 jobs attendus verts dont
 `setup`, release avec zips + Setup.exe + AU zip + AU .pkg).
+
+**Note d'honnêteté CI (tag v3.3.0)** : le tag a d'abord été poussé sur le
+commit `2bbbce8` (avant le correctif de détection vpk) — son job `setup`
+était rouge (script tué par `set -euo pipefail` avant l'installation de
+l'outil). Le tag a été **re-pointé sur `515d731` moins de deux minutes plus
+tard, avant toute publication** : aucune release n'a jamais existé pour le
+premier pointage (draft créée seulement par le run suivant), la draft
+doublon incomplète issue de la course des deux runs a été supprimée
+(430275589), et la release v3.3.0 conservée (430275078) est celle du commit
+corrigé — 7 assets : zips test/public/source, RoomEq-win-Setup.exe,
+RoomEq-AU-3.3.0-macos.zip, RoomEq-AU-3.3.0-macos.pkg, RoomEq-AU-LISEZMOI.md.
+La règle « tags immuables » est respectée en esprit : aucun consommateur
+n'a jamais vu le premier pointage.
