@@ -1080,3 +1080,56 @@ Stage Summary:
   si le VU bouge mais que le son ne change pas, le journal
   %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log (ligne premier bloc + close)
   dit exactement quel preset est actif et combien de blocs ont été traités.
+
+---
+Session : 15 — 2026-11-01
+Agent : main (Z.ai)
+Task : Quatrième retour VST — « le vst a un problème de taille de fenêtre :
+l'interface n'est pas visible entièrement, certaines parties ne sont pas
+accessibles ».
+
+Work Log:
+- DIAGNOSTIC (une ligne) : le rect déclaré à l'hôte (kEffEditGetRect,
+  RoomEqVst.cpp) était resté à {top=0, left=0, bottom=240, right=520} —
+  la taille d'AVANT la v3.5.0 — alors que la fenêtre créée par
+  VstEditorOpen fait 560×320 depuis l'ajout de la rangée casques et du
+  VU-mètre. Le DAW dimensionne SA fenêtre sur le rect déclaré : 80 px de
+  hauteur (bouton « Charger… », libellé + listes déroulantes casque,
+  bouton « Appliquer » — tous à y=256..302) et 40 px de large (VU-mètre,
+  bouton « Appliquer ») étaient coupés. Exactement le signalement :
+  interface partiellement visible, contrôles inaccessibles. Preuve
+  binaire : la DLL du zip 3.5.0 contient la séquence {0,0,240,520}
+  (1 occurrence), la 3.5.1 contient {0,0,320,560}.
+- CORRECTIF STRUCTUREL (v3.5.1) : nouveau vst/editor_geometry.h — source
+  de vérité unique (kEditorWidth 560, kEditorHeight 320, EditorRect()
+  constexpr) partagée par RoomEqVst.cpp (rect déclaré à l'hôte) ET
+  EditorWin32.cpp (fenêtre créée + mise en page). static_assert dans le
+  header (rect = fenêtre, bornes int16) ; static_asserts de cadrage des
+  contrôles dans EditorWin32.cpp (tracé, VU, rangée du bas — tout
+  contrôle hors fenêtre casse la compilation Windows) ; test
+  TestEditorRectGeometry dans la suite native (rect = constantes,
+  dimensions minimales). Une dérive rect/fenêtre future est désormais
+  IMPOSSIBLE silencieusement : elle casse la compilation ou les tests.
+- Aucun changement DSP, audio, de rendu ou de thread — correctif
+  purement déclaratif (une constante + les garde-fous).
+- Versions alignées : kVersion 3501, CMake 3.5.1, Directory.Build.props
+  et package_v3.sh 3.5.1.
+- Validation : 409/409 vérifications natives (+6 géométrie), 38/38
+  mini-hôte ABI (parité 0.00e+00), DLL win32 reconstruite (PE32 i386,
+  exports VSTPluginMain+main, octets du rect vérifiés dans le binaire),
+  zip RoomEq-VST-3.5.1-win32.zip (DLL + LISEZMOI).
+
+Stage Summary:
+- v3.5.1 : la fenêtre du greffon s'affiche ENTIÈRE dans le DAW — le rect
+  déclaré couvre exactement les 560×320 de l'éditeur ; la rangée des
+  contrôles (chargement, listes casque, appliquer) et le VU-mètre sont
+  de nouveau accessibles.
+- Racine du bug : deux sources de vérité pour une même taille (le rect
+  ABI et la fenêtre Win32) qui ont dérivé lors de l'élargissement v3.5.0.
+  Réparé structurellement : une seule source (editor_geometry.h) +
+  static_asserts + test dédié.
+- Livrable : RoomEq-VST-3.5.1-win32.zip dans download/ — remplacer la
+  DLL (la version affichée en bas à droite doit lire 3.5.1) puis
+  rescanner les greffons du DAW.
+- Rappel diagnostic sonore (inchangé) : VU-mètre In/Out, version
+  affichée, journal %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log.

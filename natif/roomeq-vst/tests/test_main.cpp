@@ -9,6 +9,7 @@
 #include "test_util.h"
 
 #include "vst/RoomEqVst.h"
+#include "vst/editor_geometry.h"
 
 #include "roomeq/dsp/eq_chain.h"
 #include "roomeq/preset/preset_io.h"
@@ -1204,6 +1205,36 @@ static void TestVuMeterAndBlockCount()
     CHECK(corrected.BlocksProcessed() > 0);
 }
 
+/// Rect déclaré à l'hôte vs fenêtre réelle de l'éditeur (v3.5.1).
+/// Retour réel v3.5.0 : « l'interface n'est pas visible entièrement » — le
+/// rect annonçait 520×240 pour une fenêtre de 560×320 : le DAW coupait la
+/// rangée des contrôles (chargement, listes casque, appliquer). L'éditeur
+/// Win32 (EditorWin32.cpp) et kEffEditGetRect (RoomEqVst.cpp) dérivent
+/// désormais TOUS DEUX de editor_geometry.h — ce test verrouille le lien.
+static void TestEditorRectGeometry()
+{
+    std::puts("— géométrie de l'éditeur : rect déclaré = fenêtre réelle");
+    const vst::ERect rect = roomeq_editor::EditorRect();
+
+    // origine locale (l'ABI n'expose pas de position)
+    CHECK(rect.top == 0);
+    CHECK(rect.left == 0);
+
+    // le rect couvre EXACTEMENT la fenêtre créée par VstEditorOpen
+    // (CreateWindowExW avec kEditorWidth × kEditorHeight)
+    CHECK(static_cast<int>(rect.bottom) == roomeq_editor::kEditorHeight);
+    CHECK(static_cast<int>(rect.right) == roomeq_editor::kEditorWidth);
+
+    // dimensions exploitables : la rangée de contrôles du bas (bouton
+    // « Charger… », listes casque, « Appliquer ») vit dans les derniers
+    // 64 px — la fenêtre doit être plus haute que la zone de tracé seule.
+    CHECK(roomeq_editor::kEditorWidth >= 520);   // tracé + VU-mètre
+    CHECK(roomeq_editor::kEditorHeight >= 300);  // tracé + rangée contrôles
+
+    std::printf("  rect déclaré : %d×%d — identique à la fenêtre éditeur\n",
+        static_cast<int>(rect.right), static_cast<int>(rect.bottom));
+}
+
 
 
 int main(int argc, char** argv)
@@ -1228,6 +1259,7 @@ int main(int argc, char** argv)
     TestPresetEditing();
     TestHeadphoneBank();
     TestVuMeterAndBlockCount();
+    TestEditorRectGeometry();
 
     std::printf("\n%d vérifications, %d échecs\n", g_checks, g_failures);
     if (g_failures > 0) {

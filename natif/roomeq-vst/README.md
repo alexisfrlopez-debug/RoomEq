@@ -127,7 +127,7 @@ arithmétique double identique au build 64 bits, exporte `VSTPluginMain` et
 
 | étage | quoi | résultat |
 | --- | --- | --- |
-| tests natifs (Linux x86-64, liés) | parité vs références C# (48 k stéréo, 44,1 k mono, bordes, transparent), chunks, préampli, bypass, accumulation, chaînes ABI, rejets, **auto-chargement (magasin factice : plus récent, repli sur valide, précédence du chunk, .ffp, répertoire absent)**, **presets plats ignorés (v3.4.2)**, **routage out-of-place (v3.5.0 : buffers entrée/sortie distincts + entrée intacte)**, **suspension/reprise (v3.5.0)**, **édition directe (v3.5.0 : création « Manuel », clamps, type/activation/suppression, chunk round-trip JSON, parité du preset édité)**, **banque casques (v3.5.0 : 321 modèles décodés, clamps, préampli recalcé, parité du preset casque)**, **VU-mètre/compteur de blocs (v3.5.0)** | **403 vérifications, 0 échec** — parité **0.00e+00** (bit à bit) |
+| tests natifs (Linux x86-64, liés) | parité vs références C# (48 k stéréo, 44,1 k mono, bordes, transparent), chunks, préampli, bypass, accumulation, chaînes ABI, rejets, **auto-chargement (magasin factice : plus récent, repli sur valide, précédence du chunk, .ffp, répertoire absent)**, **presets plats ignorés (v3.4.2)**, **routage out-of-place (v3.5.0 : buffers entrée/sortie distincts + entrée intacte)**, **suspension/reprise (v3.5.0)**, **édition directe (v3.5.0 : création « Manuel », clamps, type/activation/suppression, chunk round-trip JSON, parité du preset édité)**, **banque casques (v3.5.0 : 321 modèles décodés, clamps, préampli recalcé, parité du preset casque)**, **VU-mètre/compteur de blocs (v3.5.0)**, **géométrie éditeur (v3.5.1 : rect déclaré = fenêtre réelle)** | **409 vérifications, 0 échec** — parité **0.00e+00** (bit à bit) |
 | mini-hôte (Linux x86-64, dlopen) | cycle de vie complet par l'ABI C : `VSTPluginMain`, champs `AEffect`, open/setSampleRate/setBlockSize/mainsChanged/setChunk/processReplacing 512/getChunk/setBypass/setParameter/close, entrée historique `main` | **38 vérifications, 0 échec** — parité **0.00e+00** |
 | exécution 32 bits (qemu-i386, sémantique d'instructions exacte) | suite complète des 228 vérifications v3.4.0 compilée `x86-linux-gnu` + SSE2 | **228 vérifications, 0 échec** — parité **0.00e+00** (v3.4.1 : les 36 nouvelles vérifications d'auto-chargement n'ont pas été rejouées sous qemu, voir limites) |
 | cycle 32 bits par dlopen (qemu-i386) | open → processReplacing → chunk → bypass → close → `main` → close, étape par étape | OK jusqu'à `dlclose` (voir limite ci-dessous) |
@@ -160,6 +160,9 @@ arithmétique double identique au build 64 bits, exporte `VSTPluginMain` et
   (560×320) n'est compilé que pour la DLL Windows (exclu du build Linux),
   l'édition/banque est du C++ standard sans arithmétique DSP nouvelle
   (les clamps et la conversion sont ceux de l'application C#).
+  v3.5.1 : 409 vérifications (6 de plus, géométrie de l'éditeur) — le
+  correctif est purement déclaratif (rect `kEffEditGetRect`), aucun
+  changement DSP ni de rendu.
 - **Premier retour utilisateur (Live 9, v3.4.0)** : « aucune différence de
   son quand le greffon est activé » — cause : aucun preset chargé (état
   transparent par défaut). Corrigé en v3.4.1 par l'auto-chargement, la
@@ -185,6 +188,19 @@ arithmétique double identique au build 64 bits, exporte `VSTPluginMain` et
   fermeture, et surtout l'édition directe + banque casques intégrée (un
   preset casque à préampli −6 dB est immédiatement audible ; glisser une
   bande à +15 dB aussi).
+- **Quatrième retour utilisateur (v3.5.0)** : « l'interface n'est pas
+  visible entièrement, certaines parties ne sont pas accessibles » —
+  cause : le rect déclaré à l'hôte (`kEffEditGetRect`) était resté à
+  520×240 (taille d'avant la rangée casques) alors que la fenêtre réelle
+  fait 560×320 : le DAW dimensionne sa fenêtre sur le rect déclaré, donc
+  les 80 derniers pixels de hauteur (bouton « Charger… », listes
+  déroulantes casque, « Appliquer ») et les 40 derniers de large
+  (VU-mètre, « Appliquer ») étaient coupés. Corrigé en v3.5.1 :
+  `vst/editor_geometry.h` est la source de vérité unique (fenêtre créée
+  par l'éditeur ET rect déclaré dérivent des mêmes constantes),
+  `static_assert` de cadrage des contrôles dans EditorWin32.cpp et test
+  dédié dans la suite native — une dérive future casse la compilation ou
+  les tests au lieu de couper l'interface.
 - Mono : le greffon est stéréo 2/2 (un signal mono est dupliqué sur les deux
   canaux par l'hôte, comme pour tout greffon stéréo).
 
@@ -205,6 +221,7 @@ natif/roomeq-vst/
 ├── build-vst.sh          # cross-compilation Zig → dist/RoomEq.dll (win32)
 ├── vst/
 │   ├── vst2_abi.h        # ABI VST 2.4 minimale autodéclarée (vérifiée)
+│   ├── editor_geometry.h # géométrie éditeur : source unique rect/fenêtre (v3.5.1)
 │   ├── RoomEqVst.h/.cpp  # le greffon (params, chunk, bypass, rendu, édition)
 │   ├── EditorWin32.cpp   # éditeur Win32 : drag/molette/double-clic, combos
 │   │                     # casques, VU-mètre, version, Charger…, glisser-déposer
@@ -213,5 +230,5 @@ natif/roomeq-vst/
 │   ├── headphone_bank_data.h   # GÉNÉRÉ (scripts/gen_headphone_bank.py)
 │   └── roomeq_vst.def    # exports : VSTPluginMain + main (alias)
 ├── host/mini_host.cpp    # mini-hôte de test (ABI par dlopen, Linux)
-└── tests/                # 403 vérifications + utilitaires partagés
+└── tests/                # 409 vérifications + utilitaires partagés
 ```

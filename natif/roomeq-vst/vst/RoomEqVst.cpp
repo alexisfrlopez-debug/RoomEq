@@ -12,6 +12,7 @@
 //     avec process — accès simples pour la configuration du flux.
 #include "RoomEqVst.h"
 
+#include "editor_geometry.h"
 #include "headphone_bank.h"
 #include "preset_write.h"
 #include "roomeq/preset/preset_io.h"
@@ -432,8 +433,13 @@ vst::IntPtr RoomEqVst::HandleDispatcher(int32_t opcode, int32_t index,
         return 1;
 
     case vst::kEffEditGetRect:
+        // v3.5.1 — le rect DOIT couvrir exactement la fenêtre que crée
+        // VstEditorOpen (EditorWin32.cpp utilise les mêmes constantes de
+        // editor_geometry.h). Retour réel v3.5.0 : le rect annonçait
+        // 520×240 pour une fenêtre de 560×320 → le DAW coupait la rangée
+        // des contrôles (chargement, listes casque, appliquer).
         if (ptr != nullptr && kHasEditor) {
-            static vst::ERect rect = { 0, 0, 240, 520 }; // top,left,bottom,right
+            static vst::ERect rect = roomeq_editor::EditorRect();
             *static_cast<vst::ERect**>(ptr) = &rect;
             return 1;
         }

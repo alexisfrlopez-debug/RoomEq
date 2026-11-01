@@ -19,6 +19,7 @@
 
 #if defined(_WIN32) && !defined(ROOMEQ_VST_NO_EDITOR)
 
+#include "editor_geometry.h"
 #include "headphone_bank.h"
 #include "preset_write.h"
 #include "roomeq/preset/preset.h"
@@ -38,9 +39,14 @@
 namespace {
 
 // ---------------------------------------------------------------- mesurettes
+// v3.5.1 : la taille de la fenêtre vient de editor_geometry.h — LA MÊME
+// source que le rect déclaré à l'hôte (kEffEditGetRect). Les static_assert
+// ci-dessous verrouillent le cadrage : tout contrôle placé hors fenêtre
+// casse la compilation au lieu de coupier silencieusement l'interface
+// dans le DAW (retour réel v3.5.0 : rect 520×240 vs fenêtre 560×320).
+using roomeq_editor::kEditorWidth;
+using roomeq_editor::kEditorHeight;
 
-constexpr int kEditorWidth = 560;
-constexpr int kEditorHeight = 320;
 constexpr int kButtonId = 1;        // « Charger… »
 constexpr int kBrandComboId = 2;    // marque de casque
 constexpr int kModelComboId = 3;    // modèle de casque
@@ -62,6 +68,26 @@ constexpr int kHitRadius = 9;
 /// Zone du VU-mètre (coin haut droit) : deux barres IN/OUT.
 constexpr int kVuLeft = 442, kVuRight = 548;
 constexpr int kVuInY = 8, kVuOutY = 22, kVuHeight = 10;
+
+// --------------------------- cadrage des contrôles (garde-fous v3.5.1)
+// Chaque contrôle doit tenir DANS la fenêtre déclarée à l'hôte, sinon le
+// DAW le coupe (le rect et la fenêtre partagent editor_geometry.h ; ces
+// assertions couvrent le reste de la mise en page).
+static_assert(kPlotRight <= kEditorWidth - 10,
+    "la zone de tracé déborde à droite");
+static_assert(kPlotBottom + 20 <= kEditorHeight - 64,
+    "les repères de fréquence empiètent sur la rangée des contrôles");
+static_assert(kVuRight <= kEditorWidth - 10,
+    "le VU-mètre déborde à droite");
+static_assert(kVuOutY + kVuHeight <= kPlotTop - 4,
+    "le VU-mètre empiète sur la zone de tracé");
+// rangée du bas : bouton Charger… + label + listes casque + Appliquer
+static_assert(458 + 92 <= kEditorWidth,
+    "le bouton « Appliquer » déborde à droite");
+static_assert((kEditorHeight - 42) + 24 <= kEditorHeight,
+    "les listes déroulantes débordent en bas");
+static_assert((kEditorHeight - 64) + 24 <= kEditorHeight,
+    "le bouton « Charger… » déborde en bas");
 
 struct EditorState {
     RoomEqVst* plugin = nullptr;

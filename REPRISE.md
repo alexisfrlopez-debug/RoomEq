@@ -7,16 +7,39 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.5.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2 et **v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics** |
+| **Projet** | RoomEq **v3.5.1** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2, **v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics** et **v3.5.1 : fenêtre du greffon entière (rect kEffEditGetRect = 560×320, source unique editor_geometry.h)** |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (403 + 38) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (409 + 38) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 14 — v3.5.0 : égaliseur éditable + banque casques + diagnostic)
+## 1. État (fin session 15 — v3.5.1 : fenêtre du greffon VST entière)
+
+**Session 15 (2026-11-01)** : quatrième retour VST — « l'interface n'est pas
+visible entièrement, certaines parties ne sont pas accessibles ».
+
+- **Cause (une ligne)** : le rect déclaré à l'hôte (`kEffEditGetRect`)
+  était resté à **520×240** (taille d'avant la rangée casques) alors que
+  la fenêtre de l'éditeur fait **560×320** depuis la v3.5.0 — le DAW
+  dimensionne sa fenêtre sur le rect déclaré : la rangée des contrôles
+  (« Charger… », listes casque, « Appliquer ») et le VU-mètre étaient
+  coupés. Preuve binaire : octets `{0,0,240,520}` dans la DLL 3.5.0,
+  `{0,0,320,560}` dans la 3.5.1.
+- **Correctif structurel (v3.5.1)** : `vst/editor_geometry.h` = source de
+  vérité unique (fenêtre créée ET rect déclaré dérivent des mêmes
+  constantes), static_asserts de cadrage des contrôles dans
+  EditorWin32.cpp, test dédié dans la suite native — une dérive future
+  casse la compilation ou les tests. Aucun changement DSP/audio.
+- **Validation** : 409 + 38 vérifications natives/ABI (parité 0.00e+00,
+  +6 tests géométrie), versions alignées (kVersion 3501, CMake,
+  Directory.Build.props, package_v3.sh). Livrable :
+  `RoomEq-VST-3.5.1-win32.zip` (remplacer la DLL, la version affichée
+  en bas à droite doit lire **3.5.1**, puis rescanner).
+
+## 1bis. État (fin session 14 — v3.5.0 : égaliseur éditable + banque casques + diagnostic)
 
 **Session 14 (2026-11-01)** : troisième retour VST (« toujours aucune
 modification du son — vérifie le routage ») + deux demandes (égaliseur

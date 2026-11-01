@@ -31,7 +31,7 @@ public:
     static constexpr float kPreampDefaultDb = 0.0f;
 
     static constexpr int32_t kUniqueId = vst::CConst('R', 'm', 'e', 'q');
-    static constexpr int32_t kVersion = 3500; // 3.5.0
+    static constexpr int32_t kVersion = 3501; // 3.5.1
 
     // Canaux audio (stéréo, comme le master d'un DAW).
     static constexpr int kChannels = 2;
