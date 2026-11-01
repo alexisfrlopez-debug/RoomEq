@@ -27,6 +27,16 @@
 #include <direct.h> // _mkdir (journal)
 #endif
 
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX // std::min/std::max/std::clamp doivent rester les nôtres
+#endif
+#include <windows.h> // FindFirstFileW (auto-chargement du magasin)
+#else
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
+
 namespace {
 
 // ------------------------------------------------------------- journalisme
@@ -77,6 +87,130 @@ std::string Shorten(const std::string& text, size_t maxChars)
     if (text.size() <= maxChars)
         return text;
     return text.substr(0, maxChars - 1) + "~";
+}
+
+// --------------------------------------------------- auto-chargement (v3.4.1)
+// Retour utilisateur réel (Live 9, premier test 32 bits) : « aucune
+// différence de son quand le greffon est activé ». Cause : le greffon est
+// TRANSPARENT tant qu'aucun preset n'est chargé (identité par défaut) et
+// l'état « Preset : Transparent » en petit gris passait inaperçu. Trois
+// mesures : auto-chargement du magasin de l'application à l'ouverture,
+// bannière explicite dans l'éditeur, journal du premier bloc audio.
+
+/// Répertoire des presets de l'application (magasin PresetStore de
+/// l'application, cf. RoomEq.Core/Io/Stores.cs : %APPDATA%\RoomEq\presets).
+/// La variable ROOMEQ_PRESETS_DIR a priorité (tests natifs, installation
+/// portable). Retourne faux si aucun répertoire pertinent (Linux sans
+/// variable : le greffon .so de test reste transparent).
+bool ResolvePresetsDir(std::wstring& dir)
+{
+#if defined(_WIN32)
+    if (const wchar_t* env = _wgetenv(L"ROOMEQ_PRESETS_DIR");
+        env != nullptr && *env != L'\0') {
+        dir = env;
+        return true;
+    }
+    if (const wchar_t* appdata = _wgetenv(L"APPDATA");
+        appdata != nullptr && *appdata != L'\0') {
+        dir = std::wstring(appdata) + L"\\RoomEq\\presets";
+        return true;
+    }
+    return false;
+#else
+    // POSIX (tests) : chemin étroit converti vers large (ASCII attendu).
+    const char* env = std::getenv("ROOMEQ_PRESETS_DIR");
+    if (env == nullptr || *env == '\0')
+        return false;
+    dir.assign(env, env + std::strlen(env));
+    return true;
+#endif
+}
+
+/// Lit le fichier (contenu binaire complet). Chemin large sous Windows.
+bool ReadWholeFile(const std::wstring& path, std::vector<uint8_t>& out)
+{
+#if defined(_WIN32)
+    std::FILE* f = _wfopen(path.c_str(), L"rb");
+#else
+    std::FILE* f = std::fopen(std::string(path.begin(), path.end()).c_str(), "rb");
+#endif
+    if (f == nullptr)
+        return false;
+    std::fseek(f, 0, SEEK_END);
+    const long size = std::ftell(f);
+    std::fseek(f, 0, SEEK_SET);
+    if (size <= 0 || size > (64 << 20)) { // garde-fou : 64 Mo maximum
+        std::fclose(f);
+        return false;
+    }
+    out.resize(static_cast<size_t>(size));
+    const size_t read = std::fread(out.data(), 1, out.size(), f);
+    std::fclose(f);
+    return read == out.size();
+}
+
+/// Liste les presets (.json/.ffp) du répertoire, du plus récent au plus
+/// ancien. Répertoire absent ou illisible : liste vide — jamais d'exception,
+/// jamais d'échec bloquant pour l'ouverture.
+std::vector<std::wstring> PresetFilesByRecency(const std::wstring& dir)
+{
+    struct Candidate {
+        long long stamp;
+        std::wstring path;
+    };
+    std::vector<Candidate> candidates;
+
+#if defined(_WIN32)
+    for (const wchar_t* pattern : { L"\\*.json", L"\\*.ffp" }) {
+        WIN32_FIND_DATAW fd;
+        const HANDLE find = FindFirstFileW((dir + pattern).c_str(), &fd);
+        if (find == INVALID_HANDLE_VALUE)
+            continue;
+        do {
+            if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+                continue;
+            ULARGE_INTEGER stamp;
+            stamp.LowPart = fd.ftLastWriteTime.dwLowDateTime;
+            stamp.HighPart = fd.ftLastWriteTime.dwHighDateTime;
+            candidates.push_back({ static_cast<long long>(stamp.QuadPart),
+                dir + L"\\" + fd.cFileName });
+        } while (FindNextFileW(find, &fd) != 0);
+        FindClose(find);
+    }
+#else
+    const std::string narrow(dir.begin(), dir.end());
+    if (DIR* d = opendir(narrow.c_str())) {
+        while (const dirent* entry = readdir(d)) {
+            const std::string name = entry->d_name;
+            const bool json = name.size() > 5
+                && name.compare(name.size() - 5, 5, ".json") == 0;
+            const bool ffp = name.size() > 4
+                && name.compare(name.size() - 4, 4, ".ffp") == 0;
+            if (!json && !ffp)
+                continue;
+            struct stat st;
+            if (stat((narrow + "/" + name).c_str(), &st) != 0
+                || (st.st_mode & S_IFMT) != S_IFREG)
+                continue;
+            std::wstring wide(name.begin(), name.end());
+            candidates.push_back({ static_cast<long long>(st.st_mtime),
+                dir + L'/' + wide });
+        }
+        closedir(d);
+    }
+#endif
+
+    // du plus récent au plus ancien (à égalité : ordre de parcours)
+    std::stable_sort(candidates.begin(), candidates.end(),
+        [](const Candidate& a, const Candidate& b) {
+            return a.stamp > b.stamp;
+        });
+
+    std::vector<std::wstring> paths;
+    paths.reserve(candidates.size());
+    for (auto& c : candidates)
+        paths.push_back(std::move(c.path));
+    return paths;
 }
 
 } // namespace
@@ -343,7 +477,49 @@ vst::IntPtr RoomEqVst::HandleOpen()
 {
     Log("open (VST %d, editor=%d)", vst::kVstVersion, kHasEditor ? 1 : 0);
     SyncChainsFromFormat();
+    TryAutoLoadFromApp();
     return 1;
+}
+
+void RoomEqVst::TryAutoLoadFromApp()
+{
+    // L'état du projet reste maître : l'hôte applique effSetChunk APRÈS
+    // effOpen — une session restaurée écrase toujours l'auto-chargement,
+    // et un chunk vide (projet sauvegardé sans preset) ramène le
+    // transparent. Idem si un preset est déjà là (open après SetChunk,
+    // double open d'un hôte bavard).
+    if (HasPreset())
+        return;
+
+    std::wstring dir;
+    if (!ResolvePresetsDir(dir)) {
+        Log("auto-chargement : aucun magasin (ROOMEQ_PRESETS_DIR/APPDATA)");
+        return;
+    }
+
+    // du plus récent au plus ancien : un fichier refusé (corrompu,
+    // tronqué par une sauvegarde interrompue…) ne bloque pas les autres
+    for (const auto& path : PresetFilesByRecency(dir)) {
+        std::vector<uint8_t> bytes;
+        if (!ReadWholeFile(path, bytes))
+            continue;
+        std::string error;
+        if (!ApplyPresetBytes(bytes.data(), bytes.size(), true, error)) {
+            Log("auto-chargement refuse : %s", error.c_str());
+            continue;
+        }
+
+        const roomeq::preset::PresetDef preset = CurrentPreset();
+        size_t active = 0;
+        for (const auto& b : preset.bands)
+            if (b.enabled)
+                ++active;
+        Log("auto-chargement : « %s » (%zu bandes actives, preamp %+.1f dB)",
+            preset.name.c_str(), active, preset.preampDb);
+        return;
+    }
+
+    Log("auto-chargement : aucun preset valide dans le magasin");
 }
 
 // ------------------------------------------------------------------ preset
@@ -407,6 +583,12 @@ std::vector<uint8_t> RoomEqVst::PresetBytes() const
 {
     std::lock_guard<std::mutex> lock(stateMutex_);
     return presetBytes_;
+}
+
+bool RoomEqVst::HasPreset() const
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    return !presetBytes_.empty();
 }
 
 std::string RoomEqVst::ProgramName() const
@@ -491,6 +673,20 @@ void RoomEqVst::ProcessChannels(float** inputs, float** outputs,
 
     const double preamp = static_cast<double>(PreampParam());
     const bool bypass = Bypassed();
+
+    // diagnostic : UNE ligne au premier bloc rend compte de l'état réel du
+    // rendu (retour utilisateur « aucune différence de son » → le journal
+    // distingue « pas de preset » de « preset appliqué » sans aller-retour)
+    if (!loggedFirstBlock_.exchange(true, std::memory_order_relaxed)) {
+        const roomeq::preset::PresetDef preset = CurrentPreset();
+        size_t active = 0;
+        for (const auto& b : preset.bands)
+            if (b.enabled)
+                ++active;
+        Log("process : %.0f Hz, preset « %s », %zu bandes actives, "
+            "preamp %+.1f dB, bypass %d",
+            sampleRate_, preset.name.c_str(), active, preamp, bypass ? 1 : 0);
+    }
 
     for (int c = 0; c < kChannels; ++c) {
         if (needRebuild && pending != nullptr) {

@@ -1,4 +1,4 @@
-RoomEq 3.4.0 — recodage TRIADE + export Pro-Q 3 + greffon Ableton + installation 1 clic + VST 32 bits
+RoomEq 3.4.1 — recodage TRIADE + export Pro-Q 3 + greffon Ableton + installation 1 clic + VST 32 bits
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,7 +7,7 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 45 modules, 34 spécifications,
-    461 tests verts + 384 vérifications natives (AU 118 + VST 266), build
+    461 tests verts + 420 vérifications natives (AU 118 + VST 302), build
     0 erreur 0 avertissement.
   • NOUVEAU 3.1.0 — EXPORT FABFILTER PRO-Q 3 (.ffp) : onglet Égaliseur,
     bouton « Exporter Pro-Q 3 (.ffp) » — le preset courant (bandes actives
@@ -50,6 +50,12 @@ CE QU'EST CETTE VERSION
     du DAW (Live 9 : C:\Program Files (x86)\VstPlugins), puis « Rescan ».
     Parité bit à bit avec l'application (même cœur C++ que le greffon AU) ;
     livré dans les releases GitHub : RoomEq-VST-<version>-win32.zip.
+    3.4.1 : à l'ouverture, le preset le plus récent enregistré dans
+    l'application (%APPDATA%\RoomEq\presets) est chargé AUTOMATIQUEMENT —
+    la correction s'entend dès l'insertion ; sans preset, l'éditeur
+    affiche « Aucun preset chargé » en orange (le son passe tel quel) ;
+    diagnostic : %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log (ligne du
+    premier bloc audio).
   • PARITÉ FONCTIONNELLE 2.2.2 ÉTABLIE point par point (docs/PARITE-v2.2.2.md) :
     égaliseur paramétrique, analyseur RTA, calibration multi-signaux, profils
     micro (36), corrections casques (321 modèles AutoEq), preset automatique

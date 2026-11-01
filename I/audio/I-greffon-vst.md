@@ -1,6 +1,6 @@
 # I-AUD-08 — Greffon VST 2 32 bits « RoomEq Correction » (.dll Windows)
 
-- **Module** : M-AUD-08 · **Version de spec** : 1 (v3.4.0) · **Code** :
+- **Module** : M-AUD-08 · **Version de spec** : 2 (v3.4.1) · **Code** :
   `natif/roomeq-vst/` (composant natif N-VST-01, décision D21) — ABI VST 2
   autodéclarée `vst/vst2_abi.h`, greffon `vst/`, hôte de test `host/`, tests
   natifs `tests/` ; **réutilise tel quel le cœur C++ du greffon AU**
@@ -67,13 +67,21 @@ struct AEffect {            // 96 octets en 32 bits — ordre EXACT
 // audioMasterUpdateDisplay=42.
 
 // vst/RoomEqVst.h — le greffon (cœur réutilisé du module AU)
-class RoomEqVst : public AEffect {          // uniqueID 'Rmeq', version 3400
+class RoomEqVst : public AEffect {          // uniqueID 'Rmeq', version 3401
     // numParams = 1 : « Preamp » (dB, [−36 ; +36], kVstMaxParamStrLen = 8
     //               oblige le libellé ASCII « Preamp », label « dB »).
     // numPrograms = 1 ; numInputs = numOutputs = 2 (stéréo) ;
     // flags = CanReplacing | ProgramChunks [| HasEditor sous Windows].
     // Chunks : octets BRUTS du preset .json/.ffp (sniff à la restauration).
     // Bypass : effSetBypass (opcode officiel, comme le bypass AU).
+    // v3.4.1 — auto-chargement à effOpen : preset le plus récent du magasin
+    //          de l'application (%APPDATA%\RoomEq\presets, ou
+    //          ROOMEQ_PRESETS_DIR), essais du plus récent au plus ancien
+    //          jusqu'à acceptation ; jamais si un preset est déjà actif ;
+    //          l'état du projet (effSetChunk, appliqué après effOpen)
+    //          reste maître (chunk vide = transparent).
+    // v3.4.1 — bannière « Aucun preset chargé » dans l'éditeur (état
+    //          transparent explicite) + journal du premier bloc audio.
     // Éditeur (Windows) : Win32 pur — « Charger… » (boîte GetOpenFileNameW),
     // glisser-déposer, courbe de réponse 97 points, nom/préampli/bandes.
     // Entrées usine exportées : VSTPluginMain + main (hôtes antérieurs).
@@ -106,9 +114,24 @@ class RoomEqVst : public AEffect {          // uniqueID 'Rmeq', version 3400
    les octets bruts du preset ; le préampli est restauré par l'hôte via
    `setParameter` (le chunk ne touche JAMAIS le paramètre — même règle que
    RestoreState côté AU, l'hôte fait foi).
-7. **Dépendances** : aucune bibliothèque tierce ; ABI autodéclarée (voir
-   ci-dessus) ; ne lie que user32/gdi32/comdlg32/shell32.
-8. **Vie du dépôt** : compilé et validé par la CI (`plugin-vst`, job Linux
+7. **Auto-chargement (v3.4.1)** : à `effOpen`, si aucun preset n'est actif,
+   le greffon charge le preset **le plus récent** du magasin de
+   l'application (`%APPDATA%\RoomEq\presets` — le `PresetStore` de
+   RoomEq.Core/Io/Stores.cs ; `ROOMEQ_PRESETS_DIR` a priorité) en essayant
+   les candidats du plus récent au plus ancien jusqu'à acceptation (un
+   fichier corrompu n'en bloque pas d'autres). **Précédence** : l'état du
+   projet DAW (chunk restauré après `effOpen`) écrase toujours
+   l'auto-chargement — un projet sauvegardé sans preset reste transparent,
+   un projet avec preset le retrouve ; le préampli du preset auto-chargé
+   recale le paramètre (comme un chargement interactif). Échec silencieux :
+   magasin absent/vide/invalide → transparent + bannière de l'éditeur,
+   jamais d'échec d'ouverture. Le journal consigne chaque essai et le
+   résultat, ainsi qu'une ligne au **premier bloc audio** (taux, preset,
+   bandes actives, préampli, bypass) — diagnostic terrain sans aller-retour.
+8. **Dépendances** : aucune bibliothèque tierce ; ABI autodéclarée (voir
+   ci-dessus) ; ne lie que user32/gdi32/comdlg32/shell32 (+kernel32 pour
+   le scan du magasin).
+9. **Vie du dépôt** : compilé et validé par la CI (`plugin-vst`, job Linux
    qui cross-compile avec Zig 0.14.1 — MinGW-w64 embarqué) ; `RoomEq.dll`
    PE32 i386 attaché aux releases dans `RoomEq-VST-<v>-win32.zip`.
 
@@ -123,7 +146,15 @@ class RoomEqVst : public AEffect {          // uniqueID 'Rmeq', version 3400
     toucher au paramètre) ; `.ffp` chargé et appliqué ;
   - paramètres : plage/bornes du préampli, libellés ≤ 8 caractères, nom du
     programme = nom du preset ;
-  - bypass : sortie = entrée bit à bit ; rejets : preset vide/tronqué/inconnu.
+  - bypass : sortie = entrée bit à bit ; rejets : preset vide/tronqué/inconnu ;
+  - **auto-chargement (v3.4.1)** avec magasin factice piloté par
+    `ROOMEQ_PRESETS_DIR` : le plus récent gagne (horodatages imposés) ;
+    repli sur le valide suivant quand le plus récent est corrompu ;
+    `.ffp` seul ; répertoire absent/vide → transparent sans échec
+    d'ouverture ; précédence du chunk (restauré par-dessus
+    l'auto-chargement, chunk vide → transparent) ; **parité sonore de la
+    référence C# après auto-chargement** (le scénario exact du retour
+    utilisateur « aucune différence de son »).
 - hôte de test (`host/mini_host.cpp`, `dlopen` du `.so` Linux) : cycle de vie
   complet par l'ABI C — `VSTPluginMain`, champs `AEffect`, `effOpen`,
   `effSetSampleRate`, `effSetBlockSize`, `effMainsChanged`, `effSetChunk`,

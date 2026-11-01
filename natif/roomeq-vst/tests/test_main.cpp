@@ -14,8 +14,20 @@
 #include "roomeq/preset/preset_io.h"
 
 #include <cstring>
+#include <ctime>
+#include <fstream>
 #include <string>
 #include <vector>
+
+#if defined(_WIN32)
+#include <direct.h>
+#include <sys/utime.h>
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <utime.h>
+#endif
 
 #ifndef ROOMEQ_VST_SOURCE_DIR
 #define ROOMEQ_VST_SOURCE_DIR "."
@@ -493,6 +505,198 @@ static void TestCloseThroughAbi()
     // (mémoire libérée — plus aucun accès autorisé après effClose)
 }
 
+// ------------------------------------------------- auto-chargement (v3.4.1)
+// Retour utilisateur réel : « aucune différence de son quand le greffon est
+// activé » — le greffon était TRANSPARENT sans preset chargé. L'auto-
+// chargement du magasin de l'application doit rendre la correction audible
+// dès l'insertion, avec l'état du projet (chunk) toujours maître.
+
+namespace {
+
+/// Écrit des octets dans un fichier du magasin factice.
+bool WriteFileBytes(const std::string& path, const std::vector<uint8_t>& bytes)
+{
+    std::ofstream f(path, std::ios::binary | std::ios::trunc);
+    if (!f)
+        return false;
+    f.write(reinterpret_cast<const char*>(bytes.data()),
+        static_cast<std::streamsize>(bytes.size()));
+    return f.good();
+}
+
+/// Horodate un fichier (mtime = maintenant + décalage en secondes).
+void StampFile(const std::string& path, long long offsetSeconds)
+{
+    const time_t when = time(nullptr) + static_cast<time_t>(offsetSeconds);
+#if defined(_WIN32)
+    struct _utimbuf times { when, when };
+    _utime(path.c_str(), &times);
+#else
+    struct utimbuf times { when, when };
+    utime(path.c_str(), &times);
+#endif
+}
+
+void SetStoreEnv(const char* value)
+{
+#if defined(_WIN32)
+    _putenv_s("ROOMEQ_PRESETS_DIR", value);
+#else
+    setenv("ROOMEQ_PRESETS_DIR", value, 1);
+#endif
+}
+
+void ClearStoreEnv()
+{
+#if defined(_WIN32)
+    _putenv_s("ROOMEQ_PRESETS_DIR", "");
+#else
+    unsetenv("ROOMEQ_PRESETS_DIR");
+#endif
+}
+
+void MakeStoreDir(const std::string& path)
+{
+#if defined(_WIN32)
+    _mkdir(path.c_str());
+#else
+    mkdir(path.c_str(), 0755);
+#endif
+}
+
+/// Ouvre le greffon par l'ABI (le chemin réel d'un hôte).
+vst::IntPtr OpenPlugin(RoomEqVst& plugin)
+{
+    return RoomEqVst::Dispatcher(&plugin, vst::kEffOpen, 0, 0, nullptr, 0.0f);
+}
+
+} // namespace
+
+static void TestAutoLoad()
+{
+    std::puts("— auto-chargement du magasin (v3.4.1)");
+
+    const auto demo = LoadData("preset_demo.json");
+    const auto edges = LoadData("preset_edges.json");
+    const auto ffp = LoadData("preset_demo.ffp");
+    if (g_failures > 0)
+        return; // données de référence absentes : le reste n'aurait pas de sens
+
+    const std::string store = "roomeq-autoload-store";
+    MakeStoreDir(store);
+    const std::string oldPath = store + "/ancien.json";
+    const std::string recentPath = store + "/recent.json";
+    const std::string corruptPath = store + "/corrompu.json";
+
+    // A — magasin sain : le plus récent gagne, la correction est AUDIBLE
+    CHECK(WriteFileBytes(oldPath, edges));
+    CHECK(WriteFileBytes(recentPath, demo));
+    StampFile(oldPath, -300);
+    StampFile(recentPath, -150);
+    SetStoreEnv(store.c_str());
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(plugin.HasPreset());
+        const preset::PresetDef loaded = plugin.CurrentPreset();
+        CHECK(loaded.name == "Salon — correction v1"); // le plus récent
+        size_t active = 0;
+        for (const auto& b : loaded.bands)
+            if (b.enabled)
+                ++active;
+        CHECK(active == 9);
+        CHECK_NEAR(plugin.PreampParam(), -6.5, 1e-6); // recalcé + notifié
+        CHECK_NEAR(g_lastAutomateValue, -6.5f, 1e-6);
+        CHECK(plugin.PresetBytes() == demo); // chunk = octets du fichier
+
+        // preuve sonore : la sortie correspond à la référence C# du preset
+        // (le scénario exact du retour utilisateur « aucune différence »)
+        CheckParity("auto-charge 48k stereo", plugin,
+            "impulse_demo_48k_stereo.f32", 48000, 2, 2e-6);
+    }
+
+    // B — plus récent corrompu : repli sur le valide suivant (pas d'aîné)
+    const std::string garbage = "{ ceci n'est pas un preset";
+    CHECK(WriteFileBytes(corruptPath,
+        std::vector<uint8_t>(garbage.begin(), garbage.end())));
+    StampFile(corruptPath, 0); // le plus récent
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(plugin.HasPreset());
+        CHECK(plugin.CurrentPreset().name == "Salon — correction v1"); // repli
+    }
+
+    // C — l'état du projet (chunk) reste maître après l'auto-chargement
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1); // auto-charge « Salon »
+        std::string error;
+        CHECK(plugin.ApplyPresetBytes(edges.data(), edges.size(), false, error));
+        CHECK(plugin.CurrentPreset().name == "Bordes"); // le chunk gagne
+    }
+    {
+        // projet sauvegardé SANS preset : chunk vide → transparent, même si
+        // le magasin de l'application contient un preset
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(RoomEqVst::Dispatcher(&plugin, vst::kEffSetChunk, 1, 0, nullptr,
+                  0.0f)
+            == 1);
+        CHECK(!plugin.HasPreset());
+        CHECK(plugin.CurrentPreset().bands.empty());
+    }
+
+    // D — magasin .ffp uniquement
+    CHECK(std::remove(oldPath.c_str()) == 0);
+    CHECK(std::remove(recentPath.c_str()) == 0);
+    CHECK(std::remove(corruptPath.c_str()) == 0);
+    CHECK(WriteFileBytes(store + "/seul.ffp", ffp));
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(plugin.HasPreset());
+        CHECK(plugin.CurrentPreset().bands.size() == 9);
+    }
+    CHECK(std::remove((store + "/seul.ffp").c_str()) == 0);
+
+    // E — répertoire inexistant / vide : transparent, sans échec d'ouverture
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(!plugin.HasPreset());
+        CHECK(plugin.CurrentPreset().bands.empty());
+    }
+    SetStoreEnv((store + "/introuvable").c_str());
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(!plugin.HasPreset());
+    }
+
+    // F — sans variable (Linux : aucun magasin) : transparent
+    ClearStoreEnv();
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+#if !defined(_WIN32) // Windows : %APPDATA% réel peut exister sur un poste dev
+        CHECK(!plugin.HasPreset());
+#endif
+    }
+
+#if !defined(_WIN32)
+    rmdir(store.c_str()); // nettoyage (best effort)
+#endif
+}
+
 // ------------------------------------------------------------------ principal
 
 int main(int argc, char** argv)
@@ -510,6 +714,7 @@ int main(int argc, char** argv)
     TestAccumulateMode();
     TestStrings();
     TestCloseThroughAbi();
+    TestAutoLoad();
 
     std::printf("\n%d vérifications, %d échecs\n", g_checks, g_failures);
     if (g_failures > 0) {

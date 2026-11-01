@@ -30,7 +30,7 @@ public:
     static constexpr float kPreampDefaultDb = 0.0f;
 
     static constexpr int32_t kUniqueId = vst::CConst('R', 'm', 'e', 'q');
-    static constexpr int32_t kVersion = 3400; // 3.4.0
+    static constexpr int32_t kVersion = 3401; // 3.4.1
 
     // Canaux audio (stéréo, comme le master d'un DAW).
     static constexpr int kChannels = 2;
@@ -68,6 +68,10 @@ public:
     /// Octets bruts du preset chargé (chunk), vides si aucun.
     std::vector<uint8_t> PresetBytes() const;
 
+    /// Vrai si un preset est actif (fichier, chunk restauré ou
+    /// auto-chargement) — faux = greffon transparent (identité).
+    bool HasPreset() const;
+
     float PreampParam() const
     {
         return preampParam_.load(std::memory_order_relaxed);
@@ -94,6 +98,12 @@ private:
         bool accumulate);
     void SyncChainsFromFormat();
 
+    /// v3.4.1 : charge automatiquement le preset le plus récent du magasin
+    /// de l'application (%APPDATA%\RoomEq\presets) à l'ouverture, pour que
+    /// le greffon corrige dès l'insertion sans manipulation. L'état du
+    /// projet (chunk, appliqué après effOpen) reste maître.
+    void TryAutoLoadFromApp();
+
     vst::HostCallback host_;
 
     // ---- état interface (mutex) / audio (atomiques)
@@ -117,6 +127,7 @@ private:
     uint64_t seenVersion_[kChannels] = { 0, 0 };
     std::vector<float> scratch_;      // mode accumulation uniquement
     void* editorState_ = nullptr;     // état de l'éditeur (EditorWin32.cpp)
+    std::atomic<bool> loggedFirstBlock_ { false }; // diagnostic : 1er bloc
 
     // l'éditeur Win32 (fonctions libres) gère editorState_ lui-même
     friend bool VstEditorOpen(RoomEqVst& plugin, void* systemWindow);

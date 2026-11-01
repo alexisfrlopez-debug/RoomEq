@@ -7,16 +7,47 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.4.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) |
+| **Projet** | RoomEq **v3.4.1** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) et correctif v3.4.1 (auto-chargement du preset de l'application à l'ouverture du greffon) |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
-| **Ce dépôt** | `/home/z/my-project/roomeq` — branche `main` (recodage), miroirs Drive + GitHub `v3-recodage` |
+| **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (228 + 38) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*`) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (264 + 38) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*`) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 10 — v3.4.0 : greffon VST 2 32 bits Windows)
+## 1. État (fin session 11 — v3.4.1 : correctif du greffon VST)
+
+**Session 11 (2026-11-01)** : premier retour utilisateur du greffon VST —
+« je viens de tester le vst, j'ai aucune différence de son quand il est
+activé » (Live 9) :
+
+- **Diagnostic** : comportement PAR CONCEPTION — le greffon est TRANSPARENT
+  (identité bit à bit) tant qu'aucun preset n'est chargé ; l'état « Preset :
+  Transparent » en petit gris dans l'éditeur passait inaperçu et rien
+  n'indiquait qu'il fallait charger un preset exporté de l'application.
+  Le cœur DSP est sain (parité bit à bit re-vérifiée sur la session).
+- **Correctif v3.4.1** (M-AUD-08, spec I-AUD-08 **v2**) : **auto-chargement**
+  à `effOpen` du preset **le plus récent** du magasin de l'application
+  (`%APPDATA%\RoomEq\presets`, variable `ROOMEQ_PRESETS_DIR` en priorité),
+  essais du plus récent au plus ancien jusqu'à acceptation (corrompu ne
+  bloque pas les autres) ; **précédence du chunk** (l'état du projet DAW
+  écrase l'auto-chargement ; chunk vide = transparent) ; **bannière orange
+  « Aucun preset chargé »** dans l'éditeur Win32 ; **journal du premier bloc
+  audio** (taux, preset, bandes actives, préampli, bypass) dans
+  `%LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log`.
+- **Validation** : 264 vérifications natives (+36 : auto-chargement — plus
+  récent, repli sur valide, précédence chunk, .ffp, répertoire absent,
+  **parité C# après auto-chargement**) + 38 mini-hôte, parité 0.00e+00 ;
+  DLL win32 reconstruite (Zig 0.14.1, SSE2) et contrôlée (PE32/exports,
+  imports kernel32 FindFirstFileW).
+- **Note environnement** : sandbox recyclée avant la session → dépôt
+  re-cloné depuis GitHub (`workspace/RoomEq`, branche `v3-recodage`), Zig
+  re-téléchargé dans `~/tools/`, CMake via pip ; qemu-i386 absent (les 36
+  nouvelles vérifications n'ont pas été rejouées en 32 bits — documenté) ;
+  jetons `../triade/.gdrive/` perdus (Drive/push à rétablir).
+
+## 1bis. État (fin session 10 — v3.4.0 : greffon VST 2 32 bits Windows)
 
 **Session 10 (2026-11-01)** : demande développeur « fais un VST 32 bits » →
 décision **D21** :

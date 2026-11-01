@@ -756,3 +756,92 @@ Stage Summary:
 - Limites documentées : écart ulp CRT Windows ≤ ~1e-13 (inaudible) ;
   non testé dans un hôte Windows réel (journal local prévu) ; stéréo 2/2 ;
   défaut crt Zig 32 bits post-dlclose (Linux uniquement, hors livrable).
+
+---
+Session : 11 — 2026-11-01
+Agent : main (Z.ai)
+Task : Premier retour utilisateur du greffon VST : « je viens de tester le
+vst j'ai aucune différence de son quand il est activé » (Live 9). Correctif
+v3.4.1 — module M-AUD-08, spec I-AUD-08 v2.
+
+Work Log:
+- Environnement : sandbox entièrement recyclée avant la session (workspace,
+  outils, ~/tools, jetons ../triade/.gdrive/ perdus) → dépôt re-cloné depuis
+  GitHub (branche v3-recodage, HEAD 2f2839e), Zig 0.14.1 re-téléchargé dans
+  ~/tools/, CMake/Ninja via pip ; baseline re-vérifiée : 228 + 38
+  vérifications VST vertes (parité 0.00e+00) avant toute modification.
+- Diagnostic (cause racine) : comportement PAR CONCEPTION — le greffon est
+  TRANSPARENT (MakeIdentityPreset, aucune bande, préampli 0) tant qu'aucun
+  preset n'est chargé ; l'utilisateur insérait le greffon et l'activait sans
+  preset → aucune différence audible. L'état « Preset : Transparent » en
+  petit gris passait inaperçu (l'AU affichait déjà « Aucun preset chargé
+  (transparent). » — le VST était moins explicite). Cœur DSP hors de cause :
+  parité bit à bit re-vérifiée, chargement interactif et chunks couverts
+  par les tests existants.
+- Correctif — auto-chargement (RoomEqVst.cpp) : à effOpen, si aucun preset
+  actif, lecture du magasin de l'application (%APPDATA%\RoomEq\presets —
+  le PresetStore de RoomEq.Core/Io/Stores.cs ; ROOMEQ_PRESETS_DIR a
+  priorité, tests/portable), candidats .json/.ffp triés par mtime
+  décroissant (FindFirstFileW sous Windows, dirent+stat sous POSIX), essais
+  jusqu'au premier accepté (un fichier corrompu/tronqué n'en bloque pas
+  d'autres) ; le préampli du preset recale le paramètre + notification
+  hôte (automate/updateDisplay, comme un chargement interactif) ; le chunk
+  du preset auto-chargé alimente effGetChunk (l'état part en sauvegarde de
+  projet). PRÉCÉDENCE : l'état du projet DAW reste maître — effSetChunk est
+  appliqué par l'hôte APRÈS effOpen et écrase l'auto-chargement (chunk
+  vide = transparent, projet sans preset) ; HasPreset() (presetBytes_ non
+  vide) borne les doubles open et les SetChunk-avant-open.
+- Correctif — éditeur (EditorWin32.cpp) : bannière orange centrée « Aucun
+  preset chargé — son non corrigé » + mode d'emploi (Charger…/glisser-
+  déposer) quand aucun preset n'est actif (police Segoe UI 20 gras créée à
+  l'ouverture, supprimée à la fermeture) ; l'indice bas-droite ne s'affiche
+  que lorsqu'un preset est actif. Au passage : longueur de l'indice passée
+  à lstrlenW (littéral tronqué d'un caractère en v3.4.0).
+- Correctif — diagnostic (journal) : une ligne au PREMIER bloc audio rend
+  compte de l'état réel du rendu (taux, preset actif, bandes actives,
+  préampli, bypass) — le genre de retour « aucune différence » se lit
+  désormais directement dans %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log
+  (« process : 48000 Hz, preset « Salon — correction v1 », 9 bandes
+  actives, preamp -6.5 dB, bypass 0 ») ; chaque essai d'auto-chargement et
+  son résultat sont consignés.
+- Tests (+36 → 264) : TestAutoLoad avec magasin factice piloté par
+  ROOMEQ_PRESETS_DIR (fichiers horodatés par utime) — A : le plus récent
+  gagne (nom, 9 bandes actives, préampli -6.5 recalcé + notifié, chunk =
+  octets du fichier) ET parité bit à bit vs référence C# après
+  auto-chargement (le scénario exact du retour utilisateur) ; B : plus
+  récent corrompu → repli sur le valide suivant ; C : précédence du chunk
+  (restauré par-dessus l'auto-chargement ; chunk vide → transparent) ;
+  D : magasin .ffp seul ; E : répertoire vide puis introuvable →
+  transparent sans échec d'ouverture ; F : sans variable (Linux) →
+  transparent. Portabilité : setenv/_putenv_s, mkdir/_mkdir,
+  utime/_utime, rmdir — sous Windows, F ne vérifie pas la transparence
+  (%APPDATA% réel possible sur un poste de développement).
+- Livrable : DLL reconstruite par build-vst.sh (Zig 0.14.1, SSE2 forcé,
+  -Werror) → RoomEq.dll PE32 i386 508 Ko, exports VSTPluginMain + main,
+  imports kernel32 FindFirstFileW/FindNextFileW/FindClose vérifiés,
+  chaînes d'auto-chargement présentes ; zip RoomEq-VST-3.4.1-win32.zip
+  (DLL + LISEZMOI régénéré). kVersion 3401, CMake 3.4.1,
+  src/Directory.Build.props + package_v3.sh alignés.
+- Docs : spec I-AUD-08 v2 (invariant 7 auto-chargement + précédence +
+  critères de test) ; CARTE (M-AUD-08 v2, 264 vérifications, doublon de
+  ligne M-AUD-08 supprimé, statut v3.4.1) ; README/LISEZMOI/REPRISE
+  (session 11) ; README du module (comportement, installation, tableau de
+  validation, limites : qemu-i386 absent sur cette session pour les 36
+  nouvelles vérifications — code C++ standard sans intrinsèque, chemin DSP
+  inchangé).
+- Limite de session : jetons GitHub/Drive perdus avec la sandbox → push
+  GitHub et miroir Drive à refaire dès régénération (REPRISE.md le
+  consigne) ; livraison de la session = download/ + commit local.
+
+Stage Summary:
+- CORRECTIF v3.4.1 du greffon VST : la correction s'entend DÈS l'insertion
+  (auto-chargement du preset le plus récent de l'application), l'état « sans
+  preset » est explicite (bannière orange), et le premier bloc audio est
+  journalisé (diagnostic terrain sans aller-retour). L'état du projet DAW
+  reste maître (chunk écrase l'auto-chargement, chunk vide = transparent).
+- Validation : 264 + 38 vérifications natives/ABI (parité 0.00e+00, y
+  compris après auto-chargement) ; DLL win32 reconstruite et contrôlée ;
+  461 xUnit + 118 AU non régressés (aucun fichier de src/ touché).
+- Livrable : RoomEq-VST-3.4.1-win32.zip ; spec I-AUD-08 v2 ; 45 modules 🔒.
+- Reste : push GitHub + miroir Drive (jetons perdus) ; re-test utilisateur
+  dans Live 9 (le journal tranchera en une ligne si besoin).

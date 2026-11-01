@@ -42,6 +42,7 @@ struct EditorState {
     HWND hwnd = nullptr;
     HWND button = nullptr;
     HFONT font = nullptr;
+    HFONT bannerFont = nullptr; // bannière « aucun preset » (gras, orange)
 };
 
 std::wstring Utf8ToWide(const std::string& text)
@@ -198,9 +199,34 @@ void DrawEditor(HDC hdc, EditorState& st)
     SetTextColor(hdc, RGB(170, 170, 190));
     TextOutW(hdc, 12, 24, line2, lstrlenW(line2));
 
-    SetTextColor(hdc, RGB(120, 120, 140));
-    TextOutW(hdc, kEditorWidth - 232, kEditorHeight - 17,
-        L"Charger… ou deposer un fichier .json / .ffp", 42);
+    if (st.plugin->HasPreset()) {
+        SetTextColor(hdc, RGB(120, 120, 140));
+        const wchar_t* hint = L"Charger… ou deposer un fichier .json / .ffp";
+        TextOutW(hdc, kEditorWidth - 232, kEditorHeight - 17, hint,
+            lstrlenW(hint));
+    } else {
+        // --- bannière « aucun preset » (v3.4.1) : le greffon est TRANSPARENT
+        // sans preset — état impossible à rater (retour utilisateur réel :
+        // « aucune différence de son quand le greffon est activé »).
+        const int cx = (kPlotLeft + kPlotRight) / 2;
+        const int cy = (kPlotTop + kPlotBottom) / 2;
+        if (st.bannerFont != nullptr) {
+            SelectObject(hdc, st.bannerFont);
+            SetTextAlign(hdc, TA_CENTER);
+            SetTextColor(hdc, RGB(255, 159, 64)); // orange franc
+            const wchar_t* title = L"Aucun preset chargé — son non corrigé";
+            TextOutW(hdc, cx, cy - 34, title, lstrlenW(title));
+            SelectObject(hdc, st.font);
+            SetTextAlign(hdc, TA_LEFT);
+        }
+        SetTextAlign(hdc, TA_CENTER);
+        SetTextColor(hdc, RGB(200, 200, 215));
+        const wchar_t* how1 = L"Cliquez sur « Charger… » ou déposez ici";
+        const wchar_t* how2 = L"un preset .json / .ffp exporté de l'application RoomEq";
+        TextOutW(hdc, cx, cy - 2, how1, lstrlenW(how1));
+        TextOutW(hdc, cx, cy + 18, how2, lstrlenW(how2));
+        SetTextAlign(hdc, TA_LEFT);
+    }
 
     DeleteObject(grid);
     DeleteObject(zero);
@@ -315,6 +341,9 @@ bool VstEditorOpen(RoomEqVst& plugin, void* systemWindow)
     }
 
     st->font = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+    st->bannerFont = CreateFontW(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
     st->button = CreateWindowExW(0, L"BUTTON", L"Charger…",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, kPlotLeft,
         kEditorHeight - 30, 92, 24, st->hwnd,
@@ -340,6 +369,8 @@ void VstEditorClose(RoomEqVst& plugin)
         // synchrone — aucun message ne suit son retour.
         DestroyWindow(st->hwnd);
     }
+    if (st->bannerFont != nullptr)
+        DeleteObject(st->bannerFont); // le stock GUI font, lui, ne se supprime pas
     delete st;
 }
 

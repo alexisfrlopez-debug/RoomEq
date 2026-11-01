@@ -22,7 +22,12 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   point (`docs/PARITE-v2.2.2.md`) ; les écarts terrain éventuels seront
   traités en patchs à contrat stable ; **v3.4.0** : **greffon VST 2 32 bits
   Windows « RoomEq Correction »** (D21, module natif M-AUD-08 — presets
-  `.json`/`.ffp` dans un DAW 32 bits, cross-compilé Zig, parité bit à bit) ; **v3.2.1** : correctif CI du greffon
+  `.json`/`.ffp` dans un DAW 32 bits, cross-compilé Zig, parité bit à bit) ;
+  **v3.4.1** : correctif du greffon VST suite au premier retour utilisateur
+  (« aucune différence de son » — greffon transparent sans preset chargé) :
+  **auto-chargement du preset le plus récent du magasin de l'application à
+  l'ouverture**, bannière « Aucun preset chargé » dans l'éditeur, journal du
+  premier bloc audio (spec I-AUD-08 v2, 264 + 38 vérifications) ; **v3.2.1** : correctif CI du greffon
   (inclusions libc++ macOS) + bundle universel arm64/x86_64 ; **v3.3.0** :
   **installation en 1 clic** (D20 — `RoomEq-win-Setup.exe` Windows via
   Velopack cross-compilé, `.pkg` macOS pour le greffon ; aucune dépendance
