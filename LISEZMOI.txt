@@ -1,4 +1,4 @@
-RoomEq 3.9.2 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.9.3 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,20 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    488 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    493 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
     build 0 erreur 0 avertissement.
+  • CORRECTIF 3.9.3 — ACTIVATION DE L'EQ SYSTÈME : LA PRISE DE POSSESSION
+    N'AVAIT JAMAIS EU LIEU : la structure de données qui active le privilège
+    Windows de prise de possession était mal alignée (un entier 64 bits là où
+    Windows attend deux entiers 32 bits) : Windows recevait un identifiant de
+    privilège FALSIFIÉ, croyait que le processus n'était pas administrateur et
+    abandonnait AVANT d'essayer — d'où le « clé protégée » qui persistait
+    malgré le correctif 3.9.2. La structure est désormais le calque exact du
+    natif Windows (16 octets, vérifié par des tests automatiques) et la prise
+    de possession s'exécute enfin. En outre, si Windows refusait encore un
+    maillon, le message d'erreur nomme désormais EXACTEMENT l'opération
+    refusée (privilège, ouverture de clé, réécriture des permissions, code
+    d'erreur) au lieu d'un générique « clé protégée ».
   • CORRECTIF 3.9.2 — ACTIVATION DE L'EQ SYSTÈME : LE REGISTRE PROTÉGÉ : les
     clés des sorties audio Windows (MMDevices) appartiennent au compte
     SYSTEM et leur liste de permissions n'accorde PAS l'écriture aux

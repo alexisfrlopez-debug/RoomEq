@@ -7,6 +7,36 @@ using Microsoft.Win32;
 namespace RoomEq.Audio.SystemApo;
 
 /// <summary>
+/// LUID natif (winnt.h) : DEUX DWORD de 4 octets, alignement 4 — jamais un
+/// long C# (alignement 8) qui insérerait 4 octets de padding dans
+/// <see cref="ApoTokenPrivileges"/> et falsifierait le LUID lu par le noyau
+/// (correctif v3.9.3). Déclaration de marshaling SANS dépendance Windows :
+/// le layout est vérifiable par test sous Linux.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct ApoLuid
+{
+    public uint LowPart;
+    public int HighPart;
+}
+
+/// <summary>
+/// TOKEN_PRIVILEGES natif réduit à UN privilège (LUID_AND_ATTRIBUTES) —
+/// 16 octets exactement : PrivilegeCount à l'offset 0, Luid à 4, Attributes
+/// à 12. RÉGRESSION v3.9.2 verrouillée par ApoRegistrySecurityLayoutTests :
+/// « long Luid » marshale en 24 octets (padding après PrivilegeCount) →
+/// AdjustTokenPrivileges voyait Luid.LowPart = 0 et Attributes = 0 →
+/// ERROR_NOT_ALL_ASSIGNED → prise de possession jamais tentée.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct ApoTokenPrivileges
+{
+    public int PrivilegeCount;
+    public ApoLuid Luid;
+    public int Attributes;
+}
+
+/// <summary>
 /// Mécanique de sécurité du registre pour l'activation APO (v3.9.2) —
 /// portage C# fidèle de <c>takeOwnership</c>/<c>makeWritable</c> d'Equalizer
 /// APO (helpers/RegistryHelper.cpp, mécanisme en production depuis 10+ ans).
@@ -20,9 +50,26 @@ namespace RoomEq.Audio.SystemApo;
 /// héritée par les sous-clés (WRITE_DAC — droit implicite de l'owner), puis
 /// crée/écrit FxProperties. La sécurité d'origine (owner + DACL) est capturée
 /// AVANT par le registrar et restituée à la désactivation (SeRestorePrivilege
-/// — réattribuer un propriétaire autre que soi). Tout échec retourne
-/// false/null : JAMAIS d'exception vers l'appelant (invariant 10).
+/// — réattribuer un propriétaire autre que soi). Tout échec retourne un
+/// diagnostic (null = succès) : JAMAIS d'exception vers l'appelant
+/// (invariant 10).
 /// </summary>
+/// <remarks>
+/// v3.9.3 — CORRECTIF CRITIQUE d'alignement de structure : la structure
+/// interop <c>TOKEN_PRIVILEGES</c> déclarait le LUID comme <c>long</c> C#
+/// (alignement 8 octets), qui insérait 4 octets de padding après
+/// <c>PrivilegeCount</c> : le marshaling produisait 24 octets au lieu de 16
+/// et le noyau lisait <c>Luid.LowPart = 0</c> (le padding !) et
+/// <c>Attributes = 0</c> (l'octet haut du long) — donc un LUID falsifié
+/// inexistant dans le jeton. <c>AdjustTokenPrivileges</c> « réussissait »
+/// avec <c>ERROR_NOT_ALL_ASSIGNED</c> : <c>EnablePrivilege</c> croyait à
+/// tort « processus non élevé », la prise de possession n'a JAMAIS été
+/// tentée et l'activation échouait en « clé protégée » malgré le portage
+/// v3.9.2 (cause exacte du « toujours le problème de clé protégée »).
+/// Le LUID est désormais deux DWORD de 4 octets, alignement 4, exactement
+/// comme le natif winnt.h — verrouillé par test de marshaling
+/// (ApoRegistrySecurityLayoutTests).
+/// </remarks>
 [SupportedOSPlatform("windows")]
 internal static class ApoRegistrySecurity
 {
@@ -36,15 +83,6 @@ internal static class ApoRegistrySecurity
     private const int OWNER_SECURITY_INFORMATION = 0x1;
     private const int DACL_SECURITY_INFORMATION = 0x4;
 
-    /// <summary>TOKEN_PRIVILEGES réduit à UN privilège (LUID_AND_ATTRIBUTES).</summary>
-    [StructLayout(LayoutKind.Sequential)]
-    private struct TokenPrivileges1
-    {
-        public int PrivilegeCount;
-        public long Luid;
-        public int Attributes;
-    }
-
     [DllImport("advapi32.dll", SetLastError = true)]
     private static extern bool OpenProcessToken(IntPtr process, uint desiredAccess, out IntPtr token);
 
@@ -55,11 +93,11 @@ internal static class ApoRegistrySecurity
     private static extern IntPtr GetCurrentProcess(); // pseudo-handle, ne jamais fermer
 
     [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool LookupPrivilegeValue(string? systemName, string privilegeName, out long luid);
+    private static extern bool LookupPrivilegeValue(string? systemName, string privilegeName, out ApoLuid luid);
 
     [DllImport("advapi32.dll", SetLastError = true)]
     private static extern bool AdjustTokenPrivileges(IntPtr token, bool disableAll,
-        ref TokenPrivileges1 newState, int bufferLength, IntPtr previousState, IntPtr returnLength);
+        ref ApoTokenPrivileges newState, int bufferLength, IntPtr previousState, IntPtr returnLength);
 
     /// <summary>
     /// RegSetKeySecurity brut : contrairement à RegistryKey.SetAccessControl
@@ -79,40 +117,49 @@ internal static class ApoRegistrySecurity
         new(WellKnownSidType.BuiltinAdministratorsSid, null);
 
     /// <summary>
-    /// Active un privilège du token courant. Retourne false s'il est absent
-    /// du token — c'est le marqueur « processus non élevé » : SeTakeOwnership
-    /// et SeRestore sont portés par tout token administrateur élevé.
+    /// Active un privilège du token courant. Retourne null (succès) ou le
+    /// diagnostic du maillon défaillant. ERROR_NOT_ALL_ASSIGNED = le privilège
+    /// est absent du jeton — c'est le marqueur « processus non élevé » :
+    /// SeTakeOwnership et SeRestore sont portés par tout token
+    /// administrateur élevé.
     /// </summary>
-    private static bool EnablePrivilege(string name)
+    private static string? EnablePrivilege(string name)
     {
         try
         {
             if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, out var token))
-                return false;
+                return "OpenProcessToken a échoué (code " + Marshal.GetLastWin32Error() + ")";
             try
             {
-                if (!LookupPrivilegeValue(null, name, out long luid))
-                    return false;
-                var tp = new TokenPrivileges1
+                if (!LookupPrivilegeValue(null, name, out ApoLuid luid))
+                    return "LookupPrivilegeValue(" + name + ") a échoué (code "
+                        + Marshal.GetLastWin32Error() + ")";
+                var tp = new ApoTokenPrivileges
                 {
                     PrivilegeCount = 1,
                     Luid = luid,
                     Attributes = SE_PRIVILEGE_ENABLED,
                 };
-                if (!AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero))
-                    return false;
+                if (!AdjustTokenPrivileges(token, false, ref tp,
+                        Marshal.SizeOf<ApoTokenPrivileges>(), IntPtr.Zero, IntPtr.Zero))
+                    return "AdjustTokenPrivileges(" + name + ") a échoué (code "
+                        + Marshal.GetLastWin32Error() + ")";
                 // AdjustTokenPrivileges « réussit » même sans le privilège :
                 // ERROR_NOT_ALL_ASSIGNED dit qu'il n'a rien pu activer
-                return Marshal.GetLastWin32Error() != ERROR_NOT_ALL_ASSIGNED;
+                int assigned = Marshal.GetLastWin32Error();
+                if (assigned == ERROR_NOT_ALL_ASSIGNED)
+                    return "le privilège " + name + " est absent du jeton du processus "
+                        + "(élévation administrateur refusée ou non demandée)";
+                return null;
             }
             finally
             {
                 CloseHandle(token);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return "activation du privilège " + name + " impossible (" + ex.Message + ")";
         }
     }
 
@@ -180,48 +227,61 @@ internal static class ApoRegistrySecurity
     ///     SeTakeOwnershipPrivilege, WRITE_OWNER ;
     /// (2) ACE FullControl héritée par les sous-clés — WRITE_DAC, droit
     ///     implicite du propriétaire (Equalizer APO : makeWritable).
-    /// Idempotent et silencieux : false si un maillon manque (non élevé,
-    /// politique restrictive) — l'écriture de l'appelant décidera alors.
+    /// Idempotent. Retourne null (inscriptible — déjà prise en main ou
+    /// takeover réussi) ou le diagnostic du PREMIER maillon défaillant :
+    /// jamais d'exception, jamais d'information perdue (correctif v3.9.3 —
+    /// un échec silencieux ici se paie en allers-retours terrain).
     /// </summary>
-    public static bool EnsureWritable(RegistryKey baseKey, string subKeyPath)
+    public static string? EnsureWritable(RegistryKey baseKey, string subKeyPath)
     {
         try
         {
             if (AdminsHaveFullControl(baseKey, subKeyPath))
-                return true; // déjà inscriptible (ou clé déjà prise en main)
-            return TakeOwnership(baseKey, subKeyPath)
-                && GrantAdminsFullControl(baseKey, subKeyPath);
+                return null; // déjà inscriptible (ou clé déjà prise en main)
+            string? take = TakeOwnership(baseKey, subKeyPath);
+            if (take != null)
+                return take;
+            return GrantAdminsFullControl(baseKey, subKeyPath);
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return "prise de possession interrompue (" + ex.Message + ")";
         }
     }
 
-    private static bool TakeOwnership(RegistryKey baseKey, string subKeyPath)
+    /// <summary>null = succès, sinon diagnostic (correctif v3.9.3).</summary>
+    private static string? TakeOwnership(RegistryKey baseKey, string subKeyPath)
     {
-        if (!EnablePrivilege("SeTakeOwnershipPrivilege"))
-            return false;
+        string? privilege = EnablePrivilege("SeTakeOwnershipPrivilege");
+        if (privilege != null)
+            return privilege; // v3.9.2 : c'est ICI que tout s'arrêtait (LUID
+                              // falsifié → ERROR_NOT_ALL_ASSIGNED → faux
+                              // « non élevé ») sans jamais essayer d'écrire
         try
         {
             using var key = baseKey.OpenSubKey(subKeyPath,
                 RegistryKeyPermissionCheck.ReadWriteSubTree, RegistryRights.TakeOwnership);
             if (key == null)
-                return false;
+                return "la clé « " + subKeyPath + " » est introuvable (périphérique retiré ?)";
             // descripteur OWNER SEUL, appliqué avec OWNER_SECURITY_INFORMATION :
             // le DACL en place n'est JAMAIS touché par cette étape
             var security = new RegistrySecurity();
             security.SetOwner(AdminsSid);
-            return RegSetKeySecurity(key.Handle, OWNER_SECURITY_INFORMATION,
-                security.GetSecurityDescriptorBinaryForm()) == ERROR_SUCCESS;
+            int rc = RegSetKeySecurity(key.Handle, OWNER_SECURITY_INFORMATION,
+                security.GetSecurityDescriptorBinaryForm());
+            if (rc != ERROR_SUCCESS)
+                return "RegSetKeySecurity(owner) a échoué (code " + rc + ")";
+            return null;
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return "ouverture WRITE_OWNER de « " + subKeyPath + " » refusée ("
+                + ex.Message + ")";
         }
     }
 
-    private static bool GrantAdminsFullControl(RegistryKey baseKey, string subKeyPath)
+    /// <summary>null = succès, sinon diagnostic (correctif v3.9.3).</summary>
+    private static string? GrantAdminsFullControl(RegistryKey baseKey, string subKeyPath)
     {
         try
         {
@@ -229,20 +289,22 @@ internal static class ApoRegistrySecurity
                 RegistryKeyPermissionCheck.ReadWriteSubTree,
                 RegistryRights.ReadPermissions | RegistryRights.ChangePermissions);
             if (key == null)
-                return false;
+                return "la clé « " + subKeyPath + " » est introuvable (périphérique retiré ?)";
             // lecture → ajout d'UNE ACE → réécriture : le DACL persisté est
-            // l'ancien + notre règle (pattern standard Get/SetAccessControl)
+            // l'ancien + notre règle (RegistrySecurity.Persist n'écrit QUE la
+            // section modifiée — le DACL —, propriétaire et groupe intouchés)
             var security = key.GetAccessControl();
             security.AddAccessRule(new RegistryAccessRule(
                 AdminsSid, RegistryRights.FullControl,
                 InheritanceFlags.ContainerInherit, PropagationFlags.None,
                 AccessControlType.Allow));
             key.SetAccessControl(security);
-            return true;
+            return null;
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return "octroi de l'accès aux administrateurs refusé sur « " + subKeyPath
+                + " » (" + ex.Message + ")";
         }
     }
 
@@ -270,7 +332,7 @@ internal static class ApoRegistrySecurity
                 RegistryRights.ChangePermissions | RegistryRights.TakeOwnership);
             if (key == null)
                 return false; // clé disparue (périphérique retiré)
-            if (!EnablePrivilege("SeRestorePrivilege"))
+            if (EnablePrivilege("SeRestorePrivilege") != null)
                 return false;
             return RegSetKeySecurity(key.Handle,
                 OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,

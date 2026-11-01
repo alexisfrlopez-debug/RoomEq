@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.2
+VERSION=3.9.3
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -140,6 +140,17 @@ grep -qE 'OpenFxForWrite' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointSto
   && grep -qE 'EnsureWritable' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
   && grep -qE 'CaptureSecurity|RestoreSecurity' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
   && echo "   ✓ v3.9.2 : takeover registre (owner+DACL) + snapshot avant écriture + restitution à la désactivation"
+
+# --- v3.9.3 : correctif critique d'alignement TOKEN_PRIVILEGES (le LUID en
+#     « long » C# insérait 4 octets de padding → LUID falsifié →
+#     ERROR_NOT_ALL_ASSIGNED → takeover JAMAIS exécuté : « toujours le
+#     problème de clé protégée ») + diagnostic du maillon défaillant ---
+grep -qE 'struct ApoLuid' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrySecurity.cs" \
+  && grep -qE 'uint LowPart' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrySecurity.cs" \
+  && grep -qE 'struct ApoTokenPrivileges' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrySecurity.cs" \
+  && grep -qE 'ApoRegistryRefusalException' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qE 'ApoTokenPrivileges' "$SRC/tests/RoomEq.Audio.Tests/ApoRegistrySecurityLayoutTests.cs" \
+  && echo "   ✓ v3.9.3 : LUID natif 2×DWORD (16 octets, verrouillé par test) + verdict qui nomme le maillon défaillant"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

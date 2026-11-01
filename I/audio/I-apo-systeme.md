@@ -1,11 +1,29 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.3 (as-built v3.9.2, 2
-  novembre 2026 — correctif activation « registre protégé MMDevices ») ·
+- **Module** : M-AUD-09 · **Version de spec** : 1.4 (as-built v3.9.3, 2
+  novembre 2026 — correctif critique d'alignement interop du takeover) ·
   **Code** : `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/`
   (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.4** : retour terrain v3.9.2 — « TOUJOURS le problème de clé
+  protégée » : le takeover était correct SAUF sa structure interop.
+  `TOKEN_PRIVILEGES` déclarait le LUID comme `long` C# (alignement 8 octets)
+  : le marshaling insérait 4 octets de padding après `PrivilegeCount` (24
+  octets au lieu de 16) et le noyau lisait un LUID falsifié
+  (`LowPart = 0` = le padding ; `Attributes = 0` = l'octet haut du long) →
+  `AdjustTokenPrivileges` « réussissait » avec `ERROR_NOT_ALL_ASSIGNED` →
+  `EnablePrivilege` concluait à tort « processus non élevé » et la prise de
+  possession n'a JAMAIS été tentée (prouvé par marshaling réel : 24 octets
+  `01-00-00-00-00-00-00-00-09-…` vs natif 16 octets `01-00-00-00-09-…`).
+  Correctifs : (l) le LUID est désormais deux DWORD (`struct ApoLuid` +
+  `ApoTokenPrivileges`, 16 octets exactement — verrouillé par
+  `ApoRegistrySecurityLayoutTests`, exécutable sous Linux) ; (m) `EnablePrivilege`,
+  `TakeOwnership`, `GrantAdminsFullControl` et `EnsureWritable` retournent un
+  DIAGNOSTIC précis (code Win32, maillon défaillant) au lieu d'un booléen
+  muet — un échec de takeover remonte désormais dans le verdict via
+  `ApoRegistryRefusalException` (dérivée de `SecurityException`) : plus
+  jamais d'« clé protégée » générique à débugger à l'aveugle.
 - **As-built v1.3** : retour terrain v3.9.1 — l'activation était refusée par
   le registre MÊME ÉLEVÉE (« Requested registry access is not allowed ») :
   fait établi par le code source d'Equalizer APO (`helpers/RegistryHelper.cpp`

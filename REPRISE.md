@@ -7,14 +7,49 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.9.1** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25, tranches « entrée/sortie » retirées), v3.9.0 : console retirée + verdict APO visible + instance unique (D26) ; et **v3.9.1 : CORRECTIF ACTIVATION — sous-clé FxProperties MANQUANTE CRÉÉE à l'écriture (mécanisme Equalizer APO : les sorties à pilote générique sans effets déclarés, ex. « Realtek(R) Audio », acceptent enfin l'EQ système) ; sauvegarde d'existence `FxPropertiesExisted` + suppression à la désactivation si redevenue vide (restitution exacte) ; vue registre Registry64 explicite (anti-WOW64)** — 483 tests xUnit + harnais APO 112 vérifications |
+| **Projet** | RoomEq **v3.9.3** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1 : création FxProperties manquante, v3.9.2 : takeover registre (owner+DACL restitués), et **v3.9.3 : CORRECTIF CRITIQUE INTEROP — la structure TOKEN_PRIVILEGES du takeover déclarait le LUID comme long C# (alignement 8) : 4 octets de padding falsifiaient le LUID et Attributes → ERROR_NOT_ALL_ASSIGNED → la prise de possession n'a JAMAIS été tentée (« toujours le problème de clé protégée »). LUID natif en 2×DWORD (16 octets, verrouillé par 4 tests de marshaling Linux) + diagnostic par maillon dans le verdict (ApoRegistryRefusalException)** — 493 tests xUnit + harnais APO 112 vérifications |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 483 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 493 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
+
+## 1. État (fin session 25 — v3.9.3 : takeover interop réparé, LUID natif)
+
+**Session 25 (2026-11-02)** — suite du retour terrain v3.9.2 : « toujours le
+problème de clé protégée pour l'activation de l'eq sur la sortie son ».
+
+- **Cause racine (prouvée par marshaling réel, cf.
+  `ApoRegistrySecurityLayoutTests`)** : le portage v3.9.2 du takeover
+  Equalizer APO était correct SAUF sa structure interop — `TOKEN_PRIVILEGES`
+  déclarait le LUID comme `long` C# (alignement 8 octets) : le marshaling
+  produisait 24 octets au lieu de 16 (4 de padding après `PrivilegeCount`),
+  le noyau lisait `Luid.LowPart = 0` (le padding) et `Attributes = 0`
+  (l'octet haut du long) → `AdjustTokenPrivileges` « réussissait » avec
+  `ERROR_NOT_ALL_ASSIGNED` → `EnablePrivilege` croyait « non élevé » et
+  `TakeOwnership` abandonnait à sa première ligne : la prise de possession
+  n'a JAMAIS été tentée, d'où la persistance du « clé protégée ». (Sessions
+  intermédiaires : 24 = v3.9.2 takeover + snapshot owner/DACL, 23 = v3.9.1
+  création FxProperties — voir WORKLOG.)
+- **Correctif** : `ApoLuid` (2×DWORD) + `ApoTokenPrivileges` (16 octets
+  exactement, offsets 0/4/12) au niveau du namespace (sans dépendance
+  Windows → testables sous Linux) ; `EnablePrivilege`/`TakeOwnership`/
+  `GrantAdminsFullControl`/`EnsureWritable` retournent un DIAGNOSTIC (null =
+  succès) au lieu d'un booléen muet ; `OpenFxForWrite` le collecte et, si le
+  réessai échoue, lève `ApoRegistryRefusalException : SecurityException` —
+  le verdict de l'activation NOMME l'opération refusée (privilège, WRITE_OWNER,
+  RegSetKeySecurity, code Win32). Vérifications sources .NET 8 au passage :
+  `ValidateKeyRights` accepte `TakeOwnership` (⊂ FullControl), `OpenSubKey`
+  passe les droits bruts, `RegistrySecurity.Persist` ne persiste que la
+  section modifiée (DACL seul après AddAccessRule).
+- **Tests** : 493/493 xUnit (Core 237, Audio 177 → 182 : +4 layout + 1 verdict
+  diagnostic ; App 74) ; build 0 erreur 0 avertissement.
+- **Prochaine étape** : validation terrain Windows — réinstaller via Setup
+  3.9.3, activer « Casque (JBL Tune Flex 2) » (verdict ✓, ~1 s de coupure,
+  musique hors RoomEq égalisée) ; en cas d'échec le verdict nomme désormais
+  l'opération refusée — le transmettre tel quel.
 
 ## 1. État (fin session 23 — v3.9.1 : activation EQ système sur sorties sans FxProperties)
 

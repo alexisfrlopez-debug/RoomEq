@@ -71,7 +71,7 @@ public static class ApoSetupCommands
         if (repaired > 0)
         {
             RestartAudioService();
-            return ApoInstallResult.Ok(repaired + " sortie(s) réparée(s) (mise à jour de pilote had effacé l'inscription).");
+            return ApoInstallResult.Ok(repaired + " sortie(s) réparée(s) (mise à jour de pilote qui a effacé l'inscription).");
         }
         return ApoInstallResult.Ok("Rien à réparer : toutes les sorties activées sont conformes.");
     }

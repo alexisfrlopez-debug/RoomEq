@@ -265,12 +265,23 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
                 (disableSysFx == 1 ? " (effets audio du fabricant débloqués, d'origine sauvegardée)" : "") +
                 ".");
         }
+        catch (ApoRegistryRefusalException ex)
+        {
+            // v3.9.3 : la reprise de possession a été tentée et a échoué sur un
+            // maillon PRÉCIS (privilège absent, WRITE_OWNER refusé…) — le
+            // verdict l'expose au premier retour terrain, plus de « clé
+            // protégée » générique à débugger à l'aveugle.
+            return ApoInstallResult.Fail(
+                ex.Message +
+                " Relancez l'activation et acceptez l'invite administrateur ; si " +
+                "l'échec persiste, transmettez ce message complet : il désigne " +
+                "exactement l'opération refusée par Windows.");
+        }
         catch (SecurityException)
         {
             // v3.9.2 : francisation de « Requested registry access is not
-            // allowed » — la reprise de possession (store) n'a pas suffi :
-            // processus non élevé ou politique/antivirus verrouillant les
-            // clés audio. Message ACTIONNABLE, pas un ex.Message brut.
+            // allowed » — refus en amont du mécanisme de reprise (chemin
+            // sans takeover). Message ACTIONNABLE, pas un ex.Message brut.
             return ApoInstallResult.Fail(
                 "Le registre Windows a refusé l'écriture sur cette sortie (clé protégée). " +
                 "Relancez l'activation et acceptez l'invite administrateur ; si l'échec " +

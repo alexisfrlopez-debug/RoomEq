@@ -5,6 +5,24 @@ using NAudio.CoreAudioApi;
 namespace RoomEq.Audio.SystemApo;
 
 /// <summary>
+/// Écriture registre refusée APRÈS la tentative de reprise de possession
+/// (v3.9.3) : porte le DIAGNOSTIC du maillon défaillant (privilège absent,
+/// WRITE_OWNER refusé, RegSetKeySecurity échoué…) pour que le verdict de
+/// l'activation soit actionnable au premier retour terrain au lieu d'un
+/// générique « clé protégée ». Dérive de <see cref="SecurityException"/> :
+/// captée par le même gestionnaire du registrar, avant lui.
+/// </summary>
+public sealed class ApoRegistryRefusalException : SecurityException
+{
+    /// <summary>Diagnostic du maillon défaillant de la prise de possession.</summary>
+    public string TakeoverDiagnostic { get; }
+
+    public ApoRegistryRefusalException(string takeoverDiagnostic, string message)
+        : base(message)
+        => TakeoverDiagnostic = takeoverDiagnostic;
+}
+
+/// <summary>
 /// Implémentation Windows de <see cref="IApoEndpointStore"/> : registre
 /// HKLM\…\MMDevices\Audio\Render\{"{GUID}"}\FxProperties pour les valeurs,
 /// énumérateur MMDevice (NAudio) pour les noms conviviaux.
@@ -103,6 +121,9 @@ public sealed class WindowsApoEndpointStore : IApoEndpointStore
     /// de possession pour les Administrateurs + ACE FullControl héritée,
     /// puis RÉESSAI — la désactivation restituera owner et DACL d'origine
     /// (snapshot capturé par le registrar AVANT la première écriture).
+    /// v3.9.3 : si le RÉESSAI échoue encore, l'exception emporte le diagnostic
+    /// du takeover (<see cref="ApoRegistryRefusalException"/>) — plus jamais
+    /// d'échec muet à débusquer à l'aveugle.
     /// </summary>
     private RegistryKey OpenFxForWrite(string endpointKey)
     {
@@ -115,12 +136,25 @@ public sealed class WindowsApoEndpointStore : IApoEndpointStore
         catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException)
         {
             using var hklm = OpenHklm();
-            ApoRegistrySecurity.EnsureWritable(hklm, EndpointPath(endpointKey));
+            string? why = ApoRegistrySecurity.EnsureWritable(hklm, EndpointPath(endpointKey));
             if (FxPropertiesExists(endpointKey))
-                ApoRegistrySecurity.EnsureWritable(hklm, FxPath(endpointKey));
-            // réessai : lève l'exception réelle si le refus persiste
-            // (takeover impossible — non élevé, politique restrictive)
-            return OpenOrCreateFx(endpointKey);
+            {
+                string? whyFx = ApoRegistrySecurity.EnsureWritable(hklm, FxPath(endpointKey));
+                why ??= whyFx; // le refus de l'endpoint a priorité, mais un
+                               // échec propre à FxProperties ne doit pas se perdre
+            }
+            try
+            {
+                return OpenOrCreateFx(endpointKey);
+            }
+            catch (Exception ex2) when (ex2 is SecurityException or UnauthorizedAccessException)
+            {
+                throw new ApoRegistryRefusalException(
+                    why ?? "la prise de possession a réussi mais l'écriture reste refusée",
+                    "Le registre a refusé l'écriture sur cette sortie (clé protégée) : "
+                    + (why ?? "la prise de possession a réussi mais l'écriture reste refusée")
+                    + " — refus initial « " + ex.Message + " », après reprise « " + ex2.Message + " »");
+            }
         }
     }
 

@@ -33,6 +33,20 @@
   à la désactivation (`RestoreSecurity`, SeRestorePrivilege — après la
   restauration des valeurs, avant l'effacement de la sauvegarde).
   Spéc I-AUD-09 v1.3, registrar 20 → 25 tests.
+  **v3.9.3 (session 25, 2 novembre 2026)** : correctif CRITIQUE (troisième
+  retour terrain : « TOUJOURS le problème de clé protégée ») — le takeover
+  v3.9.2 n'a jamais pu s'exécuter : la structure interop `TOKEN_PRIVILEGES`
+  déclarait le LUID comme `long` C# (alignement 8), qui insérait 4 octets
+  de padding après `PrivilegeCount` (marshaling en 24 octets au lieu de
+  16) — le noyau lisait un LUID falsifié (LowPart = 0) et Attributes = 0,
+  donc `AdjustTokenPrivileges` retournait `ERROR_NOT_ALL_ASSIGNED` et
+  `EnablePrivilege` concluait à tort « non élevé » sans jamais tenter
+  l'écriture. Prouvé par marshaling réel avant correction. Correctifs :
+  LUID natif en deux DWORD (`ApoLuid`/`ApoTokenPrivileges`, 16 octets,
+  verrouillé par 4 tests de layout exécutables sous Linux) + DIAGNOSTIQUE
+  par maillon (privilège, WRITE_OWNER, RegSetKeySecurity, code Win32)
+  remontant dans le verdict via `ApoRegistryRefusalException` — plus
+  d'échec muet. Spec I-AUD-09 v1.4, 488 → 493 tests.
 - **Question posée** : « Je voudrais que l'application installe son propre
   driver de carte son virtuelle afin de ne plus dépendre de VB-Cable, mais je
   bute sur le problème du driver signé Microsoft qui demande une solution

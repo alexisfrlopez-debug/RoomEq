@@ -59,7 +59,15 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   (mécanisme takeOwnership/makeWritable d'Equalizer APO), sécurité
   d'origine (owner + DACL) sauvegardée avant écriture et restituée à la
   désactivation, message d'échec en français clair (spec I-AUD-09 v1.3,
-  +5 tests registrar)
+  +5 tests registrar) ; **v3.9.3** : correctif critique — la prise de
+  possession v3.9.2 n'a JAMAIS pu s'exécuter : la structure interop
+  TOKEN_PRIVILEGES déclarait le LUID comme long C# (alignement 8), qui
+  insérait 4 octets de padding — Windows recevait un LUID falsifié et
+  ERROR_NOT_ALL_ASSIGNED, croyait « non élevé » et abandonnait (« toujours
+  le problème de clé protégée »). LUID natif en deux DWORD (16 octets,
+  verrouillé par 4 tests de marshaling sous Linux) + diagnostic par
+  maillon remontant dans le verdict via ApoRegistryRefusalException —
+  plus d'échec muet (spec I-AUD-09 v1.4, 488 → 493 tests)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`

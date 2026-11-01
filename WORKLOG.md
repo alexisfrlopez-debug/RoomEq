@@ -1942,3 +1942,110 @@ Stage Summary:
   système actif », ~1 s de coupure), jouer de la musique hors RoomEq ;
   puis Désactiver et contrôler dans regedit que owner/DACL de la clé
   endpoint sont revenus à SYSTEM (propriétés > sécurité > propriétaire).
+
+---
+Session : 25 — 2026-11-02
+Agent : main (Z.ai)
+Task : Retour terrain v3.9.2 (suite) : « toujours le problème de clé
+protégée pour l'activation de l'eq sur la sortie son » — le takeover
+v3.9.2 n'a pas débloqué l'activation. v3.9.3.
+
+Work Log:
+- **Sandbox recyclée** (SDK et Zig disparus) : dotnet 8.0.427 réinstallé,
+  Zig 0.14.1 réinstallé, branche synchronisée depuis GitHub (le clone
+  local s'arrêtait à la sauvegarde session 19 : les sessions 20–24
+  vivaient déjà dans origin/v3-recodage — fast-forward propre).
+- **Diagnostic (cause racine PROUVÉE par marshaling réel, pas une
+  hypothèse)** : le portage v3.9.2 du mécanisme Equalizer APO était
+  correct dans sa logique (ordre des opérations, droits, sections de
+  sécurité) mais sa structure interop était FAUSSÉE —
+  `TokenPrivileges1` déclarait le LUID comme `long` C# (alignement 8
+  octets) : le marshaling insérait 4 octets de PADDING après
+  `PrivilegeCount` (24 octets au lieu des 16 du natif winnt.h). Le noyau
+  lisait `Luid.LowPart = 0` (le padding !) et `Attributes = 0` (l'octet
+  haut du long) → LUID falsifié inexistant dans le jeton →
+  `AdjustTokenPrivileges` « réussissait » avec ERROR_NOT_ALL_ASSIGNED →
+  `EnablePrivilege` concluait à tort « processus non élevé » →
+  `TakeOwnership` abandonnait à sa première ligne. **La prise de
+  possession n'a JAMAIS été tentée** : le correctif v3.9.2 ne pouvait
+  pas fonctionner, d'où le « toujours le problème de clé protégée ».
+  Preuve exécutable : marshaling comparé 24 octets
+  `01-00-00-00-00-00-00-00-09-…` (v3.9.2, LUID décalé) vs 16 octets
+  `01-00-00-00-09-00-00-00-…` (natif).
+- **Vérifications des autres maillons (sources .NET 8 réelles
+  consultées, écartant les hypothèses concurrentes)** :
+  `RegistryKey.OpenSubKey` passe les droits BRUTS à RegOpenKeyEx et
+  `ValidateKeyRights` accepte `TakeOwnership` (inclus dans FullControl
+  0xF003F) ; `RegistrySecurity.Persist` ne persiste QUE les sections
+  modifiées (DACL seul après AddAccessRule — le pattern
+  GrantAdminsFullControl est sûr) ; comparaison intégrale avec
+  `takeOwnership`/`makeWritable` d'Equalizer APO (miroir GitHub) : seul
+  écart significatif = la structure du token.
+- **Correctif** :
+  - `ApoLuid` (deux DWORD, alignement 4) + `ApoTokenPrivileges` (16
+    octets exactement : PrivilegeCount à 0, Luid à 4, Attributes à 12) —
+    structures au niveau du namespace, SANS dépendance Windows (le
+    layout est ainsi testable sous Linux) ; `LookupPrivilegeValue`
+    re-signée `out ApoLuid` ; `bufferLength` =
+    `Marshal.SizeOf<ApoTokenPrivileges>()` (16) comme la référence C++.
+  - **Diagnostics par maillon** : `EnablePrivilege`, `TakeOwnership`,
+    `GrantAdminsFullControl` et `EnsureWritable` retournent désormais un
+    diagnostic texte (null = succès) — code Win32 et opération en cause
+    — au lieu d'un booléen muet ; `OpenFxForWrite` collecte le
+    diagnostic (endpoint puis FxProperties, le refus endpoint gardant la
+    priorité) et, si le RÉESSAI échoue encore, lève
+    `ApoRegistryRefusalException : SecurityException` portant refus
+    initial + refus après reprise + maillon défaillant.
+  - Registrar : `catch (ApoRegistryRefusalException)` AVANT le catch
+    générique — le verdict de l'activation NOMME l'opération refusée
+    (privilège absent / WRITE_OWNER refusé / RegSetKeySecurity code N)
+    et demande de transmettre le message complet : plus jamais d'échec
+    « clé protégée » générique à débugger à l'aveugle (ce silence a
+    coûté un aller-retour terrain complet).
+  - Coquille au passage : « mise à jour de pilote had effacé » → « qui
+    a effacé » (message utilisateur de Réparer).
+- **Verrou de régression (la leçon de cette session, appliquée à la
+  philosophie verrous du projet)** : `ApoRegistrySecurityLayoutTests`
+  (4 tests, exécutables SOUS LINUX car marshaling pur) — taille
+  exactement 16, LUID à l'offset 4, Attributes à l'offset 12, et le cas
+  terrain exact (LUID de SeTakeOwnershipPrivilege = 9 : octets
+  `09 00 00 00` à l'offset 4). Ces tests ÉCHOUENT sur le code v3.9.2 —
+  le bug est désormais impossible à réintroduire. +1 test registrar :
+  verdict qui nomme le maillon défaillant sur refus après takeover.
+- **Sandbox/chaîne reconstituée** : harnais natif APO rejoué (112
+  vérifications, 0 échec), DLL RoomEqApo_x64.dll (452 Ko) + arm64
+  (412 Ko) recompilées identiques (contrôles PE : exports COM + imports
+  système OK) ; `gen_telemetrie.py` re-pointé (chemins legacy →
+  workspace) et telemetrie.json réel régénéré (access token + dossier
+  journaux-app retrouvés) — le zip TEST embarque de nouveau la vraie
+  configuration de télémétrie.
+- **Tests** : 493/493 xUnit (Core 237, Audio 182 : registrar 25 → 26 +
+  layout 4 ; App 74 inchangés) ; build 0 erreur 0 avertissement ;
+  verrous structurels package_v3.sh verts (dont nouveau verrou v3.9.3 :
+  struct ApoLuid/ApoTokenPrivileges + ApoRegistryRefusalException +
+  tests de layout).
+- **Docs** : spec I-AUD-09 v1.4 (as-built correctifs l/m : cause racine
+  interop + diagnostics) ; docs/EQ-SYSTEME-APO.md (statut v3.9.3) ;
+  README (historique) ; LISEZMOI 3.9.3 (correctif expliqué en français
+  clair, 493 tests) ; REPRISE.md (résumé express + état session 25) ;
+  Directory.Build.props + package_v3.sh VERSION 3.9.3.
+- **Livrables (D22)** : package_v3.sh (zips test 43M / public 42M /
+  source 6,9M, DLL APO embarquées, contrôles verts), build_setup.sh →
+  RoomEq-win-Setup.exe 3.9.3 (52 Mo, Velopack 1.2.161, en-tête PE
+  contrôlé) régénéré et re-téléversé sur Drive (l'ancien 3.9.2 remplacé
+  au premier niveau des Livrables) ; anciens zips 3.9.2 archivés dans
+  Livrables/Archive ; miroir Drive complet + bundle git.
+
+Stage Summary:
+- v3.9.3 : la cause exacte du « toujours le problème de clé protégée »
+  est trouvée et prouvée — un décalage d'alignement de 4 octets dans la
+  structure du privilège Windows rendait le mécanisme de prise de
+  possession inopérant depuis sa livraison ; le calque exact du natif
+  (16 octets, verrouillé par tests) l'exécute enfin. Et si Windows
+  refusait encore un maillon, le verdict nommerait l'opération et son
+  code d'erreur au lieu d'un générique.
+- Prochaine étape : validation terrain Windows — réinstaller via
+  Setup.exe 3.9.3, activer l'EQ sur « Casque (JBL Tune Flex 2) » :
+  verdict ✓ attendu, ~1 s de coupure (redémarrage du service audio),
+  musique hors RoomEq égalisée ; puis Désactiver et vérifier dans
+  regedit que owner/DACL de la clé endpoint sont revenus à SYSTEM.

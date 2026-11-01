@@ -34,6 +34,8 @@ public class ApoRegistrarTests
 
         public void SetString(string key, string name, string? value)
         {
+            if (RefusalOnSet is { } refusal)
+                throw refusal; // v3.9.3 : le store Windows lève après takeover raté
             Trace.Add(value == null ? $"del:{key}/{name}" : $"set:{key}/{name}");
             var map = Values.TryGetValue(key, out var v) ? v : Values[key] = new();
             if (value == null)
@@ -76,6 +78,10 @@ public class ApoRegistrarTests
 
         /// <summary>v3.9.2 : sécurité à capturer (null = admins inscriptibles).</summary>
         public ApoSecuritySnapshot? SecurityToCapture { get; set; }
+
+        /// <summary>v3.9.3 : si non null, SetString lève cette exception de
+        /// refus registre après takeover (simulation du terrain « clé protégée »).</summary>
+        public ApoRegistryRefusalException? RefusalOnSet { get; set; }
 
         public ApoSecuritySnapshot? CaptureSecurity(string key)
         {
@@ -302,6 +308,32 @@ public class ApoRegistrarTests
         int write = store.Trace.IndexOf($"set:{{bt}}/{ApoConstants.FxEndpointEffectClsid}");
         Assert.True(capture >= 0 && write > capture,
             "la sécurité doit être capturée avant la première écriture");
+    }
+
+    [Fact]
+    public void Enable_AfterFailedTakeover_VerdictNamesTheFailingStep()
+    {
+        var (registrar, store, _) = Make();
+        // v3.9.3 : terrain « clé protégée » après takeover raté — le store
+        // lève ApoRegistryRefusalException portant le maillon défaillant ;
+        // le verdict doit le NOMMER (au lieu du générique v3.9.2 qui a coûté
+        // un aller-retour terrain de débuggage à l'aveugle)
+        store.RefusalOnSet = new ApoRegistryRefusalException(
+            "le privilège SeTakeOwnershipPrivilege est absent du jeton du processus "
+            + "(élévation administrateur refusée ou non demandée)",
+            "Le registre a refusé l'écriture sur cette sortie (clé protégée) : "
+            + "le privilège SeTakeOwnershipPrivilege est absent du jeton du processus "
+            + "(élévation administrateur refusée ou non demandée) "
+            + "— refus initial « Requested registry access is not allowed »");
+
+        var result = registrar.Enable("{bt}");
+
+        Assert.False(result.Success);
+        // le verdict NOMME le maillon défaillant (privilège) et reste
+        // actionnable (relance + invite administrateur)
+        Assert.Contains("SeTakeOwnershipPrivilege", result.Message);
+        Assert.Contains("clé protégée", result.Message);
+        Assert.Contains("invite administrateur", result.Message);
     }
 
     [Fact]

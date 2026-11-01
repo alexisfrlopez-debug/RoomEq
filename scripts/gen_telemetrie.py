@@ -14,9 +14,9 @@ import sys
 import urllib.request
 import urllib.parse
 
-GDRIVE = "/home/z/my-project/triade/.gdrive"
+GDRIVE = "/home/z/my-project/workspace/triade/.gdrive"
 DRIVE_ROOT = "1vRB4hEr9thaRnJsPjz8JCezGuzzD_yJR"  # dossier « Equalizer »
-OUT = "/home/z/my-project/roomeq/scripts/telemetrie.json"
+OUT = __file__.rsplit("/", 1)[0] + "/telemetrie.json"  # à côté du script, dans CE dépôt
 
 
 def http_json(url, data=None, headers=None, method=None):
