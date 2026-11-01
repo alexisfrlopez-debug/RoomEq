@@ -1,6 +1,13 @@
 # I-AUD-03 — Routage / table de mixage (câble virtuel)
 
-- **Module** : M-AUD-03 · **Version de spec** : 2 (v3.2.0 — anti-boucle au moment du routage) · **Code** : `src/RoomEq.Audio/Routing/` —
+- **Module** : M-AUD-03 · **Version de spec** : 2.1 (v3.8.0 — note D25 :
+  la COUCHE AUDIO conserve toutes ses capacités ci-dessous, testées et
+  inchangées ; en revanche l'APPLICATION ne crée plus de pistes
+  capture/loopback ni de routage par carte virtuelle sur Windows — voir
+  I-APP-03 v2. Les gardes anti-boucle restent la défense en profondeur du
+  bus master, y compris contre une sortie « câble virtuel » choisie
+  manuellement) · **Version 2** (v3.2.0 — anti-boucle au moment du
+  routage) · **Code** : `src/RoomEq.Audio/Routing/` —
   `RingBuffer.cs`, `TrackSource.cs`, `AudioDeviceCatalog.cs`, `VirtualAudioProviders.cs`,
   `MixerStore.cs`, `VolumeSyncPolicy.cs`, `EndpointVolumeController.cs`,
   `DefaultDeviceSetter.cs`, `AudioDeviceWatcher.cs`, `DriverSetupManager.cs`,

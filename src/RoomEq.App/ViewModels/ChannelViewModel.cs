@@ -47,15 +47,12 @@ public partial class ChannelViewModel : ObservableObject
         Channel = channel;
         _onConfigChanged = onConfigChanged;
         title = channel.Title;
-        (Badge, BadgeColor) = channel.Kind switch
-        {
-            TrackSourceKind.Capture => AudioDeviceCatalog.IsVirtualCapture(channel.Source.Name)
-                ? ("CARTE VIRTUELLE", "#A78BFA")
-                : ("ENTRÉE", "#22D3EE"),
-            TrackSourceKind.Loopback => ("BOUCLE WINDOWS", "#4ADE80"),
-            TrackSourceKind.Player => ("INTERNE", "#FF9F1C"),
-            _ => ("INTERNE", "#FF9F1C")
-        };
+        // D25 : la console n'expose plus que des sources internes — le badge
+        // périphérique (« ENTRÉE », « BOUCLE WINDOWS », « CARTE VIRTUELLE ») a
+        // disparu avec les tranches liées aux périphériques Windows (l'EQ système
+        // APO traite désormais ce son dans le moteur audio lui-même).
+        Badge = "INTERNE";
+        BadgeColor = "#FF9F1C";
         RefreshIdentity();
         UpdateEqLed();
     }

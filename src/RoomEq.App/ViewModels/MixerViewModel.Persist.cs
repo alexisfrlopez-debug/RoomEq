@@ -5,10 +5,13 @@ namespace RoomEq.App.ViewModels;
 
 /// <summary>
 /// MixerViewModel — persistance mixer.json : sortie master, faders, options
-/// de routage, défauts Windows sauvegardés et tranches complètes (avec leur
-/// EQ). La persistance ne lève jamais (l'audio prime) — spec I-APP-03.
-/// Amélioration v3 : le fichier chargé dans la tranche Lecteur
-/// (StoredChannel.FilePath) est restauré au démarrage.
+/// de la console et tranches complètes (avec leur EQ). La persistance ne
+/// lève jamais (l'audio prime) — spec I-APP-03 v2.
+/// D25 (v3.8.0) : les tranches « entrée/sortie » (capture/loopback) des
+/// anciennes configurations sont IGNORÉES au chargement — elles n'existent
+/// plus dans la console (l'EQ système APO traite le son du système) ; les
+/// champs obsolètes (protocole, bascules de défauts) restent lus pour
+/// tolérance puis cessent d'être écrits.
 /// </summary>
 public partial class MixerViewModel
 {
@@ -23,9 +26,6 @@ public partial class MixerViewModel
                 MasterMute = MasterMute,
                 AutoStart = AutoStart,
                 AutoOutputPreset = AutoOutputPreset,
-                VirtualProviderId = SelectedProvider.Id,
-                AutoRouteOnInstall = AutoRouteOnInstall,
-                SwitchDefaultCapture = SwitchDefaultCapture,
                 SavedDefaultRenderId = _savedRenderId,
                 SavedDefaultCaptureId = _savedCaptureId
             };
@@ -33,10 +33,9 @@ public partial class MixerViewModel
             {
                 stored.Channels.Add(new StoredChannel
                 {
+                    // D25 : la console ne contient plus que des sources internes
                     Kind = vm.Channel.Kind switch
                     {
-                        TrackSourceKind.Capture => "capture",
-                        TrackSourceKind.Loopback => "loopback",
                         TrackSourceKind.Player => "player",
                         TrackSourceKind.AsioBridge => "asio",
                         TrackSourceKind.MacVirtualDevice => "mac",
@@ -64,75 +63,59 @@ public partial class MixerViewModel
 
     private void LoadConfigOrDefaults()
     {
-        _initializing = true;
-        try
+        var cfg = _store.Load();
+        AutoStart = cfg.AutoStart;
+        AutoOutputPreset = cfg.AutoOutputPreset;
+        _savedRenderId = cfg.SavedDefaultRenderId;
+        _savedCaptureId = cfg.SavedDefaultCaptureId;
+        MasterFader = cfg.MasterFader <= 0 ? 1.0 : cfg.MasterFader;
+        MasterMute = cfg.MasterMute;
+        _storedOutputId = cfg.MasterOutputId;
+
+        int restored = 0;
+        foreach (var sc in cfg.Channels)
         {
-            var cfg = _store.Load();
-            AutoStart = cfg.AutoStart;
-            AutoOutputPreset = cfg.AutoOutputPreset;
-            AutoRouteOnInstall = cfg.AutoRouteOnInstall;
-            SwitchDefaultCapture = cfg.SwitchDefaultCapture;
-            _savedRenderId = cfg.SavedDefaultRenderId;
-            _savedCaptureId = cfg.SavedDefaultCaptureId;
-            MasterFader = cfg.MasterFader <= 0 ? 1.0 : cfg.MasterFader;
-            MasterMute = cfg.MasterMute;
-            _storedOutputId = cfg.MasterOutputId;
-            SelectedProvider = VirtualAudioCatalog.GetById(cfg.VirtualProviderId);
+            // D25 : les anciennes pistes liées à un périphérique Windows
+            // (capture « entrée », boucle « sortie ») ne sont plus restaurées
+            if (MixerTrackPolicy.IsLegacyDeviceKind(sc.Kind)) continue;
 
-            VirtualCard = _catalog.ProbeVirtualCard(SelectedProvider);
-
-            int restored = 0;
-            foreach (var sc in cfg.Channels)
+            TrackSource src = sc.Kind switch
             {
-                TrackSource src = sc.Kind switch
-                {
-                    "capture" => TrackSource.CaptureDevice(sc.DeviceId, sc.Name),
-                    "loopback" => TrackSource.LoopbackDevice(sc.DeviceId, sc.Name),
-                    "player" => TrackSource.InternalPlayer(),
-                    "asio" => TrackSource.AsioBridgeSource(),
-                    "mac" => TrackSource.MacVirtualSource(),
-                    _ => TrackSource.InternalGenerator()
-                };
+                "player" => TrackSource.InternalPlayer(),
+                "asio" => TrackSource.AsioBridgeSource(),
+                "mac" => TrackSource.MacVirtualSource(),
+                _ => TrackSource.InternalGenerator()
+            };
 
-                // un périphérique disparu depuis la dernière session est ignoré
-                if (src.Kind is TrackSourceKind.Capture or TrackSourceKind.Loopback
-                    && _catalog.ResolveDevice(src) == null) continue;
-                // la piste DAW (ASIO) est restaurée telle quelle (source interne)
+            var ch = Mixer.AddChannel(src);
+            var vm = new ChannelViewModel(ch, () => SaveConfig())
+            {
+                Fader = Math.Clamp(sc.Fader, 0, 1.5),
+                Pan = Math.Clamp(sc.Pan, -1, 1),
+                Mute = sc.Mute,
+                Solo = sc.Solo,
+                GeneratorOn = sc.GeneratorEnabled,
+                SelectedSignalText = sc.GeneratorSignal ?? "Bruit blanc"
+            };
+            if (sc.Eq != null) ch.Eq.SetPreset(sc.Eq);
+            Channels.Add(vm);
+            restored++;
 
-                var ch = Mixer.AddChannel(src);
-                var vm = new ChannelViewModel(ch, () => SaveConfig())
+            // v3 : le fichier de la tranche Lecteur survit au redémarrage
+            if (src.Kind == TrackSourceKind.Player && !string.IsNullOrEmpty(sc.FilePath))
+            {
+                try
                 {
-                    Fader = Math.Clamp(sc.Fader, 0, 1.5),
-                    Pan = Math.Clamp(sc.Pan, -1, 1),
-                    Mute = sc.Mute,
-                    Solo = sc.Solo,
-                    GeneratorOn = sc.GeneratorEnabled,
-                    SelectedSignalText = sc.GeneratorSignal ?? "Bruit blanc"
-                };
-                if (sc.Eq != null) ch.Eq.SetPreset(sc.Eq);
-                Channels.Add(vm);
-                restored++;
-
-                // v3 : le fichier de la tranche Lecteur survit au redémarrage
-                if (src.Kind == TrackSourceKind.Player && !string.IsNullOrEmpty(sc.FilePath))
+                    ch.LoadFile(sc.FilePath);
+                    vm.RefreshIdentity();
+                }
+                catch
                 {
-                    try
-                    {
-                        ch.LoadFile(sc.FilePath);
-                        vm.RefreshIdentity();
-                    }
-                    catch
-                    {
-                        // fichier déplacé ou supprimé : la tranche reste vide
-                    }
+                    // fichier déplacé ou supprimé : la tranche reste vide
                 }
             }
+        }
 
-            if (restored == 0) AddDefaultTracks();
-        }
-        finally
-        {
-            _initializing = false;
-        }
+        if (restored == 0) AddDefaultTracks();
     }
 }

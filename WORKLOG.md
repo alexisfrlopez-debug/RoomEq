@@ -1583,3 +1583,89 @@ Stage Summary:
 - Prochaine étape : validation terrain sur machine Windows réelle
   (checklist : Realtek/Intel/NVIDIA/Bluetooth/HDMI, MAJ de pilote → Réparer,
   mode exclusif, DRM Netflix/Spotify) puis itération selon retours.
+
+---
+Session : 21 — 2026-11-02
+Agent : main (Z.ai)
+Task : D25 — console allégée : retrait des tranches « entrée/sortie »
+devenues inutiles depuis l'EQ système APO (demande développeur : « vu les
+dernières modifications (eq dans le moteur windows), les tranches de mixage
+"entrée" et "sortie" n'ont plus aucun intérêt (et peuvent causer des
+conflits ou confusion) »). v3.8.0.
+
+Work Log:
+- **Diagnostic** : depuis D24, les tranches liées aux périphériques Windows
+  — « entrée » (captures : micros, lignes, « RoomEq Output » du câble) et
+  « sortie » (boucles WASAPI) — doublent le travail de l'APO et créent de
+  VRAIS conflits : (1) double correction (son capté → EQ master → sortie
+  où l'APO réapplique la courbe) ; (2) protections anti-boucle déclenchées
+  (sorties master grisées, APO refusé sur une sortie captée) ; (3)
+  confusion (micro et câble dans une appli d'EQ de pièce).
+- **Politique pure** `MixerTrackPolicy.cs` : sources autorisées = Player,
+  Generator, AsioBridge, MacVirtualDevice ; Capture/Loopback = héritées,
+  refusées. Testée par `MixerTrackPolicyTests` (18 vérifications :
+  classification XOR exhaustive des six genres, kinds persistés
+  « capture »/« loopback » détectés, badge « INTERNE » des sources
+  internes).
+- **Console** : `RebuildAvailableSources` = DAW (ASIO) + Lecteur +
+  Générateur (+ périphérique virtuel macOS) ; `AddTrack` REFUSE une source
+  périphérique (message actionnable — défense en profondeur) ; tranches
+  par défaut Windows = Lecteur + Générateur (plus de câble/boucle/micro) ;
+  badge de tranche toujours « INTERNE » (les badges « ENTRÉE », « BOUCLE
+  WINDOWS », « CARTE VIRTUELLE » disparaissent).
+- **Onglet Mixage réorganisé** (MixerTab.axaml) : panneau « EQ système »
+  EN TÊTE (LA voie du son Windows) ; barre de console simplifiée —
+  « Démarrer la console » / « ■ Arrêter la console » (Windows) ou routage
+  macOS (libellés/aide par OS : RoutingStartLabel/StopLabel/HelpTitle/
+  HelpText), Auto au lancement, Preset auto par sortie, ⟳, Réglages son,
+  état ASIO ; SUPPRIMÉS : sélecteur de protocole, « Installer le pilote
+  RoomEq », « Définir par défaut », « Router dès l'installation »,
+  « Entrée par défaut → carte virtuelle », barre de progression
+  d'installation, guide carte virtuelle Windows. En-tête d'onglet
+  « Mixage & routage » → « Mixage ».
+- **Anti double-correction (le cœur du correctif)** : `ApoOnMaster` — si
+  l'EQ système est actif sur la sortie master, le bus master CONTOURNE son
+  propre EQ (la courbe est déjà appliquée par le moteur audio Windows) ;
+  recalculé au changement de sortie et à chaque état APO (cache, jamais
+  dans le chemin audio) ; la tranche MASTER affiche qui applique l'EQ
+  (« EQ appliqué par l'EQ système (moteur Windows) » en vert).
+- **Routage Windows démonté** (MixerViewModel.Routing.cs) :
+  TrySwitchDefaultsForRouting/TryRestoreDefaults/EnsureCableTrack
+  supprimés — plus AUCUNE bascule de périphérique par défaut ;
+  StartRoutingChain = synchro EQ + Mixer.Start(). Installation pilote
+  supprimée (MixerViewModel.Driver.cs) ; seule reste la SUPPRESSION de
+  maintenance du pilote hérité.
+- **Migration pilote hérité** (`HandleLegacyVirtualDefault`, une fois par
+  session, Windows) : si « RoomEq Input » est encore la sortie par défaut
+  (état laissé par v3.6/v3.7), la sortie d'origine mémorisée dans
+  mixer.json est restaurée (sinon message actionnable) — sans elle,
+  silence total ; bouton « Supprimer le pilote » proposé tant qu'une carte
+  héritée est détectée.
+- **Persistance purgée** (MixerViewModel.Persist.cs) : mixer.json ignore
+  les tranches capture/loopback au chargement ; champs obsolètes
+  (protocole, bascules) lus pour tolérance puis non réécrits.
+- **Textes cohérents** : aide RoomEq/aide volume/aide sortie de la barre
+  du haut (MainWindow), libellés de volume (MainViewModel), infobulle ASIO
+  (« démarrez la console pour l'entendre »).
+- **Couche audio INTACTE** (M-AUD-03) : capacités capture/loopback et
+  gardes anti-boucle conservées (défense en profondeur testée — 168 tests
+  Audio inchangés) ; macOS inchangé (routage « RoomEq Virtual » + guide).
+- **Docs** : D25 consignée (DECISIONS.md) ; I-APP-03 v2 as-built ;
+  I-AUD-03 v2.1 (note) ; CARTE (M-APP-03 🔒 v3.8.0) ; REPRISE (résumé +
+  état session 21 + décisions D24/D25) ; README ; LISEZMOI ; versions des
+  scripts (package_v3.sh, build-apo.sh) ; Directory.Build.props 3.8.0.
+- **Tests** : 502/502 xUnit (Core 237, Audio 168 inchangés, App 97 dont
+  +18 D25) ; build 0 erreur 0 avertissement ; natifs VST/AU/APO non
+  touchés (DLL APO 3.7.0 réutilisées telles quelles — aucun changement
+  binaire).
+
+Stage Summary:
+- D25 LIVRÉE : l'onglet Mixage dit enfin ce qu'il fait — EQ système en
+  tête pour tout le son Windows, console interne pour le lecteur, le
+  générateur et les DAW (pont ASIO), sans tranches périphériques
+  redondantes ni double correction. Migration silencieuse des machines
+  ayant connu l'ancien routage (défauts restaurés, pilote supprimable).
+- Prochaine étape : validation terrain Windows — migration depuis une
+  v3.7 avec pilote + routage actif (sortie par défaut restaurée au
+  premier lancement), EQ système + console DAW sans double correction,
+  suppression du pilote hérité.

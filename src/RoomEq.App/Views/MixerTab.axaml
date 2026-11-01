@@ -52,119 +52,15 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <!-- ═══ Barre de routage Windows → EQ ═══ -->
-        <Border Grid.Row="0" Background="#1A1D26" CornerRadius="6" Padding="10,8"
-                BorderBrush="#2A2F3A" BorderThickness="1" Margin="0,0,0,6">
-            <StackPanel Orientation="Vertical" Spacing="6">
-                <!-- défilement horizontal de la barre de routage — tous les
-                     réglages restent accessibles même sur une fenêtre étroite -->
-                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Disabled">
-                <StackPanel Orientation="Horizontal" Spacing="10">
-                    <TextBlock Text="{Binding RoutingStatusText}" FontWeight="Bold"
-                               VerticalAlignment="Center" Classes.active="{Binding IsRunning}"/>
-                    <controls:HelpButton HelpTitle="Routage du son Windows"
-                                         HelpText="Chaîne complète : Windows joue dans la carte virtuelle → RoomEq capte sa sortie → égaliseur → rendu sur la sortie physique choisie (en haut à droite du MASTER).&#10;&#10;Au démarrage, les périphériques par défaut de Windows sont basculés vers la carte virtuelle (et l'entrée si l'option est cochée) ; à l'arrêt, les défauts d'origine sont restaurés.&#10;&#10;Anti-boucle : un périphérique déjà routé EN ENTRÉE (piste « boucle ») ne peut pas être choisi comme sortie master — il est grisé dans le sélecteur avec le motif, et réciproquement une piste ne peut pas capturer la sortie master active.&#10;&#10;Le fader MASTER règle le niveau interne de RoomEq — le VOLUME FINAL des enceintes se règle avec Ctrl+Alt+↑ / ↓ (voir « Volume carte physique »)."/>
-                    <Button Classes="accent" Content="Router le son vers l'EQ"
-                            Command="{Binding ToggleRoutingCommand}"
-                            IsVisible="{Binding !IsRunning}"/>
-                    <Button Content="■ Arrêter le routage" Command="{Binding ToggleRoutingCommand}"
-                            IsVisible="{Binding IsRunning}"/>
-                    <CheckBox Content="Auto au lancement" IsChecked="{Binding AutoStart}"
-                              VerticalAlignment="Center" FontSize="11"
-                              ToolTip.Tip="Démarre le routage automatiquement à l'ouverture de RoomEq"/>
-                    <CheckBox Content="Router dès l'installation" IsChecked="{Binding AutoRouteOnInstall}"
-                              IsVisible="{Binding !IsMacOS}"
-                              VerticalAlignment="Center" FontSize="11"
-                              ToolTip.Tip="Après une installation réussie : Windows bascule automatiquement vers la carte virtuelle (sortie par défaut), la piste câble est ajoutée et le routage démarre"/>
-                    <CheckBox Content="Preset auto par sortie" IsChecked="{Binding AutoOutputPreset}"
-                              VerticalAlignment="Center" FontSize="11"
-                              ToolTip.Tip="Adapte automatiquement l'égaliseur au périphérique master : preset de calibration s'il en existe un pour cette sortie, sinon correction usine si le casque/écouteur est reconnu dans la bibliothèque intégrée"/>
+        <StackPanel Grid.Row="0">
 
-                    <Separator Width="1" Height="24" Background="#2A2F3A" Margin="4,0"/>
-
-                    <TextBlock Text="Carte virtuelle :" VerticalAlignment="Center" FontSize="11"
-                               Foreground="#8B93A7"/>
-                    <ComboBox ItemsSource="{Binding VirtualProviders}"
-                              SelectedItem="{Binding SelectedProvider}"
-                              MinWidth="190" FontSize="11" MinHeight="26"
-                              ToolTip.Tip="{Binding SelectedProvider.Description}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding DisplayName}" FontSize="11"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <controls:HelpButton HelpTitle="Protocoles de carte virtuelle"
-                                         HelpText="Le protocole choisit l'infrastructure qui fait passer le son Windows dans RoomEq :&#10;&#10;• Carte virtuelle RoomEq : pilote intégré, paire « RoomEq Input / RoomEq Output », aucune application tierce.&#10;• Boucle WASAPI native : rien à installer, fonctionne partout (léger décalage possible).&#10;&#10;« Installer le pilote RoomEq » exécute le pilote livré AVEC l'application (aucun téléchargement) ; acceptez l'invite administrateur."/>
-                    <Button Content="⟳" FontSize="11" MinWidth="30" Command="{Binding RefreshDevicesAsyncCommand}"
-                            IsEnabled="{Binding !IsRefreshingDevices}"
-                            ToolTip.Tip="Rafraîchir périphériques et carte virtuelle (sans bloquer l'interface)"/>
-                </StackPanel>
-                </ScrollViewer>
-
-                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                    <TextBlock Text="{Binding VirtualStatusText}" VerticalAlignment="Center"
-                               FontSize="11" Foreground="#8B93A7" MaxWidth="440"
-                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding AsioStatusText}" VerticalAlignment="Center"
-                               FontSize="11" Foreground="#6FA8DC" MaxWidth="440" Margin="12,0,0,0"
-                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                               ToolTip.Tip="Pilote ASIO intégré : le DAW choisit « RoomEq ASIO », sa lecture alimente la piste « DAW (ASIO) » puis traverse l'égaliseur avant la vraie carte son."/>
-
-                    <Button Content="Installer le pilote RoomEq…" FontSize="11"
-                            Command="{Binding InstallVirtualCardCommand}"
-                            IsVisible="{Binding ShowDriverInstallUi}"
-                            IsEnabled="{Binding !IsInstalling}"
-                            ToolTip.Tip="Installe le pilote de la carte virtuelle livré avec l'application (aucun téléchargement) : acceptez l'invite administrateur, puis RoomEq détecte l'arrivée de « RoomEq Input / RoomEq Output »."/>
-                    <Button Content="Supprimer le pilote" FontSize="11"
-                            Command="{Binding UninstallDriverCommand}"
-                            IsVisible="{Binding ShowDriverInstallUi}"
-                            IsEnabled="{Binding !IsInstalling}"
-                            ToolTip.Tip="Désinstalle le pilote de la carte virtuelle RoomEq (invite administrateur)."/>
-                    <Button Content="Définir par défaut" FontSize="11"
-                            Command="{Binding SetVirtualDefaultCommand}"
-                            IsVisible="{Binding !IsMacOS}"
-                            IsEnabled="{Binding VirtualCard.CableInputFound}"
-                            ToolTip.Tip="Définit l'entrée de la carte virtuelle comme sortie par défaut de Windows : tout le son passe alors par RoomEq"/>
-                    <Button Content="Réglages son" FontSize="11" Command="{Binding OpenSoundPanelCommand}"/>
-                    <controls:HelpButton HelpTitle="Installation et bascule"
-                                         HelpText="• Installer le pilote RoomEq : exécute le pilote intégré (invite administrateur) puis détecte les nouveaux périphériques — rien n'est téléchargé.&#10;• Supprimer le pilote : désinstallation propre de la carte virtuelle.&#10;• Définir par défaut : place l'entrée de la carte virtuelle comme sortie par défaut de Windows (tout le son passe alors par RoomEq, même sans routage actif).&#10;• Entrée par défaut → carte virtuelle : les autres applications voient un « micro virtuel » qui reçoit ce que Windows joue.&#10;• Panneau son : ouvre mmsys.cpl pour les réglages manuels.&#10;&#10;Sur macOS : le greffon s'installe avec le paquet .pkg ; la sortie par défaut se choisit dans Réglages Système › Son (macOS interdit la bascule automatique)."/>
-                    <CheckBox Content="Entrée par défaut → carte virtuelle" IsChecked="{Binding SwitchDefaultCapture}"
-                              IsVisible="{Binding !IsMacOS}"
-                              VerticalAlignment="Center" FontSize="11"
-                              ToolTip.Tip="Pendant le routage : l'entrée par défaut de Windows devient la sortie de la carte virtuelle (micro virtuel pour les autres applications). Restaurée automatiquement à l'arrêt."/>
-                </WrapPanel>
-
-                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsInstalling}">
-                    <ProgressBar Width="220" Height="10" VerticalAlignment="Center"
-                                 IsIndeterminate="{Binding InstallIndeterminate}"
-                                 Minimum="0" Maximum="100" Value="{Binding InstallPercent}"/>
-                    <TextBlock Text="{Binding InstallPhaseText}" FontSize="10.5"
-                               Foreground="#FFC53D" VerticalAlignment="Center"
-                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
-
-                <Expander Header="Guide — faire apparaître RoomEq comme carte son de Windows" FontSize="11">
-                    <StackPanel Spacing="4" Margin="4,6,0,2">
-                        <ItemsControl ItemsSource="{Binding SelectedProvider.GuideLines}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Classes="muted" Text="{Binding}" TextWrapping="Wrap"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Classes="muted" Margin="0,4,0,0"
-                                   Text="Table de mixage : chaque piste = une entrée ou une sortie de Windows (ou une source interne), avec son propre égaliseur (bouton EQ de la tranche), son fader, son pan, Mute/Solo et ses VU."/>
-                    </StackPanel>
-                </Expander>
-
-                <!-- ═══ EQ système (APO) — décision D24 : le DSP dans le moteur
-                     audio Windows lui-même, sans pilote ni mode test ni tierce
-                     partie ; une activation = une invite administrateur ═══ -->
-                <Border IsVisible="{Binding !IsMacOS}" Background="#1B1F27" CornerRadius="6"
-                        BorderBrush="#2A2F3A" BorderThickness="1" Padding="8,6" Margin="0,6,0,0">
-                    <StackPanel Spacing="6">
+            <!-- ═══ EQ système (APO) — décision D24 : LE chemin du son Windows,
+                 sans pilote ni mode test ni tierce partie ; une activation =
+                 une invite administrateur. Placé en tête (D25) : la voie
+                 principale — la console ne sert plus qu'aux sources internes ═══ -->
+            <Border IsVisible="{Binding !IsMacOS}" Background="#1B1F27" CornerRadius="6"
+                    BorderBrush="#2A2F3A" BorderThickness="1" Padding="8,6" Margin="0,0,0,6">
+                <StackPanel Spacing="6">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="EQ système (sans pilote)" FontWeight="Bold" FontSize="12"
                                        VerticalAlignment="Center"
@@ -207,17 +103,94 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ Barre de console — D25 : Windows = sources internes
+                 (lecteur, générateur, DAW ASIO) ; macOS = routage par
+                 périphérique virtuel (pas d'EQ système sur macOS) ═══ -->
+            <Border Background="#1A1D26" CornerRadius="6" Padding="10,8"
+                    BorderBrush="#2A2F3A" BorderThickness="1">
+                <StackPanel Orientation="Vertical" Spacing="6">
+                <!-- défilement horizontal — tous les réglages restent accessibles
+                     même sur une fenêtre étroite -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding RoutingStatusText}" FontWeight="Bold"
+                               VerticalAlignment="Center" Classes.active="{Binding IsRunning}"/>
+                    <controls:HelpButton HelpTitle="{Binding RoutingHelpTitle}"
+                                         HelpText="{Binding RoutingHelpText}"/>
+                    <Button Classes="accent" Content="{Binding RoutingStartLabel}"
+                            Command="{Binding ToggleRoutingCommand}"
+                            IsVisible="{Binding !IsRunning}"/>
+                    <Button Content="{Binding RoutingStopLabel}" Command="{Binding ToggleRoutingCommand}"
+                            IsVisible="{Binding IsRunning}"/>
+                    <CheckBox Content="Auto au lancement" IsChecked="{Binding AutoStart}"
+                              VerticalAlignment="Center" FontSize="11"
+                              ToolTip.Tip="Démarre automatiquement à l'ouverture de RoomEq"/>
+                    <CheckBox Content="Preset auto par sortie" IsChecked="{Binding AutoOutputPreset}"
+                              VerticalAlignment="Center" FontSize="11"
+                              ToolTip.Tip="Adapte automatiquement l'égaliseur au périphérique master : preset de calibration s'il en existe un pour cette sortie, sinon correction usine si le casque/écouteur est reconnu dans la bibliothèque intégrée"/>
+
+                    <Separator Width="1" Height="24" Background="#2A2F3A" Margin="4,0"/>
+
+                    <Button Content="⟳" FontSize="11" MinWidth="30" Command="{Binding RefreshDevicesAsyncCommand}"
+                            IsEnabled="{Binding !IsRefreshingDevices}"
+                            ToolTip.Tip="Rafraîchir les périphériques (sans bloquer l'interface)"/>
+                    <Button Content="Réglages son" FontSize="11" Command="{Binding OpenSoundPanelCommand}"/>
+                </StackPanel>
+                </ScrollViewer>
+
+                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding VirtualStatusText}" VerticalAlignment="Center"
+                               IsVisible="{Binding IsMacOS}"
+                               FontSize="11" Foreground="#8B93A7" MaxWidth="440"
+                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding AsioStatusText}" VerticalAlignment="Center"
+                               FontSize="11" Foreground="#6FA8DC" MaxWidth="440" Margin="12,0,0,0"
+                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Pilote ASIO intégré : le DAW choisit « RoomEq ASIO », sa lecture alimente la piste « DAW (ASIO) » puis traverse l'égaliseur avant la vraie carte son — démarrez la console pour l'entendre."/>
+                </WrapPanel>
+
+                <!-- pilote hérité (D25) : une installation antérieure (v3.6/v3.7)
+                     peut encore porter « RoomEq Input / RoomEq Output » —
+                     nettoyage proposé, l'EQ système fonctionne sans pilote -->
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowLegacyDriverCleanup}">
+                    <TextBlock Text="Ancien pilote de carte virtuelle détecté — RoomEq ne l'utilise plus (l'EQ système le remplace) :"
+                               VerticalAlignment="Center" FontSize="11" Foreground="#8B93A7"/>
+                    <Button Content="Supprimer le pilote" FontSize="11"
+                            Command="{Binding UninstallDriverCommand}"
+                            IsEnabled="{Binding !IsInstalling}"
+                            ToolTip.Tip="Retire le pilote « RoomEq Input / RoomEq Output » d'une installation antérieure (invite administrateur). L'EQ système fonctionne sans pilote."/>
+                    <TextBlock Text="{Binding InstallPhaseText}" FontSize="10.5"
+                               Foreground="#FFC53D" VerticalAlignment="Center"
+                               IsVisible="{Binding IsInstalling}"/>
+                </StackPanel>
+
+                <!-- guide macOS : le périphérique virtuel reste LA voie sur macOS -->
+                <Expander Header="Guide — périphérique virtuel RoomEq (macOS)" FontSize="11"
+                          IsVisible="{Binding IsMacOS}">
+                    <StackPanel Spacing="4" Margin="4,6,0,2">
+                        <ItemsControl ItemsSource="{Binding SelectedProvider.GuideLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Classes="muted" Text="{Binding}" TextWrapping="Wrap"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
-                </Border>
-            </StackPanel>
-        </Border>
+                </Expander>
+                </StackPanel>
+            </Border>
+        </StackPanel>
 
         <!-- ═══ Console + éditeur d'EQ de piste ═══ -->
         <Grid Grid.Row="1" ColumnDefinitions="*,330">
 
             <!-- Tranches -->
             <DockPanel Grid.Column="0" LastChildFill="True">
-                <Expander DockPanel.Dock="Bottom" Header="＋ Ajouter une piste (entrées, sorties en boucle, sources internes)"
+                <Expander DockPanel.Dock="Bottom" Header="＋ Ajouter une piste (lecteur, générateur, pont DAW)"
                           FontSize="11" Margin="0,6,0,0">
                     <ScrollViewer MaxHeight="180">
                         <ItemsControl ItemsSource="{Binding AvailableSources}" Margin="2,4">
@@ -402,9 +375,11 @@
                                            Foreground="#8B93A7" HorizontalAlignment="Center"/>
                                 <ToggleButton Classes="ms mute" Content="M" IsChecked="{Binding MasterMute}"
                                               HorizontalAlignment="Center" ToolTip.Tip="Mute master"/>
-                                <TextBlock Text="EQ principal appliqué" FontSize="9"
+                                <TextBlock Text="{Binding MasterEqSourceText}" FontSize="9"
                                            Foreground="#8B93A7" HorizontalAlignment="Center"
-                                           TextWrapping="Wrap" TextAlignment="Center"/>
+                                           TextWrapping="Wrap" TextAlignment="Center"
+                                           Classes.active="{Binding ApoOnMaster}"
+                                           ToolTip.Tip="D25 : quand l'EQ système (APO) est actif sur la sortie master, la courbe y est appliquée par le moteur audio Windows — le bus master contourne alors son propre EQ pour éviter la double correction."/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

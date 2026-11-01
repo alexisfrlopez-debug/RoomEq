@@ -12,14 +12,17 @@ using RoomEq.Core.Io;
 namespace RoomEq.App.ViewModels;
 
 /// <summary>
-/// ViewModel de la table de mixage (onglet Mixage) : pistes correspondant à
-/// toutes les entrées / sorties de Windows, chacune avec son égaliseur propre,
-/// fader, pan, mute, solo et VU ; bus master avec l'EQ principal synchronisé ;
-/// routage du son Windows via la carte son virtuelle RoomEq ou en boucle
-/// WASAPI native ; piste dédiée pour les DAW via le pont ASIO — spec I-APP-03.
+/// ViewModel de la table de mixage (onglet Mixage) — v3.8.0 (D25) : la
+/// console n'expose plus que ses sources internes (lecteur, générateur, pont
+/// DAW ASIO, périphérique virtuel macOS), chacune avec son égaliseur propre,
+/// fader, pan, mute, solo et VU ; bus master avec l'EQ principal synchronisé.
+/// Le son du SYSTÈME Windows est traité par l'EQ système APO (I-AUD-09),
+/// sans carte virtuelle ni boucle — les tranches « entrée/sortie » ont été
+/// retirées. Sur macOS (pas d'APO), le routage par périphérique virtuel
+/// reste la voie principale — spec I-APP-03 v2.
 /// Décomposition v3 en fichiers partiels par concern :
-/// Routing (chaîne de routage), Volume (carte physique), Driver (installation),
-/// Persist (mixer.json).
+/// Routing (console + migration D25), Volume (carte physique), Driver
+/// (suppression du pilote hérité), Persist (mixer.json), SystemApo.
 /// </summary>
 public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
 {
@@ -55,7 +58,6 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
 
     private string? _storedOutputId;
     private string? _lastAppliedOutputId;
-    private bool _initializing;
 
     [ObservableProperty] private OutputDeviceInfo? selectedOutput;
 
@@ -81,19 +83,21 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     /// <summary>Drapeau anti-boucle pendant le remplissage programmatique du sélecteur.</summary>
     private bool _loadingPresetOptions;
 
-    /// <summary>Protocoles de carte son virtuelle pris en charge (sélecteur).</summary>
-    public ObservableCollection<IVirtualAudioProvider> VirtualProviders { get; } =
-        new(VirtualAudioCatalog.All);
+    /// <summary>
+    /// Protocole de carte virtuelle sondé pour la détection du pilote hérité
+    /// (D25) : toujours la carte RoomEq — le sélecteur de protocole a disparu
+    /// avec le routage Windows (l'EQ système APO le remplace).
+    /// </summary>
+    public IVirtualAudioProvider SelectedProvider => VirtualAudioCatalog.Default;
 
-    [ObservableProperty] private IVirtualAudioProvider selectedProvider = VirtualAudioCatalog.Default;
     [ObservableProperty] private VirtualCardStatus virtualCard = new();
-    [ObservableProperty] private string virtualStatusText = "Recherche de la carte son virtuelle…";
-    [ObservableProperty] private string routingStatusText = "Routage à l'arrêt.";
+    [ObservableProperty] private string virtualStatusText = "";
+    [ObservableProperty] private string routingStatusText = "Console à l'arrêt.";
     [ObservableProperty] private string asioStatusText = "Pont ASIO à l'arrêt.";
     [ObservableProperty] private bool isRunning;
     [ObservableProperty] private ChannelViewModel? selectedChannel;
     [ObservableProperty] private TrackEqViewModel trackEq = new();
-    [ObservableProperty] private string statusText = "Onglet Mixage : ajoutez des pistes ou routez le son Windows vers l'égaliseur.";
+    [ObservableProperty] private string statusText = "Onglet Mixage : activez l'EQ système sur vos sorties, ou démarrez la console pour le lecteur, le générateur et les DAW.";
 
     /// <summary>Vrai sur macOS : pilote les adaptations d'interface (pas de pnputil, pont périphérique).</summary>
     public bool IsMacOS => OperatingSystem.IsMacOS();
@@ -108,14 +112,6 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         // les balayages) : créé ici, câblé par le shell via SystemEqBypass
         SystemApo = systemApo ?? new WindowsApoSystem();
         SystemApo.Changed += () => Dispatcher.UIThread.Post(RefreshSystemApoCore);
-
-        if (IsMacOS)
-        {
-            // la boucle WASAPI est propre à Windows : un seul fournisseur sur macOS
-            VirtualProviders.Clear();
-            VirtualProviders.Add(VirtualAudioCatalog.Default);
-            SelectedProvider = VirtualAudioCatalog.Default;
-        }
 
         Mixer.ErrorOccurred += msg => Dispatcher.UIThread.Post(() =>
         {
@@ -178,6 +174,42 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
 
     // ================================================================ EQ master
 
+    /// <summary>L'EQ système (APO) couvre-t-il la sortie master actuelle ?
+    /// (cache recalculé au changement de sortie et à chaque état APO).</summary>
+    public bool ApoOnMaster => _apoOnMaster;
+    private bool _apoOnMaster;
+
+    /// <summary>Texte de la tranche MASTER : qui applique l'EQ principal.</summary>
+    public string MasterEqSourceText => _apoOnMaster
+        ? "EQ appliqué par l'EQ système (moteur Windows)"
+        : "EQ principal appliqué (bus master)";
+
+    /// <summary>
+    /// Recalcule le drapeau « l'APO couvre la sortie master » (thread UI).
+    /// D25 : dans ce cas le bus master CONTOURNE son propre EQ — la courbe est
+    /// déjà appliquée au niveau du périphérique par le moteur audio Windows,
+    /// l'appliquer deux fois doublerait la correction (conflit réel des anciennes
+    /// tranches « sortie » en boucle).
+    /// </summary>
+    private void RefreshApoOnMaster()
+    {
+        bool apo = false;
+        if (!IsMacOS && SystemApo.IsReady
+            && SelectedOutput?.Id is { } id && id.StartsWith("wasapi|", StringComparison.Ordinal))
+        {
+            string key = ApoConstants.EndpointKeyFromMmdeviceId(id["wasapi|".Length..]);
+            apo = SystemApo.EnumerateEndpoints().Any(e =>
+                e.Enabled && string.Equals(e.Key, key, StringComparison.OrdinalIgnoreCase));
+        }
+        if (apo != _apoOnMaster)
+        {
+            _apoOnMaster = apo;
+            OnPropertyChanged(nameof(ApoOnMaster));
+            OnPropertyChanged(nameof(MasterEqSourceText));
+            SyncMasterEqFromMain();
+        }
+    }
+
     /// <summary>Le bus master suit en permanence l'égaliseur de l'onglet Égaliseur
     /// — et l'EQ système (APO) reçoit la même courbe quand il est actif.</summary>
     private void SyncMasterEqFromMain()
@@ -186,7 +218,10 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         {
             var preset = _engine.Eq.Preset;
             Mixer.MasterEq.SetPreset(preset);
-            Mixer.MasterEq.Bypass = _engine.Eq.Bypass;
+            // D25 : APO actif sur la sortie master = la courbe y est déjà
+            // appliquée par le moteur audio Windows → le bus master la contourne
+            // (sinon double correction pour le lecteur, le générateur et le DAW).
+            Mixer.MasterEq.Bypass = _engine.Eq.Bypass || _apoOnMaster;
             SystemApo.PushCurve(preset, _engine.Eq.Bypass);
         }
         catch
@@ -198,9 +233,13 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     private void RefreshTransportState()
     {
         IsRunning = Mixer.IsRunning;
-        RoutingStatusText = IsRunning
-            ? "● Routage actif — le son Windows traverse l'égaliseur"
-            : "○ Routage à l'arrêt";
+        RoutingStatusText = IsMacOS
+            ? IsRunning
+                ? "● Routage actif — le son macOS traverse l'égaliseur"
+                : "○ Routage à l'arrêt"
+            : IsRunning
+                ? "● Console active — lecteur, générateur et DAW traversent l'égaliseur"
+                : "○ Console à l'arrêt";
     }
 
     // ================================================================ périphériques
@@ -248,8 +287,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         try
         {
             IsRefreshingDevices = true;
-            var provider = SelectedProvider;
-            var snap = await Task.Run(() => _catalog.CaptureSnapshot(provider)).ConfigureAwait(false);
+            var snap = await Task.Run(() => _catalog.CaptureSnapshot(SelectedProvider)).ConfigureAwait(false);
             var outputs = await Task.Run(() => ConsoleMixer.EnumerateOutputs(snap.RenderDevices))
                 .ConfigureAwait(false);
             await Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(snap, outputs));
@@ -269,7 +307,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     private void ApplyMacDevices()
     {
         VirtualCard = MacAudioBridge.Probe();
-        OnPropertyChanged(nameof(DriverPackagePresent));
+        OnPropertyChanged(nameof(ShowLegacyDriverCleanup));
         VirtualStatusText = !VirtualCard.PartiallyInstalled
             ? "Greffon RoomEqHAL non détecté — réinstallez le paquet RoomEq (.pkg)."
             : VirtualCard.FullyRouted
@@ -285,20 +323,74 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         IReadOnlyList<OutputDeviceInfo> outputs)
     {
         VirtualCard = snap.VirtualCard;
-        OnPropertyChanged(nameof(DriverPackagePresent));
-        VirtualStatusText = !snap.VirtualCard.PartiallyInstalled
-            ? SelectedProvider.IsPreinstalled
-                ? "Boucle WASAPI native : aucune installation nécessaire"
-                : SelectedProvider.DisplayName + " non installé"
-            : !snap.VirtualCard.Installed
-                ? SelectedProvider.DisplayName + " : un seul côté détecté ("
-                  + (snap.VirtualCard.CableInputFound ? snap.VirtualCard.CableInputName : snap.VirtualCard.CableOutputName) + ")"
-                : snap.VirtualCard.FullyRouted
-                    ? $"Carte virtuelle active : « {snap.VirtualCard.CableInputName} » est la sortie par défaut de Windows"
-                    : $"Carte virtuelle installée : « {snap.VirtualCard.CableInputName} » — pas encore sortie par défaut";
+        OnPropertyChanged(nameof(ShowLegacyDriverCleanup));
 
         RebuildOutputs(outputs);
-        RebuildAvailableSources(snap.CaptureSources, snap.LoopbackSources);
+        RebuildAvailableSources();
+
+        HandleLegacyVirtualDefault(snap);
+    }
+
+    // ------------------------------------------------------------ pilote hérité (D25)
+
+    /// <summary>Le bouton de suppression du pilote hérité est-il proposé ?</summary>
+    public bool ShowLegacyDriverCleanup
+        => !IsMacOS && OperatingSystem.IsWindows() && VirtualCard.PartiallyInstalled;
+
+    /// <summary>Migration D25 déjà traitée (une seule tentative par session).</summary>
+    private bool _legacyDefaultsHandled;
+
+    /// <summary>
+    /// Migration D25 (Windows, une fois) : une installation issue de v3.6/v3.7
+    /// peut avoir laissé l'entrée de la carte virtuelle (« RoomEq Input »)
+    /// comme sortie PAR DÉFAUT de Windows — plus aucune piste ne la capte
+    /// désormais, ce serait un silence total. Si la sortie d'origine a été
+    /// mémorisée par l'ancien routage (mixer.json), elle est restaurée ;
+    /// sinon l'utilisateur est guidé (l'EQ remplace le routage, le pilote peut
+    /// être supprimé via le bouton de maintenance).
+    /// </summary>
+    private void HandleLegacyVirtualDefault(AudioDeviceCatalog.DeviceSnapshot snap)
+    {
+        if (_legacyDefaultsHandled || IsMacOS || !OperatingSystem.IsWindows())
+            return;
+        if (snap.VirtualCard.CableInputId == null)
+            return; // pas de carte détectée à ce passage (branchement à chaud possible)
+        if (!snap.VirtualCard.IsDefaultRender)
+        {
+            _legacyDefaultsHandled = true; // la carte n'est pas la sortie par défaut : rien à faire
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(_savedRenderId))
+        {
+            try
+            {
+                if (DefaultDeviceSetter.SetDefaultRender(_savedRenderId))
+                {
+                    DiagnosticsLog.Info("D25 : sortie par défaut de Windows restaurée "
+                        + "depuis la carte virtuelle héritée.");
+                    StatusText = "Sortie par défaut de Windows restaurée sur votre périphérique "
+                        + "d'origine — la carte virtuelle n'est plus utilisée (l'EQ système la remplace).";
+                }
+                if (!string.IsNullOrEmpty(_savedCaptureId))
+                    DefaultDeviceSetter.SetDefaultCapture(_savedCaptureId);
+            }
+            catch
+            {
+                // la migration ne doit jamais interrompre le démarrage
+            }
+            _savedRenderId = null;
+            _savedCaptureId = null;
+            SaveConfig();
+        }
+        else
+        {
+            StatusText = "« " + snap.VirtualCard.CableInputName
+                + " » est encore la sortie par défaut de Windows mais RoomEq ne l'utilise plus : "
+                + "choisissez vos enceintes ou votre casque (sélecteur MASTER ou panneau son), "
+                + "puis supprimez l'ancien pilote ci-dessous.";
+        }
+        _legacyDefaultsHandled = true;
     }
 
     private void RebuildOutputs(IReadOnlyList<OutputDeviceInfo>? preCaptured = null)
@@ -346,6 +438,9 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     private void RebuildAvailableSources(IReadOnlyList<TrackSource>? captureSources = null,
         IReadOnlyList<TrackSource>? loopbackSources = null)
     {
+        // D25 : uniquement les sources internes — les captures (« entrée ») et
+        // boucles (« sortie ») de Windows ne sont plus proposées : l'EQ système
+        // APO traite le son du système sans console, sans pilote, sans boucle.
         AvailableSources.Clear();
         if (IsMacOS)
         {
@@ -354,10 +449,6 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         }
         else
         {
-            var captures = captureSources ?? _catalog.EnumerateCaptureSources();
-            var loopbacks = loopbackSources ?? _catalog.EnumerateLoopbackSources();
-            foreach (var s in captures) AvailableSources.Add(s);
-            foreach (var s in loopbacks) AvailableSources.Add(s);
             AvailableSources.Add(TrackSource.AsioBridgeSource());
         }
         AvailableSources.Add(TrackSource.InternalPlayer());
@@ -387,6 +478,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         SyncTopBarFromEndpoint(); // la nouvelle carte peut avoir un volume différent : les deux curseurs suivent
         OnPropertyChanged(nameof(RoutedVolumeTarget));
         OnPropertyChanged(nameof(HasRoutedVolume));
+        RefreshApoOnMaster();     // D25 : l'EQ système peut couvrir (ou non) la nouvelle sortie
         SaveConfig();
         MasterOutputChanged?.Invoke(value);   // réévaluation du preset de la sortie
     }
@@ -419,6 +511,15 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     private void AddTrack(TrackSource? source)
     {
         if (source == null) return;
+        if (MixerTrackPolicy.IsLegacyDeviceSource(source.Kind))
+        {
+            // défense en profondeur D25 : la vue ne propose plus ces sources,
+            // la persistance les ignore — un appel direct est refusé avec un
+            // message actionnable plutôt que de recréer les conflits d'avant.
+            StatusText = "Pistes d'entrée/sortie retirées : le son du système est traité "
+                + "par l'EQ système (sans pilote ni boucle).";
+            return;
+        }
         try
         {
             var ch = Mixer.AddChannel(source);

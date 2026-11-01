@@ -113,7 +113,7 @@ public partial class MainViewModel : ObservableObject
         Signals.Refresh();
 
         // politique « preset par périphérique » : la sortie master peut changer
-        // (restauration de session, routage) et chaque preset appliqué
+        // (restauration de session, choix utilisateur) et chaque preset appliqué
         // manuellement est mémorisé pour la sortie en cours
         Mixer.MasterOutputChanged += dev => Dispatcher.UIThread.Post(() => OutputPresets.Evaluate(dev));
         Mixer.OutputPresetOptionPicked += opt => Dispatcher.UIThread.Post(() => OutputPresets.Pick(opt));
@@ -134,7 +134,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Fermeture de l'application : arrêt du routage, libération des périphériques
+    /// Fermeture de l'application : arrêt de la console, libération des périphériques
     /// et DERNIER envoi des journaux vers le Drive (synchrone, 10 s max — c'est le
     /// seul moment où l'on peut garantir l'envoi de la session entière).
     /// </summary>
@@ -215,11 +215,11 @@ public partial class MainViewModel : ObservableObject
     partial void OnVolumeChanged(double value)
     {
         // 1) lecteur interne (fichiers, signaux de test) : gain après l'EQ ;
-        // 2) son ROUTÉ (Windows → carte virtuelle → mixeur → carte physique) :
-        //    ce chemin ne passe PAS par le lecteur interne — le curseur pilote
-        //    donc aussi le volume Windows de la carte physique routée (même
-        //    cible que Ctrl+Alt+↑ / ↓). Sans lui, le curseur paraîtrait « sans
-        //    effet » sur la sortie sélectionnée dans l'usage principal.
+        // 2) carte physique (sortie master de l'onglet Mixage) : le son du
+        //    système — traité par l'EQ système (APO) — ne passe PAS par le
+        //    lecteur interne ; le curseur pilote donc aussi le volume Windows
+        //    de cette carte (même cible que Ctrl+Alt+↑ / ↓). Sans lui, le
+        //    curseur paraîtrait « sans effet » sur le son écouté.
         Engine.Volume = value;
 
         // recadrage venant du Mixage / des raccourcis clavier / de Windows : la
@@ -229,8 +229,8 @@ public partial class MainViewModel : ObservableObject
             Mixer.ApplyTopBarVolume(value);
 
         StatusText = value <= 0.001
-            ? "Volume coupé (lecteur interne + carte physique routée)."
-            : $"Volume : {Math.Min(value, 1.0):0%} — lecteur interne + carte physique routée" + (value > 1.0 ? " (carte au maximum, gain lecteur augmenté)" : "");
+            ? "Volume coupé (lecteur interne + carte physique)."
+            : $"Volume : {Math.Min(value, 1.0):0%} — lecteur interne + carte physique" + (value > 1.0 ? " (carte au maximum, gain lecteur augmenté)" : "");
     }
 
     /// <summary>

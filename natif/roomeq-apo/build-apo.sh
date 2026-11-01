@@ -19,7 +19,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AU_CORE="$HERE/../roomeq-au/core"
 DIST="$HERE/dist"
 VERSION=$(sed -n 's/^project(RoomEqApo VERSION \([0-9.]*\).*/\1/p' "$HERE/CMakeLists.txt" 2>/dev/null || true)
-[[ -n "$VERSION" ]] || VERSION="3.7.0"
+[[ -n "$VERSION" ]] || VERSION="3.8.0"
 
 # ------------------------------------------------------------- localiser zig
 ZIG_BIN="${1:-${ZIG:-}}"

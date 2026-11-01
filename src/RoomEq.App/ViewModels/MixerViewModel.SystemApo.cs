@@ -80,6 +80,9 @@ public partial class MixerViewModel
                         ? "EQ système actif — la courbe de l'onglet Égaliseur s'applique à tout ce qui sort par les sorties marquées ●"
                           + (load is { } t ? $" (APO chargé : {t:HH:mm:ss} UTC)" : "")
                         : "Activez une ou plusieurs sorties : tout leur son traversera l'égaliseur (invite administrateur, réversible).";
+
+        // D25 : l'état APO détermine si le bus master contourne son propre EQ
+        RefreshApoOnMaster();
     }
 
     [RelayCommand]

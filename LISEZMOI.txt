@@ -1,4 +1,4 @@
-RoomEq 3.7.0 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.8.0 — recodage TRIADE + EQ système sans pilote + console allégée + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,24 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    484 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    502 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
     build 0 erreur 0 avertissement.
+  • NOUVEAU 3.8.0 — CONSOLE ALLÉGÉE (D25) : depuis que l'EQ système (APO)
+    traite le son de Windows DANS le moteur audio lui-même, les tranches de
+    mixage « entrée » (micros, câble virtuel) et « sortie » (boucles WASAPI)
+    n'avaient plus d'usage — elles doublaient la correction et déclenchaient
+    les protections anti-boucle. L'onglet Mixage est réorganisé : le panneau
+    « EQ système » passe EN TÊTE (c'est LA voie pour tout le son), et la
+    console ne garde que ses sources internes — lecteur de fichiers,
+    générateur de test, pont DAW (ASIO) — avec leurs égaliseurs de piste.
+    Nouveau bouton « Démarrer la console » pour les faire sonner. Anti-
+    double-correction : si l'EQ système est actif sur la sortie master, le
+    bus master contourne son propre EQ (la courbe est déjà appliquée par
+    Windows). Migration automatique : une machine ayant connu v3.6/v3.7 et
+    dont la carte virtuelle serait encore la sortie par défaut retrouve sa
+    sortie d'origine (mémorisée) ; le pilote hérité peut être supprimé en
+    un bouton. macOS : inchangé (pas d'EQ système là-bas — le périphérique
+    virtuel reste la voie).
   • NOUVEAU 3.7.0 — EQ SYSTÈME SANS PILOTE (D24) : l'onglet Mixage gagne un
     panneau « EQ système (sans pilote) ». Activez l'EQ sur une ou plusieurs
     sorties Windows (enceintes, casque, HDMI…) : TOUT le son de ces sorties
@@ -65,7 +81,7 @@ CE QU'EST CETTE VERSION
   • PARITÉ FONCTIONNELLE 2.2.2 ÉTABLIE point par point (docs/PARITE-v2.2.2.md) :
     égaliseur paramétrique, analyseur RTA, calibration multi-signaux, profils
     micro (36), corrections casques (321 modèles AutoEq), preset automatique
-    par périphérique, mixage & routage complet, pont ASIO, lecteur intégré,
+    par périphérique, EQ système + console de mixage, pont ASIO, lecteur intégré,
     versions test/public, télémétrie de test.
   • CORRECTIFS v3 (documentés) : détection du balayage durcie (une capture de
     bruit seul n'est plus « corrigée »), message d'aide ASIO affiché même sans
@@ -85,6 +101,9 @@ INSTALLATION
        Contenu : version publique silencieuse (RoomEq.exe) ; les exécutables
        et le pilote ne sont PAS téléchargés depuis l'application.
        Alternative sans installation : zip portable public/test (voir 3).
+       NOTE 3.8.0 : l'application n'installe plus le pilote de carte virtuelle
+       (l'EQ système le remplace, sans pilote) ; elle propose seulement de
+       SUPPRIMER un éventuel pilote hérité d'une version antérieure.
     2) PILOTE (inchangé, scellé 2.2.2) : RoomEqDriverSetup-2.2.2.exe — la carte
        son virtuelle « RoomEq Virtual Audio » + le pilote ASIO en un fichier.
        Double-clic -> UAC -> fenêtre graphique (état, journal, boutons
@@ -97,8 +116,8 @@ INSTALLATION
        (journalisation complète + télémétrie Drive du développement, pilotée
        par telemetrie.json placé à côté). Au lancement de la version test,
        une boîte de dialogue propose la version publique. ROOMEQ_TEST=1
-       force le mode test (développement). Sans pilote, l'onglet Mixage
-       fonctionne en boucle WASAPI.
+       force le mode test (développement). Aucun pilote n'est nécessaire :
+       l'EQ système et la console fonctionnent tels quels.
     4) GREFFON ABLETON (macOS) EN 1 CLIC : RoomEq-AU-<version>-macos.pkg —
        double-clic → RoomEq.component installé dans
        /Library/Audio/Plug-Ins/Components (tous les utilisateurs), attribut
