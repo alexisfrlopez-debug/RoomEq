@@ -10,8 +10,18 @@ BUILD="$ROOT/build-macos"
 COMPONENT="$BUILD/RoomEq.component"
 
 echo "── 1/4 Compilation (cœur C++ + tests natifs + greffon AU) ─────────────"
-cmake -S "$ROOT" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release >/dev/null
+# CMAKE_OSX_ARCHITECTURES via la ligne de commande : le set() du CMakeLists
+# (après project()) ne produit pas de binaire universel — garantie Apple
+# Silicon + Intel (vérifié par le contrôle d'architectures ci-dessous).
+cmake -S "$ROOT" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" >/dev/null
 cmake --build "$BUILD" --parallel
+
+echo "── 1bis/4 Contrôle du bundle universel ───────────────────────────────"
+ARCHS=$(lipo -archs "$COMPONENT/Contents/MacOS/RoomEq")
+echo "Architectures du greffon : $ARCHS"
+echo "$ARCHS" | grep -q arm64
+echo "$ARCHS" | grep -q x86_64
 
 echo "── 2/4 Tests natifs du cœur (parité avec RoomEq.Core) ─────────────────"
 "$BUILD/roomeq_au_tests" "$ROOT/tests/data"

@@ -108,13 +108,30 @@ jobs:
 
       - name: Cœur C++ + tests natifs (parité bit à bit avec RoomEq.Core)
         run: |
-          cmake -S natif/roomeq-au -B build-core -DCMAKE_BUILD_TYPE=Release
+          # CMAKE_OSX_ARCHITECTURES via la ligne de commande : le set() du
+          # CMakeLists (après project()/enable_language()) ne produit PAS de
+          # binaire universel sur la CI — constaté v3.3.0/v3.6.0 (arm64 seul).
+          # La variable de cache est consommée AVANT project(), garantie.
+          cmake -S natif/roomeq-au -B build-core -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
           cmake --build build-core --parallel
           ./build-core/roomeq_au_tests natif/roomeq-au/tests/data
 
       - name: Compiler le greffon .component
         run: |
           cmake --build build-core --target RoomEqAU --parallel
+
+      - name: Vérifier le bundle universel (arm64 + x86_64)
+        run: |
+          # VERROU (même philosophie que le correctif ABI VST v3.5.2) : la
+          # promesse « bundle universel » du README doit être prouvée par la
+          # CI — un binaire mono-architecture (Mac Intel exclu silencieusement)
+          # échoue la livraison.
+          ARCHS=$(lipo -archs build-core/RoomEq.component/Contents/MacOS/RoomEq)
+          echo "Architectures du greffon : $ARCHS"
+          echo "$ARCHS" | grep -q arm64
+          echo "$ARCHS" | grep -q x86_64
+          echo "Bundle universel confirmé."
 
       - name: Signature ad hoc
         run: |

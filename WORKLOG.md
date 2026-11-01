@@ -1338,6 +1338,18 @@ Work Log:
   bundle AVANT auval (l'outil ne voit que les composants enregistrés —
   recette CI ; défaut préexistant où la validation portait sur une
   éventuelle version périmée).
+- VERROU BINAIRE UNIVERSEL (avant livrable) : contrôle du zip téléchargé
+  depuis la release → Mach-O **arm64 seul** alors que le CMakeLists
+  déclare arm64;x86_64 et que le README promet un bundle universel. La 3.3.0
+  était identique (défaut PRÉEXISTANT depuis D19, pas une régression de la
+  session) : le set(CMAKE_OSX_ARCHITECTURES) placé APRÈS project()/
+  enable_language() ne produit jamais d'universel sur la CI — la variable
+  doit être consommée avant project(). Correctif : -DCMAKE_OSX_ARCHITECTURES
+  explicite dans la CI et build-macos.sh + étape CI « Vérifier le bundle
+  universel » (lipo -archs doit montrer arm64 ET x86_64, sinon échec —
+  même philosophie de verrou que le correctif ABI VST : la promesse est
+  PROUVÉE par la CI). Tag v3.6.0 et release draft retirés, la livraison
+  repart du commit corrigé.
 - Versions alignées : CMake AU 3.6.0, Directory.Build.props 3.6.0,
   package_v3.sh 3.6.0. CARTE.md (en-tête + statut + M-AUD-07 avec la
   couche edit/ et 15 671 vérifications), DECISIONS.md (D23 complète),
