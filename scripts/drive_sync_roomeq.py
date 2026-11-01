@@ -6,10 +6,16 @@ sont lus depuis ../triade/.gdrive/ (jamais dans le dépôt). Un bundle git
 complet est téléversé pour restaurabilité (git clone roomeq-v3.bundle).
 Les livrables (zips de download/, préfixe RoomEq-) vont dans le sous-dossier
 « Livrables » — téléversement resumable (42 Mo > limite multipart).
+
+D22 (archivage des anciennes versions) : au premier niveau de « Livrables »
+ne reste que la DERNIÈRE version de chaque produit (appli, VST, AU) ;
+les versions antérieures sont déplacées dans « Livrables/Archive »
+(jamais supprimées — retour arrière toujours possible).
 """
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.error
@@ -22,8 +28,30 @@ DOWNLOAD_DIR = os.environ.get("ROOMEQ_DOWNLOAD", "/home/z/my-project/download")
 DRIVE_ROOT = "1vRB4hEr9thaRnJsPjz8JCezGuzzD_yJR"      # dossier « Equalizer »
 FOLDER_NAME = "RoomEq-v3"
 DELIVERABLES_FOLDER = "Livrables"
+ARCHIVE_FOLDER = "Archive"
 EXCLUDE_DIRS = {".git", "bin", "obj", ".vs", "tmp-diag", "roomeq-git-ref",
                 "roomeq-legacy", "publish", "dist", "build", "__pycache__"}
+
+# Famille produit + version depuis un nom de livrable :
+#   RoomEq-VST-3.5.1-win32.zip   → ("RoomEq-VST-", 3.5.1)
+#   RoomEq-3.4.0-win-x64-test.zip → ("RoomEq-",     3.4.0)
+#   RoomEq-win-Setup.exe          → None (non versionné, jamais archivé)
+_VERSION_RE = re.compile(
+    r"^(RoomEq-(?:VST-|AU-)?)(\d+)\.(\d+)\.(\d+)(?:-dev\.(\d+))?(?=[-.]|$)")
+
+
+def version_key(name):
+    """(famille, clé de tri) d'un livrable, ou None si non versionné.
+
+    Clé : (majeure, mineure, correctif, final>dev, n°dev) — ainsi
+    3.0.0-dev.1 < 3.0.0 < 3.0.1 < 3.4.0.
+    """
+    m = _VERSION_RE.match(name)
+    if not m:
+        return None
+    family, maj, min_, pat, dev = m.groups()
+    key = (int(maj), int(min_), int(pat), 1 if dev is None else 0, int(dev or 0))
+    return family, key
 
 
 def get_access_token():
@@ -177,14 +205,14 @@ def mirror(local_dir, folder_id, token, rel=""):
     return uploaded, updated, unchanged
 
 
-def sync_deliverables(folder_id, token):
-    """Téléverse les livrables de download/ dans « Livrables ».
+def sync_deliverables(liv_id, token):
+    """Téléverse les livrables de download/ dans « Livrables » (liv_id).
 
     D20 : zips RoomEq-* + installateurs 1 clic (RoomEq-win-Setup.exe,
     RoomEq-AU-*.pkg) + LISEZMOI du greffon (RoomEq-AU-LISEZMOI.md).
     """
     if not os.path.isdir(DOWNLOAD_DIR):
-        print("Livrables : dossier download/ absent — rien à faire")
+        print("Livrables : dossier download/ absent — rien à téléverser")
         return
     content_types = {
         ".zip": "application/zip",
@@ -196,9 +224,8 @@ def sync_deliverables(folder_id, token):
                    if f.startswith("RoomEq-")
                    and f.endswith(tuple(content_types)))
     if not files:
-        print("Livrables : aucun fichier RoomEq-* dans download/ — rien à faire")
+        print("Livrables : aucun fichier RoomEq-* dans download/ — rien à téléverser")
         return
-    liv_id = ensure_folder(folder_id, DELIVERABLES_FOLDER, token)
     children = list_children(liv_id, token)
     print(f"Livrables → {FOLDER_NAME}/{DELIVERABLES_FOLDER} ({len(files)} fichiers) :")
     for z in files:
@@ -220,6 +247,63 @@ def sync_deliverables(folder_id, token):
             print(f"  = {z} ({size_mb:.1f} Mo) : inchangé")
 
 
+def archive_old_versions(liv_id, token):
+    """D22 — archivage des anciennes versions (idempotent).
+
+    Au premier niveau de « Livrables » ne reste que la dernière version de
+    chaque produit (familles : appli zips « RoomEq- », VST, AU) ; les versions
+    antérieures sont DÉPLACÉES dans « Livrables/Archive » — jamais supprimées
+    (retour arrière possible). Les fichiers non versionnés (Setup.exe,
+    LISEZMOI) restent au premier niveau. Un homonyme déjà présent dans
+    l'Archive (version re-livrée) fait corbeiller la copie du premier niveau.
+    """
+    children = list_children(liv_id, token)
+    versioned = []
+    for name, f in children.items():
+        if f["mimeType"] == "application/vnd.google-apps.folder":
+            continue
+        vk = version_key(name)
+        if vk:
+            versioned.append((vk[0], vk[1], name))
+    if not versioned:
+        print("Archivage D22 : aucun livrable versionné — rien à faire")
+        return
+    latest = {}
+    for family, key, name in versioned:
+        if family not in latest or key > latest[family][0]:
+            latest[family] = (key, name)
+    to_archive = sorted(name for family, key, name in versioned
+                        if key < latest[family][0])
+    if not to_archive:
+        kept = sorted(name for _, name in latest.values())
+        print("Archivage D22 : rien à archiver (une version par produit) — "
+              + ", ".join(kept))
+        return
+    arch_id = ensure_folder(liv_id, ARCHIVE_FOLDER, token)
+    arch_children = list_children(arch_id, token)
+    print(f"Archivage D22 : {len(to_archive)} ancienne(s) version(s) → "
+          f"{FOLDER_NAME}/{DELIVERABLES_FOLDER}/{ARCHIVE_FOLDER} :")
+    for name in to_archive:
+        f = children[name]
+        if name in arch_children:
+            drive_api(f"/drive/v3/files/{f['id']}", token, method="PATCH",
+                      data=json.dumps({"trashed": True}).encode())
+            print(f"  ~ {name} : homonyme déjà archivé — "
+                  "copie du premier niveau corbeillée")
+            continue
+        drive_api(f"/drive/v3/files/{f['id']}", token,
+                  params={"addParents": arch_id, "removeParents": liv_id,
+                          "fields": "id"},
+                  method="PATCH", data=json.dumps({}).encode())
+        print(f"  → {name} : archivé")
+    kept = sorted(name for _, name in latest.values())
+    unversioned = sorted(n for n, f in children.items()
+                         if f["mimeType"] != "application/vnd.google-apps.folder"
+                         and not version_key(n))
+    print("Premier niveau de « Livrables » (version courante par produit) : "
+          + ", ".join(kept + unversioned))
+
+
 def main():
     token = get_access_token()
     folder_id = ensure_folder(DRIVE_ROOT, FOLDER_NAME, token)
@@ -228,7 +312,9 @@ def main():
     up, upd, unch = mirror(REPO, folder_id, token)
     print(f"Fichiers : {up} créés, {upd} mis à jour, {unch} inchangés")
 
-    sync_deliverables(folder_id, token)
+    liv_id = ensure_folder(folder_id, DELIVERABLES_FOLDER, token)
+    sync_deliverables(liv_id, token)
+    archive_old_versions(liv_id, token)
 
     # bundle git pour restaurabilité complète (historique)
     bundle = os.path.join("/tmp", "roomeq-v3.bundle")

@@ -1133,3 +1133,47 @@ Stage Summary:
   rescanner les greffons du DAW.
 - Rappel diagnostic sonore (inchangé) : VU-mètre In/Out, version
   affichée, journal %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log.
+
+---
+Session : 16 — 2026-11-01
+Agent : main (Z.ai)
+Task : « ajoute une règle permanente dans le fichier d'instructions du
+projet pour faire systématiquement une synchro git et drive à chaque
+livraison, + archivage des anciennes versions pour éviter toute confusion ».
+
+Work Log:
+- CONSTAT : le dossier Drive « Equalizer/RoomEq-v3/Livrables » accumulait
+  31 fichiers à plat — 8 versions d'appli × 3 saveurs (3.0.0-dev.1 →
+  3.4.0), 4 versions du VST (3.4.0/3.4.2/3.5.0/3.5.1), le pkg AU, le
+  Setup.exe et les LISEZMOI : impossible de savoir quelle version
+  télécharger.
+- D22 (règle permanente, consignée dans REPRISE.md § 2bis) : une version
+  n'est LIVRÉE que lorsque tests (R5) → commit+push GitHub → miroir Drive
+  → archivage sont tous verts, dans cet ordre. Échec de synchro =
+  livrable « NON LIVRÉ » au WORKLOG, priorité absolue de la session
+  suivante.
+- Implémentation : archive_old_versions() dans
+  scripts/drive_sync_roomeq.py — familles (RoomEq-, RoomEq-VST-,
+  RoomEq-AU-) extraites du nom de fichier, clé de version
+  (3.0.0-dev.1 < 3.0.0 < 3.4.0), déplacement Drive
+  addParents/removeParents vers Livrables/Archive (jamais de
+  suppression — retour arrière possible), fichiers non versionnés
+  (Setup.exe, LISEZMOI) conservés, idempotent, homonyme déjà archivé →
+  corbeille de la seule copie du premier niveau. Validé par 10 tests
+  unitaires de version_key + simulation à sec sur l'état Drive réel
+  AVANT exécution (24 fichiers attendus, 3 familles, 3 non versionnés).
+- Documentation : REPRISE.md (§ 0 ligne Sauvegarde, nouveau § 2bis la
+  règle, § 3 D22, § 5 ligne sync_backup.sh, entrée d'état session 16) ;
+  docs/DECISIONS.md (D22) ; en-tête de scripts/sync_backup.sh.
+- Exécution de la règle sur elle-même : 461/461 tests xUnit verts
+  (aucun code applicatif modifié), commit + push GitHub (v3-recodage),
+  miroir Drive complet (dépôt + bundle + livrables) puis PREMIER
+  ARCHIVAGE : 24 anciens fichiers déplacés dans Livrables/Archive.
+
+Stage Summary:
+- D22 actif et appliqué : à partir de maintenant, chaque livraison est
+  synchronisée Git + Drive ET archivée automatiquement — le dossier
+  « Livrables » de Drive ne montre plus qu'une version par produit
+  (appli 3.4.0, AU 3.3.0, VST 3.5.1 + Setup.exe + LISEZMOI).
+- Les anciennes versions restent accessibles dans « Livrables/Archive »
+  (retour arrière toujours possible, rien n'est supprimé).

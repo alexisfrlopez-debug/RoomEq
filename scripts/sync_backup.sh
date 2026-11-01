@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Sauvegarde systématique RoomEq v3 (décision D7) :
+# Sauvegarde systématique RoomEq v3 (décision D7 + règle de livraison D22) :
 #   1. tests (verify-then-commit, R5) — abandon si échec sauf --force
 #   2. commit git si nécessaire
 #   3. push GitHub (branche v3-recodage)
 #   4. miroir Drive (dossier Equalizer/RoomEq-v3 + bundle git)
+#      + archivage D22 des anciennes versions dans Livrables/Archive
+# Règle D22 (REPRISE.md § 2bis) : une version n'est LIVRÉE que lorsque ce
+# script est passé vert — synchro Git+Drive obligatoire à chaque livraison.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.dotnet:$PATH"

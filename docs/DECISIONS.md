@@ -596,3 +596,31 @@ tests xUnit verts (aucun code applicatif modifié), 118/118 tests natifs AU
 (non régressés), 228 + 38 vérifications VST (Linux x86-64), 228 vérifications
 VST en exécution 32 bits (qemu-i386), `build-vst.sh` : PE32 i386 + exports
 vérifiés.
+
+## D22 — Règle permanente de livraison : synchro Git+Drive systématique + archivage des anciennes versions (1er novembre 2026)
+
+| ID | Décision | Choix retenu | Alternatives rejetées |
+|---|---|---|---|
+| D22 | Demande développeur : « ajoute une règle permanente dans le fichier d'instructions du projet pour faire systématiquement une synchro git et drive à chaque livraison, + archivage des anciennes versions pour éviter toute confusion » | **Une version n'est LIVRÉE que lorsque tout est vert, dans cet ordre** : (1) tests (R5), (2) commit + push GitHub (branche `v3-recodage` + tags), (3) miroir Drive complet (`scripts/drive_sync_roomeq.py` : dépôt, bundle git, livrables), (4) **archivage automatique** : au premier niveau de `Equalizer/RoomEq-v3/Livrables`, une seule version par produit (familles appli/VST/AU) ; les versions antérieures sont DÉPLACÉES dans `Livrables/Archive` (jamais supprimées). Règle consignée dans `REPRISE.md` § 2bis (point d'entrée de chaque session) ; échec de synchro = livrable « NON LIVRÉ » au WORKLOG, priorité absolue de la session suivante | Suppression définitive des anciennes versions (perte du retour arrière) ; archivage manuel (oubliable, non systématique) ; un dossier Drive par version (même confusion, déplacée) ; numéroter les fichiers « -ancien » (fragile, opaque) ; ne rien changer (31 fichiers à plat = confusion sur la version à installer) |
+
+**Développement.** Le mécanisme vit dans `scripts/drive_sync_roomeq.py`
+(`archive_old_versions`, exécuté à CHAQUE synchro) : famille de produit
+déduite du préfixe du nom (`RoomEq-`, `RoomEq-VST-`, `RoomEq-AU-`), clé de
+tri de version (majeure, mineure, correctif, final > dev, n° dev — ainsi
+3.0.0-dev.1 < 3.0.0 < 3.4.0) ; le déplacement Drive (addParents/removeParents)
+est idempotent et ne corbeille jamais — un homonyme déjà présent dans
+l'Archive (version re-livrée) fait seulement corbeiller la copie du premier
+niveau. Les fichiers non versionnés (`RoomEq-win-Setup.exe`,
+`RoomEq-VST-LISEZMOI.md`, `RoomEq-AU-LISEZMOI.md`) restent au premier
+niveau. La règle EST le processus D7 existant, rendu obligatoire à
+l'échelon « livraison » : `scripts/sync_backup.sh` (tests → commit → push
+→ Drive + archivage) reste l'outil unique — aucun nouveau pipeline.
+
+**Entrée en vigueur (session 16).** Premier archivage exécuté
+immédiatement à l'adoption : 24 anciens fichiers déplacés (appli
+3.0.0-dev.1 → 3.3.0, VST 3.4.0/3.4.2/3.5.0). Le premier niveau de
+`Livrables` ne conserve que `RoomEq-3.4.0-win-x64-public.zip`,
+`RoomEq-3.4.0-win-x64-test.zip`, `RoomEq-3.4.0-source.zip`,
+`RoomEq-AU-3.3.0-macos.pkg`, `RoomEq-VST-3.5.1-win32.zip`,
+`RoomEq-win-Setup.exe` et les deux LISEZMOI. Validation R5 : 461/461 tests
+xUnit verts (aucun code applicatif modifié — `src/` et `natif/` intacts).

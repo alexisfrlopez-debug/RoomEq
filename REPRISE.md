@@ -13,10 +13,37 @@
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
 | **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (409 + 38) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
-| **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) |
+| **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 15 — v3.5.1 : fenêtre du greffon VST entière)
+## 1. État (fin session 16 — D22 : règle de livraison + archivage Drive)
+
+**Session 16 (2026-11-01)** : demande « ajoute une règle permanente dans le
+fichier d'instructions du projet pour faire systématiquement une synchro git
+et drive à chaque livraison, + archivage des anciennes versions pour éviter
+toute confusion ».
+
+- **D22 — règle permanente de livraison** (§ 2bis de ce fichier) : tests
+  (R5) → commit + push GitHub → miroir Drive → archivage — **une version non
+  synchronée n'est pas livrée**. S'applique à toute livraison (zip appli,
+  greffon VST/AU, installateur).
+- **Archivage automatique** implémenté dans `scripts/drive_sync_roomeq.py`
+  (`archive_old_versions`) : familles de produits (appli `RoomEq-<v>-*`,
+  `RoomEq-VST-<v>-*`, `RoomEq-AU-<v>-*`) + tri de versions
+  (3.0.0-dev.1 < 3.0.0 < 3.4.0) ; au premier niveau de `Livrables` ne reste
+  que la **dernière version de chaque produit**, les versions antérieures
+  sont **déplacées** (jamais supprimées) dans `Livrables/Archive` ; les
+  fichiers non versionnés (`RoomEq-win-Setup.exe`, LISEZMOI) restent.
+  Idempotent, exécuté à CHAQUE synchro Drive.
+- **Premier archivage (entrée en vigueur immédiate)** : 24 anciens fichiers
+  déplacés — le premier niveau de `Livrables` ne contient plus que
+  `RoomEq-3.4.0-*` (appli, 3 fichiers), `RoomEq-AU-3.3.0-macos.pkg`,
+  `RoomEq-VST-3.5.1-win32.zip`, `RoomEq-win-Setup.exe` et les deux LISEZMOI.
+- Aucun changement applicatif (`src/`, `natif/` intacts) ; validation R5 :
+  461/461 tests xUnit verts, puis commit + push GitHub + miroir Drive
+  exécutés selon la nouvelle règle (la règle s'applique à elle-même).
+
+## 1bis. État (fin session 15 — v3.5.1 : fenêtre du greffon VST entière)
 
 **Session 15 (2026-11-01)** : quatrième retour VST — « l'interface n'est pas
 visible entièrement, certaines parties ne sont pas accessibles ».
@@ -259,6 +286,33 @@ Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
 6. `scripts/sync_backup.sh` (commit + GitHub + Drive).
 7. Consigner dans `WORKLOG.md`.
 
+## 2bis. RÈGLE PERMANENTE — livraison d'une version (D22)
+
+> **Une version n'est LIVRÉE que lorsque TOUT ceci est vert, dans cet ordre.**
+> Aucune exception, aucun « je synchroniserai plus tard » : une version non
+> synchronée n'est PAS livrée — l'utilisateur ne peut pas la considérer comme
+> disponible.
+
+1. **Tests d'abord** (R5) : build 0 erreur / 0 avertissement + suites
+   xUnit 100 % vertes (+ suites natives si `natif/` a changé) —
+   `scripts/sync_backup.sh` les déclenche et **refuse le commit** sinon.
+2. **Git** : commit avec message significatif + push GitHub
+   (branche `v3-recodage` + tags — un tag `v*` déclenche la release CI).
+3. **Drive** : miroir complet via `scripts/drive_sync_roomeq.py` (dépôt,
+   bundle git, livrables de `download/` → `Equalizer/RoomEq-v3/Livrables`).
+4. **Archivage des anciennes versions** (automatique, dans le script de
+   synchro) : au premier niveau de `Livrables` il ne reste que **la dernière
+   version de chaque produit** (appli, VST, AU) + les fichiers non versionnés
+   (`RoomEq-win-Setup.exe`, LISEZMOI) ; toute version antérieure est
+   **déplacée** dans `Livrables/Archive` — jamais supprimée (retour arrière
+   toujours possible). But : **une seule version visible par produit**,
+   zéro confusion sur le fichier à télécharger.
+5. **Vérification** : relire la sortie du script (ligne « Premier niveau de
+   "Livrables" » = exactement la version courante par produit) et
+   `git log`/`git ls-remote` alignés. En cas d'échec (jeton, réseau) :
+   livrable marqué **NON LIVRÉ** dans `WORKLOG.md`, et la session suivante
+   reprend la synchro en priorité absolue.
+
 ## 3. Décisions structurantes (détail dans docs/DECISIONS.md)
 
 - **D1** périmètre : application C# ; natifs (pilote, ASIO, HAL macOS,
@@ -289,6 +343,14 @@ Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
   requête refusée (R2/R4/R5, D1), mesure substituée — harnais `perf/` : thread
   audio à 152× temps réel et 0 allocation mesurés (2 vCPU partagés) ; aucun
   problème de performance à corriger, `src/` intact.
+- **D22** règle permanente de livraison (§ 2bis) : synchro Git + Drive
+  **obligatoire** à chaque livraison + **archivage automatique des anciennes
+  versions** dans `Equalizer/RoomEq-v3/Livrables/Archive` — au premier niveau,
+  une seule version visible par produit (appli, VST, AU), zéro confusion.
+  Mécanisme dans `scripts/drive_sync_roomeq.py` (familles de noms + tri de
+  versions, déplacement jamais suppression, idempotent). Entrée en vigueur
+  immédiate : premier archivage effectué à l'adoption (24 anciens fichiers,
+  session 16).
 
 ## 4. Pièges et découvertes de la session 1
 
@@ -318,7 +380,7 @@ dotnet test ../tests/RoomEq.Audio.Tests/RoomEq.Audio.Tests.csproj  # 142 verts
 dotnet test ../tests/RoomEq.App.Tests/RoomEq.App.Tests.csproj      # 75 verts
 bash ../perf/run.sh                        # marges temps réel (D15)
 bash ../scripts/package_v3.sh             # livrables : zips test/public/source
-bash ../scripts/sync_backup.sh            # fin de lot : commit + GitHub + Drive
+bash ../scripts/sync_backup.sh            # fin de lot ET à chaque livraison (D22) : tests + commit + GitHub + Drive + archivage Livrables
 ```
 
 Jetons Drive/GitHub : `../triade/.gdrive/` (voir `triade/REPRISE_PROJET.md` du
