@@ -9,7 +9,7 @@ une piste ou le master. Spécification : `I/audio/I-greffon-vst.md`
 
 Le cœur DSP est **celui du greffon AU** (`natif/roomeq-au/core` — parité bit
 à bit avec `RoomEq.Core` vérifiée par ses 118 tests natifs et re-vérifiée ici
-par 441 vérifications à travers le greffon VST (tests + mini-hôte)).
+par 471 vérifications à travers le greffon VST (tests + mini-hôte)).
 
 ## Ce que fait le greffon
 
@@ -96,11 +96,12 @@ les points — comme l'application).
 Le greffon exige un processeur SSE2 (Pentium 4 / 2001 ou postérieur). Le
 journal de diagnostic (peu bavard) est écrit dans
 `%LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log` — il consigne l'ouverture,
-l'auto-chargement, les chargements/refus de presets, **une ligne au
-premier bloc audio** (taux, preset actif, bandes, préampli, bypass) et,
-**à la fermeture, le nombre de blocs audio traités** (v3.5.0 — 0 bloc =
-l'audio n'est jamais passé par le greffon) : c'est la première chose à
-consulter si le son semble inchangé.
+l'auto-chargement, les chargements/refus de presets, **le taux
+d'échantillonnage, la taille de bloc et l'état mains (resume/suspend)
+(v3.5.2)**, **une ligne au premier bloc audio** (taux, preset actif,
+bandes, préampli, bypass) et, **à la fermeture, le nombre de blocs audio
+traités** (v3.5.0 — 0 bloc = l'audio n'est jamais passé par le greffon) :
+c'est la première chose à consulter si le son semble inchangé.
 
 ## Construction
 
@@ -110,9 +111,9 @@ python3 scripts/gen_headphone_bank.py
 
 # 1) cœur + greffon Linux + tests natifs + mini-hôte (tout OS)
 cmake -S natif/roomeq-vst -B build && cmake --build build
-./build/roomeq_vst_tests                     # 403 vérifications
+./build/roomeq_vst_tests                     # 430 vérifications
 ./build/roomeq_vst_host build/RoomEqVst.so \
-    natif/roomeq-au/tests/data               # 38 vérifications (ABI par dlopen)
+    natif/roomeq-au/tests/data               # 41 vérifications (ABI par dlopen)
 
 # 2) DLL Windows 32 bits (cross-compilation, Zig 0.14.1 — aucun sudo requis)
 natif/roomeq-vst/build-vst.sh                # → dist/RoomEq.dll + zip
@@ -127,8 +128,8 @@ arithmétique double identique au build 64 bits, exporte `VSTPluginMain` et
 
 | étage | quoi | résultat |
 | --- | --- | --- |
-| tests natifs (Linux x86-64, liés) | parité vs références C# (48 k stéréo, 44,1 k mono, bordes, transparent), chunks, préampli, bypass, accumulation, chaînes ABI, rejets, **auto-chargement (magasin factice : plus récent, repli sur valide, précédence du chunk, .ffp, répertoire absent)**, **presets plats ignorés (v3.4.2)**, **routage out-of-place (v3.5.0 : buffers entrée/sortie distincts + entrée intacte)**, **suspension/reprise (v3.5.0)**, **édition directe (v3.5.0 : création « Manuel », clamps, type/activation/suppression, chunk round-trip JSON, parité du preset édité)**, **banque casques (v3.5.0 : 321 modèles décodés, clamps, préampli recalcé, parité du preset casque)**, **VU-mètre/compteur de blocs (v3.5.0)**, **géométrie éditeur (v3.5.1 : rect déclaré = fenêtre réelle)** | **409 vérifications, 0 échec** — parité **0.00e+00** (bit à bit) |
-| mini-hôte (Linux x86-64, dlopen) | cycle de vie complet par l'ABI C : `VSTPluginMain`, champs `AEffect`, open/setSampleRate/setBlockSize/mainsChanged/setChunk/processReplacing 512/getChunk/setBypass/setParameter/close, entrée historique `main` | **38 vérifications, 0 échec** — parité **0.00e+00** |
+| tests natifs (Linux x86-64, liés) | parité vs références C# (48 k stéréo, 44,1 k mono, bordes, transparent), chunks, préampli, bypass, accumulation, chaînes ABI, rejets, **auto-chargement (magasin factice : plus récent, repli sur valide, précédence du chunk, .ffp, répertoire absent)**, **presets plats ignorés (v3.4.2)**, **routage out-of-place (v3.5.0 : buffers entrée/sortie distincts + entrée intacte)**, **suspension/reprise (v3.5.0)**, **édition directe (v3.5.0 : création « Manuel », clamps, type/activation/suppression, chunk round-trip JSON, parité du preset édité)**, **banque casques (v3.5.0 : 321 modèles décodés, clamps, préampli recalcé, parité du preset casque)**, **VU-mètre/compteur de blocs (v3.5.0)**,  **géométrie éditeur (v3.5.1 : rect déclaré = fenêtre réelle)**, **vue hôte externe de l'ABI (v3.5.2 : offsets en dur du SDK 2.4 + appel du pointeur lu)** | **430 vérifications, 0 échec** — parité **0.00e+00** (bit à bit) |
+| mini-hôte (Linux x86-64, dlopen) | cycle de vie complet par l'ABI C : `VSTPluginMain`, champs `AEffect`, open/setSampleRate/setBlockSize/mainsChanged/setChunk/processReplacing 512/getChunk/setBypass/setParameter/close, entrée historique `main` | **41 vérifications, 0 échec** — parité **0.00e+00** |
 | exécution 32 bits (qemu-i386, sémantique d'instructions exacte) | suite complète des 228 vérifications v3.4.0 compilée `x86-linux-gnu` + SSE2 | **228 vérifications, 0 échec** — parité **0.00e+00** (v3.4.1 : les 36 nouvelles vérifications d'auto-chargement n'ont pas été rejouées sous qemu, voir limites) |
 | cycle 32 bits par dlopen (qemu-i386) | open → processReplacing → chunk → bypass → close → `main` → close, étape par étape | OK jusqu'à `dlclose` (voir limite ci-dessous) |
 | binaire livré | magie PE32 i386 + DLL, exports `VSTPluginMain` + `main`, DSP en SSE2 pur (x87 confinée à l'ABI de retour libm) | ✓ (`build-vst.sh` refuse le contraire) |
@@ -162,7 +163,11 @@ arithmétique double identique au build 64 bits, exporte `VSTPluginMain` et
   (les clamps et la conversion sont ceux de l'application C#).
   v3.5.1 : 409 vérifications (6 de plus, géométrie de l'éditeur) — le
   correctif est purement déclaratif (rect `kEffEditGetRect`), aucun
-  changement DSP ni de rendu.
+  changement DSP ni de rendu. v3.5.2 : 430 vérifications (21 de plus :
+  vue « hôte externe » de l'AEffect par offsets en dur + rangs dépréciés
+  nuls) et 41 au mini-hôte (3 de plus, lecture brute du pointeur de
+  traitement à l'offset de l'ABI) — le correctif est purement déclaratif
+  (cinq rangs de structure comblés), aucun changement DSP ni de rendu.
 - **Premier retour utilisateur (Live 9, v3.4.0)** : « aucune différence de
   son quand le greffon est activé » — cause : aucun preset chargé (état
   transparent par défaut). Corrigé en v3.4.1 par l'auto-chargement, la
@@ -201,6 +206,22 @@ arithmétique double identique au build 64 bits, exporte `VSTPluginMain` et
   `static_assert` de cadrage des contrôles dans EditorWin32.cpp et test
   dédié dans la suite native — une dérive future casse la compilation ou
   les tests au lieu de couper l'interface.
+- **Cinquième retour utilisateur (v3.5.1)** : « les VU-mètres In/Out
+  n'affichent rien quand le VST est actif, toujours pas de modification du
+  son » — journal : « close : 0 blocs traités », aucune ligne « premier
+  bloc » : **l'hôte n'appelait JAMAIS le traitement**. Cause racine :
+  cinq rangs de la structure `AEffect` (dépréciés VST 1.x `realQualities`,
+  `offQualities`, `ioRatio` + pointeurs libres `object`, `user`)
+  manquaient entre `initialDelay` et `uniqueID` dans l'ABI autodéclarée
+  → `processReplacing` était écrit 20 octets trop tôt (offset 60 au lieu
+  de 80) → l'hôte lisait NULL dans `future[]` et passait l'audio tel quel
+  (bug présent DEPUIS la v3.4.0 ; invisible pour le mini-hôte, qui
+  partage la même définition de structure — auto-cohérence). Corrigé en
+  v3.5.2 : rangs comblés + verrou triple (`static_assert` d'offsets dans
+  `vst2_abi.h` évalué par le build Zig 32 bits, test « vue hôte externe »
+  par offsets en dur qui APPELLE le pointeur lu, contrôle équivalent au
+  mini-hôte). Preuve binaire : le constructeur stocke le pointeur à
+  `[ecx+0x3c]` en 3.5.1, à `[ecx+0x50]` (= offset ABI 80) en 3.5.2.
 - Mono : le greffon est stéréo 2/2 (un signal mono est dupliqué sur les deux
   canaux par l'hôte, comme pour tout greffon stéréo).
 
@@ -230,5 +251,5 @@ natif/roomeq-vst/
 │   ├── headphone_bank_data.h   # GÉNÉRÉ (scripts/gen_headphone_bank.py)
 │   └── roomeq_vst.def    # exports : VSTPluginMain + main (alias)
 ├── host/mini_host.cpp    # mini-hôte de test (ABI par dlopen, Linux)
-└── tests/                # 409 vérifications + utilitaires partagés
+└── tests/                # 430 vérifications + utilitaires partagés
 ```

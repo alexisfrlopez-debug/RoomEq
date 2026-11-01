@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/roomeq_vst_tests.dir/link.d CMakeFiles/roomeq_vst_tests.dir/tests/test_main.cpp.o CMakeFiles/roomeq_vst_tests.dir/vst/RoomEqVst.cpp.o CMakeFiles/roomeq_vst_tests.dir/vst/headphone_bank.cpp.o CMakeFiles/roomeq_vst_tests.dir/vst/preset_write.cpp.o -o roomeq_vst_tests  libroomeq_vst_core.a

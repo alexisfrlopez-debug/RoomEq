@@ -169,6 +169,9 @@ static void TestConstruction()
     CHECK((plugin.flags & vst::kEffFlagsProgramChunks) != 0);
     CHECK(plugin.initialDelay == 0);
     CHECK(plugin.resvd1 == 0 && plugin.resvd2 == 0);
+    CHECK(plugin.realQualities == 0 && plugin.offQualities == 0);
+    CHECK(plugin.ioRatio == 0.0f);
+    CHECK(plugin.object == nullptr && plugin.user == nullptr);
     CHECK(plugin.dispatcher != nullptr);
     CHECK(plugin.processReplacing != nullptr);
     CHECK(plugin.process != nullptr);
@@ -1235,6 +1238,104 @@ static void TestEditorRectGeometry()
         static_cast<int>(rect.right), static_cast<int>(rect.bottom));
 }
 
+/// Vue « hôte externe » de la structure AEffect (v3.5.2) : lecture des
+/// champs PAR OFFSETS EN DUR de l'ABI VST 2.4 publique — exactement ce
+/// qu'un DAW fait — sans passer par la définition de notre structure.
+/// Retour réel v3.4.0→v3.5.1 : cinq champs manquaient entre initialDelay et
+/// uniqueID → processReplacing était lu 20 octets trop tôt (32 bits) dans
+/// future[] (zéro) → l'hôte n'appelait JAMAIS le traitement : son intact,
+/// VU morts, « close : 0 blocs traités ». Le mini-hôte ne pouvait pas le
+/// voir (même structure des deux côtés) — ce test, si, par construction.
+static void TestAbiHostViewOffsets()
+{
+    std::puts("— ABI : vue hôte externe (offsets en dur du SDK 2.4)");
+    RoomEqVst plugin(&DummyHost);
+    const unsigned char* base =
+        reinterpret_cast<const unsigned char*>(&plugin);
+
+    // Offsets de l'ABI publique VST 2.4 (recoupés : SDK Steinberg
+    // aeffect.h + rust-vst api.rs), selon la largeur du pointeur du build.
+    constexpr bool k32 = sizeof(void*) == 4; // cible de livraison : PE32 i386
+    constexpr size_t kMagic = 0;
+    constexpr size_t kNumInputs = k32 ? 28 : 48;
+    constexpr size_t kNumOutputs = k32 ? 32 : 52;
+    constexpr size_t kFlags = k32 ? 36 : 56;
+    constexpr size_t kInitialDelay = k32 ? 48 : 80;
+    constexpr size_t kRealQualities = k32 ? 52 : 84;
+    constexpr size_t kOffQualities = k32 ? 56 : 88;
+    constexpr size_t kIoRatio = k32 ? 60 : 92;
+    constexpr size_t kObject = k32 ? 64 : 96;
+    constexpr size_t kUser = k32 ? 68 : 104;
+    constexpr size_t kUniqueId = k32 ? 72 : 112;
+    constexpr size_t kVersion = k32 ? 76 : 116;
+    constexpr size_t kProcessReplacing = k32 ? 80 : 120;
+    constexpr size_t kProcessDoubleReplacing = k32 ? 84 : 128;
+
+    // Lecture brute par octets (memcpy : pas d'UB d'aliasing/alignement).
+    auto readI32 = [&](size_t off) {
+        int32_t v = 0;
+        std::memcpy(&v, base + off, sizeof(v));
+        return v;
+    };
+    auto readF32 = [&](size_t off) {
+        float v = 0.0f;
+        std::memcpy(&v, base + off, sizeof(v));
+        return v;
+    };
+    auto readPtr = [&](size_t off) {
+        void* v = nullptr;
+        std::memcpy(&v, base + off, sizeof(v));
+        return v;
+    };
+
+    // identité et configuration vues par l'hôte
+    CHECK(readI32(kMagic) == vst::kEffectMagic);
+    CHECK(readI32(kNumInputs) == 2);
+    CHECK(readI32(kNumOutputs) == 2);
+    CHECK((readI32(kFlags) & vst::kEffFlagsCanReplacing) != 0);
+    CHECK((readI32(kFlags) & vst::kEffFlagsProgramChunks) != 0);
+    CHECK(readI32(kInitialDelay) == 0);
+
+    // rangs dépréciés VST 1.x + pointeurs libres : présents ET nuls
+    CHECK(readI32(kRealQualities) == 0);
+    CHECK(readI32(kOffQualities) == 0);
+    CHECK(readF32(kIoRatio) == 0.0f);
+    CHECK(readPtr(kObject) == nullptr);
+    CHECK(readPtr(kUser) == nullptr);
+
+    // identité binaire du greffon (utilisée par l'hôte pour les projets)
+    CHECK(readI32(kUniqueId) == vst::CConst('R', 'm', 'e', 'q'));
+    CHECK(readI32(kVersion) == RoomEqVst::kVersion);
+
+    // LE test qui aurait attrapé le bug : processReplacing lu à l'offset
+    // de l'ABI — non nul, et APPELABLE (un bloc traité, VU alimenté).
+    void* procRaw = readPtr(kProcessReplacing);
+    CHECK(procRaw != nullptr);
+    CHECK(readPtr(kProcessDoubleReplacing) == nullptr); // non annoncé
+    if (procRaw != nullptr) {
+        auto proc = reinterpret_cast<void (*)(vst::AEffect*, float**, float**,
+            int32_t)>(procRaw);
+        plugin.SetSampleRate(48000.0);
+        float in[2][64];
+        float out[2][64];
+        for (int i = 0; i < 64; ++i) {
+            in[0][i] = 0.25f;
+            in[1][i] = -0.25f;
+            out[0][i] = out[1][i] = 0.0f;
+        }
+        float* ins[2] = { in[0], in[1] };
+        float* outs[2] = { out[0], out[1] };
+        proc(&plugin, ins, outs, 64);
+        CHECK(plugin.BlocksProcessed() == 1); // l'hôte a vraiment traité
+        CHECK(plugin.InputLevel() > 0.2f);   // VU alimenté
+        // greffon sans preset : identité — la copie in→out est faite
+        CHECK(out[0][0] == 0.25f && out[1][0] == -0.25f);
+    }
+
+    std::printf("  processReplacing lu à l'offset %zu de l'ABI : non nul, "
+        "1 bloc traité par appel direct\n", kProcessReplacing);
+}
+
 
 
 int main(int argc, char** argv)
@@ -1260,6 +1361,7 @@ int main(int argc, char** argv)
     TestHeadphoneBank();
     TestVuMeterAndBlockCount();
     TestEditorRectGeometry();
+    TestAbiHostViewOffsets();
 
     std::printf("\n%d vérifications, %d échecs\n", g_checks, g_failures);
     if (g_failures > 0) {

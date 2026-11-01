@@ -13,6 +13,7 @@
 // non déclaré ci-dessous n'est pas géré par le greffon (réponse 0).
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace vst {
@@ -39,7 +40,11 @@ typedef void (*SetParameterProc)(AEffect* effect, int32_t index, float value);
 typedef float (*GetParameterProc)(AEffect* effect, int32_t index);
 
 /// La structure d'effet VST 1.0/2.x — ordre de champs EXACT, jamais changé
-/// par compatibilité ascendante. 96 octets en 32 bits.
+/// par compatibilité ascendante. Entre `initialDelay` et `uniqueID` vivent
+/// TROIS champs dépréciés de VST 1.x (`realQualities`, `offQualities`,
+/// `ioRatio`) et DEUX pointeurs libres (`object`, `user`) : ils occupent leur
+/// rang même inutilisés — c'est la condition de l'alignement binaire.
+/// 144 octets en 32 bits (88 de champs + future[56]).
 struct AEffect {
     int32_t magic;              // kEffectMagic 'VstP'
     DispatcherProc dispatcher;  // hôte → greffon
@@ -54,12 +59,55 @@ struct AEffect {
     IntPtr resvd1;              // réservé hôte (doit rester 0)
     IntPtr resvd2;              // réservé hôte (doit rester 0)
     int32_t initialDelay;       // latence en échantillons (0 pour nous)
+    int32_t realQualities;      // déprécié VST 1.x — doit rester 0
+    int32_t offQualities;       // déprécié VST 1.x — doit rester 0
+    float ioRatio;              // déprécié VST 1.x — doit rester 0
+    void* object;               // pointeur libre du greffon (hôte : ne lit pas)
+    void* user;                 // pointeur libre du greffon (hôte : ne lit pas)
     int32_t uniqueID;           // identifiant 4 octets, stable entre versions
     int32_t version;            // ex. 3400 pour 3.4.0
     ProcessProc processReplacing;
     ProcessDoubleProc processDoubleReplacing; // VST 2.4 (non utilisé ici)
     char future[56];            // réservé (zéro)
 };
+
+// ------------------------------------------- verrou d'ABI (v3.5.2, retour
+// utilisateur « toujours aucune modification du son, VU morts, 0 blocs
+// traités ») : cinq champs manquaient entre initialDelay et uniqueID → tout
+// ce qui suit était décalé de 20 octets (32 bits) : l'hôte lisait
+// processReplacing à l'offset 80 DANS future[] (zéro) et n'appelait jamais
+// le traitement — le son passait intact, le mini-hôte (même structure des
+// deux côtés) ne pouvait pas le voir. Ces offsets sont ceux de l'ABI
+// publique VST 2.4 (recoupés : SDK Steinberg 2.4 aeffect.h + implémentation
+// rust-vst api.rs) ; TOUT écart (champ oublié, réordonnancement, insertion)
+// casse la compilation AVANT d'atteindre un DAW.
+constexpr bool kAbiIs32Bit = sizeof(void*) == 4; // cible de livraison : PE32 i386
+static_assert(!kAbiIs32Bit || offsetof(AEffect, dispatcher) == 4, "ABI VST2 32 bits : dispatcher");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, process) == 8, "ABI VST2 32 bits : process");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, flags) == 36, "ABI VST2 32 bits : flags");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, initialDelay) == 48, "ABI VST2 32 bits : initialDelay");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, realQualities) == 52, "ABI VST2 32 bits : realQualities");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, offQualities) == 56, "ABI VST2 32 bits : offQualities");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, ioRatio) == 60, "ABI VST2 32 bits : ioRatio");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, object) == 64, "ABI VST2 32 bits : object");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, user) == 68, "ABI VST2 32 bits : user");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, uniqueID) == 72, "ABI VST2 32 bits : uniqueID");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, version) == 76, "ABI VST2 32 bits : version");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, processReplacing) == 80, "ABI VST2 32 bits : processReplacing");
+static_assert(!kAbiIs32Bit || offsetof(AEffect, processDoubleReplacing) == 84, "ABI VST2 32 bits : processDoubleReplacing");
+// Build de test Linux x86-64 : mêmes rangs relatifs, pointeurs de 8 octets
+// (alignement : magic(0)+bourrage, resvd1/resvd2 alignés 8, object/user et
+// les pointeurs de traitement idem).
+static_assert(kAbiIs32Bit || offsetof(AEffect, dispatcher) == 8, "ABI VST2 64 bits : dispatcher");
+static_assert(kAbiIs32Bit || offsetof(AEffect, flags) == 56, "ABI VST2 64 bits : flags");
+static_assert(kAbiIs32Bit || offsetof(AEffect, initialDelay) == 80, "ABI VST2 64 bits : initialDelay");
+static_assert(kAbiIs32Bit || offsetof(AEffect, realQualities) == 84, "ABI VST2 64 bits : realQualities");
+static_assert(kAbiIs32Bit || offsetof(AEffect, ioRatio) == 92, "ABI VST2 64 bits : ioRatio");
+static_assert(kAbiIs32Bit || offsetof(AEffect, object) == 96, "ABI VST2 64 bits : object");
+static_assert(kAbiIs32Bit || offsetof(AEffect, user) == 104, "ABI VST2 64 bits : user");
+static_assert(kAbiIs32Bit || offsetof(AEffect, uniqueID) == 112, "ABI VST2 64 bits : uniqueID");
+static_assert(kAbiIs32Bit || offsetof(AEffect, processReplacing) == 120, "ABI VST2 64 bits : processReplacing");
+static_assert(kAbiIs32Bit || offsetof(AEffect, processDoubleReplacing) == 128, "ABI VST2 64 bits : processDoubleReplacing");
 
 /// Rectangle de l'éditeur (coordonnées locales, entiers 16 bits).
 struct ERect {

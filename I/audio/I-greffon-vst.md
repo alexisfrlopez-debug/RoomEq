@@ -1,6 +1,6 @@
 # I-AUD-08 — Greffon VST 2 32 bits « RoomEq Correction » (.dll Windows)
 
-- **Module** : M-AUD-08 · **Version de spec** : 2 (v3.4.1) · **Code** :
+- **Module** : M-AUD-08 · **Version de spec** : 3 (v3.5.2) · **Code** :
   `natif/roomeq-vst/` (composant natif N-VST-01, décision D21) — ABI VST 2
   autodéclarée `vst/vst2_abi.h`, greffon `vst/`, hôte de test `host/`, tests
   natifs `tests/` ; **réutilise tel quel le cœur C++ du greffon AU**
@@ -50,11 +50,31 @@ au runtime : le greffon ne lie que les bibliothèques système Windows
 
 ```cpp
 // vst2_abi.h — ABI VST 2.4 minimale (magie 'VstP' 0x56737450)
-struct AEffect {            // 96 octets en 32 bits — ordre EXACT
+struct AEffect {            // 144 octets en 32 bits — ordre EXACT
     int32_t magic, numPrograms, numParams, numInputs, numOutputs, flags;
-    int32_t initialDelay, uniqueID, version;   // + pointeurs de callbacks
-    intptr_t resvd1, resvd2; char future[56];
+    intptr_t resvd1, resvd2;
+    int32_t initialDelay;
+    // ── v3.5.2 : ces CINQ rangs comblent l'espace initialDelay→uniqueID —
+    // dépréciés VST 1.x et pointeurs libres, INUTILISÉS mais comptent dans
+    // l'alignement binaire (retour réel v3.4.0→v3.5.1 : leur omission
+    // décalait processReplacing de 20 octets → l'hôte lisait NULL dans
+    // future[] et n'appelait JAMAIS le traitement — son intact, VU morts,
+    // « close : 0 blocs traités »)
+    int32_t realQualities, offQualities;  // dépréciés — 0
+    float ioRatio;                        // déprécié — 0
+    void *object, *user;                  // libres — nullptr
+    int32_t uniqueID, version;
+    ProcessProc processReplacing;          // offset 80 en 32 bits
+    ProcessDoubleProc processDoubleReplacing;
+    char future[56];
 };
+// VERROU D'ABI (v3.5.2) : static_asserts d'offsets (32 bits : flags=36,
+// initialDelay=48, uniqueID=72, processReplacing=80… ; 64 bits de test :
+// idem au facteur de largeur près) dans vst2_abi.h + test « vue hôte
+// externe » (lectures PAR OFFSETS EN DUR, puis APPEL du pointeur lu) dans
+// tests/test_main.cpp + contrôle équivalent dans host/mini_host.cpp — tout
+// écart casse la compilation ou les tests AVANT d'atteindre un DAW.
+//
 // Opcodes greffon vérifiés : effOpen=0, effClose=1, effSetProgram=2,
 // effGetProgram=3, effSetProgramName=4, effGetProgramName=5,
 // effGetParamLabel=6, effGetParamDisplay=7, effGetParamName=8,
@@ -67,7 +87,7 @@ struct AEffect {            // 96 octets en 32 bits — ordre EXACT
 // audioMasterUpdateDisplay=42.
 
 // vst/RoomEqVst.h — le greffon (cœur réutilisé du module AU)
-class RoomEqVst : public AEffect {          // uniqueID 'Rmeq', version 3401
+class RoomEqVst : public AEffect {          // uniqueID 'Rmeq', version 3502
     // numParams = 1 : « Preamp » (dB, [−36 ; +36], kVstMaxParamStrLen = 8
     //               oblige le libellé ASCII « Preamp », label « dB »).
     // numPrograms = 1 ; numInputs = numOutputs = 2 (stéréo) ;

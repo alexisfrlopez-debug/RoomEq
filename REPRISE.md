@@ -7,16 +7,51 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.5.1** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2, **v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics** et **v3.5.1 : fenêtre du greffon entière (rect kEffEditGetRect = 560×320, source unique editor_geometry.h)** |
+| **Projet** | RoomEq **v3.5.2** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2, **v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics**, **v3.5.1 : fenêtre du greffon entière (rect kEffEditGetRect = 560×320, source unique editor_geometry.h)** et **v3.5.2 : ABI AEffect réparée — cinq rangs manquants comblés, l'hôte appelle enfin processReplacing** |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (409 + 38) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 16 — D22 : règle de livraison + archivage Drive)
+## 1. État (fin session 17 — v3.5.2 : le DAW appelle enfin le traitement)
+
+**Session 17 (2026-11-01)** : cinquième retour VST — « les VU-mètres In/Out
+n'affichent rien quand le VST est actif, toujours pas de modification du
+son » + journal fourni : **« close : 0 blocs traités »**, aucune ligne
+« premier bloc ».
+
+- **Diagnostic (structurel)** : le journal prouve que l'hôte n'appelle
+  JAMAIS `processReplacing`. Cause racine vérifiée contre le SDK Steinberg
+  2.4 authentique (miroir public GitHub) + rust-vst : **cinq rangs de la
+  structure `AEffect` manquaient** dans notre ABI autodéclarée entre
+  `initialDelay` et `uniqueID` (dépréciés VST 1.x `realQualities`,
+  `offQualities`, `ioRatio` + pointeurs libres `object`, `user`) →
+  `processReplacing` était écrit 20 octets trop tôt (offset 60 au lieu de
+  80 en 32 bits) → l'hôte lisait NULL dans `future[]` et passait l'audio
+  tel quel. **Bug présent depuis la v3.4.0** ; invisible pour le mini-hôte
+  (même structure des deux côtés — auto-cohérence, 38/38 verts).
+- **Preuve binaire** : le constructeur de la 3.5.1 stocke le pointeur à
+  `[ecx+0x3c]` (60), celui de la 3.5.2 à `[ecx+0x50]` (80 = offset ABI).
+- **Correctif v3.5.2** : rangs comblés (à 0/nullptr, inutilisés mais
+  comptant dans l'alignement) + **verrou triple** : static_asserts
+  d'offsets dans `vst2_abi.h` (évalués par le build Zig 32 bits ET le
+  build de test 64 bits), test « vue hôte externe » dans la suite native
+  (lecture des champs PAR OFFSETS EN DUR du SDK, puis APPEL du pointeur
+  lu : 1 bloc traité, VU alimenté — ce test aurait attrapé le bug),
+  contrôle équivalent au mini-hôte. Journal enrichi : taux, taille de
+  bloc, mains (resume/suspend).
+- **Validation** : 430 vérifications natives (+21) + 41 mini-hôte (+3),
+  parité 0.00e+00, DLL win32 reconstruite (PE32 i386, exports OK).
+  Aucun changement DSP — correctif purement déclaratif.
+- **Livrable** : `RoomEq-VST-3.5.2-win32.zip` — remplacer la DLL, la
+  version affichée en bas à droite doit lire **3.5.2**, rescanner, puis
+  lancer la lecture : les VU doivent bouger et la ligne « process : … »
+  apparaître dans le journal.
+
+## 1bis. État (fin session 16 — D22 : règle de livraison + archivage Drive)
 
 **Session 16 (2026-11-01)** : demande « ajoute une règle permanente dans le
 fichier d'instructions du projet pour faire systématiquement une synchro git

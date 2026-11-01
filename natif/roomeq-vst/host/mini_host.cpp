@@ -123,6 +123,26 @@ int main(int argc, char** argv)
     CHECK(effect->processReplacing != nullptr);
     CHECK(effect->setParameter != nullptr && effect->getParameter != nullptr);
 
+    // Vue « hôte externe » (v3.5.2) : processReplacing lu par OFFSET EN DUR
+    // de l'ABI VST 2.4 — pas par notre structure. Retour réel v3.4.0→v3.5.1 :
+    // cinq champs manquaient entre initialDelay et uniqueID ; l'hôte lisait
+    // le pointeur dans future[] (zéro) et n'appelait jamais le traitement
+    // (« close : 0 blocs traités », son intact). Le mini-hôte ne pouvait pas
+    // le voir en lisant la même structure — ces lectures brutes, si.
+    {
+        constexpr bool k32 = sizeof(void*) == 4;
+        constexpr size_t kOffUniqueId = k32 ? 72 : 112;
+        constexpr size_t kOffProcessReplacing = k32 ? 80 : 120;
+        const auto* raw = reinterpret_cast<const unsigned char*>(effect);
+        int32_t uid = 0;
+        void* procRaw = nullptr;
+        std::memcpy(&uid, raw + kOffUniqueId, sizeof(uid));
+        std::memcpy(&procRaw, raw + kOffProcessReplacing, sizeof(procRaw));
+        CHECK(uid == CConst('R', 'm', 'e', 'q'));
+        CHECK(procRaw != nullptr);
+        CHECK(procRaw == effect->processReplacing); // même rang que l'ABI
+    }
+
     // ------------------------------------------------------------- cycle de vie
     CHECK(effect->dispatcher(effect, kEffOpen, 0, 0, nullptr, 0.0f) == 1);
     CHECK(effect->dispatcher(effect, kEffSetSampleRate, 0, 0, nullptr, 48000.0f)

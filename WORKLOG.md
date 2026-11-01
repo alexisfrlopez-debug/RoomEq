@@ -1177,3 +1177,66 @@ Stage Summary:
   (appli 3.4.0, AU 3.3.0, VST 3.5.1 + Setup.exe + LISEZMOI).
 - Les anciennes versions restent accessibles dans « Livrables/Archive »
   (retour arrière toujours possible, rien n'est supprimé).
+
+---
+Session : 17 — 2026-11-01
+Agent : main (Z.ai)
+Task : Cinquième retour VST — « les vu-mètres in out n'affichent rien
+quand le vst est actif, toujours pas de modification du son » (journal
+roomeq-vst.log fourni).
+
+Work Log:
+- DIAGNOSTIC (le journal tranche) : « close : 0 blocs traités » et
+  AUCUNE ligne « premier bloc » à toutes les sessions → l'hôte n'appelle
+  JAMAIS processReplacing. Le preset est bien là (auto-chargement « JBL
+  Tune Flex 2 », 10 bandes, preamp -2.0 dB — les lignes « preset charge »
+  et « preset casque charge » le prouvent), l'éditeur s'ouvre, les chunks
+  se restaurent : le DSP n'est juste jamais invoqué.
+- CAUSE RACINE (vérifiée contre le SDK Steinberg 2.4 authentique — miroir
+  public GitHub R-Tur/VST_SDK_2.4 pluginterfaces/vst2.x/aeffect.h — et
+  recoupée avec rust-vst api.rs) : la structure AEffect de notre ABI
+  autodéclarée (vst2_abi.h) omettait CINQ rangs entre initialDelay et
+  uniqueID : realQualities, offQualities, ioRatio (dépréciés VST 1.x) et
+  object, user (pointeurs libres). En 32 bits, tout ce qui suit était
+  décalé de 20 octets : le greffon écrivait processReplacing à l'offset
+  60, l'hôte le lit à l'offset 80 — dans future[], c'est-à-dire NULL.
+  Flags corrects (offset 36, avant la divergence) → le DAW croit le
+  greffon capable de traiter, appelle un pointeur NULL, le saute
+  défensivement : audio intact, VU morts, 0 blocs. Bug présent DEPUIS
+  v3.4.0 ; le mini-hôte (38/38 verts) ne pouvait pas le voir : il
+  partage la même définition de structure — auto-cohérence.
+- PREUVE BINAIRE : le constructeur de la DLL 3.5.1 stocke le pointeur à
+  [ecx+0x3c] (offset 60) ; celui de la 3.5.2 à [ecx+0x50] (offset 80 =
+  offset ABI lu par les hôtes).
+- CORRECTIF v3.5.2 : (1) les cinq rangs sont comblés dans vst2_abi.h et
+  initialisés à 0/nullptr dans le constructeur ; (2) VERROU TRIPLE pour
+  que la classe de bug ne revienne jamais : static_asserts d'offsets
+  absolus dans vst2_abi.h (32 bits : flags=36, initialDelay=48,
+  uniqueID=72, processReplacing=80… — évalués par le build Zig win32 ET
+  le build de test 64 bits), test TestAbiHostViewOffsets dans la suite
+  native (lecture des champs PAR OFFSETS EN DUR du SDK puis APPEL du
+  pointeur lu : 1 bloc traité, VU alimenté, sortie identité — ce test
+  échoue sur la 3.5.1), contrôle équivalent dans mini_host.cpp (lecture
+  brute du pointeur + identité avec l'offset ABI) ; (3) journal enrichi :
+  taux d'échantillonnage, taille de bloc, mains resume/suspend —
+  diagnostique le démarrage du greffon AVANT même le premier bloc.
+- Versions alignées : kVersion 3502, CMake 3.5.2, Directory.Build.props
+  3.5.2, package_v3.sh 3.5.2. Spec I-AUD-08 passée en v3 (layout AEffect
+  corrigé + invariant de verrouillage — la spec v2 documentait le layout
+  fautif compressé). CARTE.md M-AUD-08 + en-tête mis à jour (v3.5.2).
+- Aucun changement DSP, de rendu ou de thread — correctif purement
+  déclaratif (cinq rangs de structure).
+
+Stage Summary:
+- v3.5.2 : LE correctif du « jamais aucune différence de son » — ce
+  n'était NI le preset, NI le routage, NI le bridging : la structure
+  d'interface était décalée de 20 octets et le DAW appelait un pointeur
+  NULL. L'hôte lit désormais processReplacing au bon offset.
+- Validation : 430/430 vérifications natives (+21, dont la vue hôte
+  externe), 41/41 mini-hôte (+3), parité 0.00e+00, DLL PE32 i386
+  reconstruite et contrôlée, 461/461 xUnit.
+- Livrable : RoomEq-VST-3.5.2-win32.zip dans download/ — remplacer la
+  DLL (version 3.5.2 en bas à droite de l'éditeur), rescanner les
+  greffons, lancer la lecture : les VU In/Out doivent bouger et le
+  journal doit montrer « taux d'echantillonnage », « taille de bloc »,
+  « mains : resume » puis « process : … preset « JBL Tune Flex 2 » … ».

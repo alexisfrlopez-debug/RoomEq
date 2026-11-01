@@ -299,6 +299,15 @@ RoomEqVst::RoomEqVst(vst::HostCallback host) : host_(host)
     resvd1 = 0;
     resvd2 = 0;
     initialDelay = 0;
+    // v3.5.2 — rangs dépréciés VST 1.x et pointeurs libres : ILS COMPTENT
+    // dans l'alignement binaire même inutilisés (retour utilisateur « 0
+    // blocs traités » : ces cinq champs manquaient, processReplacing était lu
+    // 20 octets trop tôt par l'hôte — dans future[], c'est-à-dire NULL).
+    realQualities = 0;
+    offQualities = 0;
+    ioRatio = 0.0f;
+    object = nullptr;
+    user = nullptr;
     uniqueID = kUniqueId;
     version = kVersion;
     processReplacing = &RoomEqVst::ProcessReplace;
@@ -413,17 +422,23 @@ vst::IntPtr RoomEqVst::HandleDispatcher(int32_t opcode, int32_t index,
         return 1;
 
     case vst::kEffSetSampleRate:
+        // Journal (v3.5.2) : ces trois lignes tranchent à distance « l'hôte
+        // n'a jamais démarré le greffon » (aucune ligne) vs « démarré mais
+        // silencieux » — diagnostic du flux AVANT même le premier bloc.
+        Log("taux d'echantillonnage : %.0f Hz", static_cast<double>(opt));
         SetSampleRate(static_cast<double>(opt));
         SyncChainsFromFormat(); // sérialisé avec process (contrat VST 2)
         return 1;
 
     case vst::kEffSetBlockSize:
+        Log("taille de bloc : %d", static_cast<int>(value));
         SetBlockSize(static_cast<int32_t>(value));
         if (static_cast<size_t>(value) > scratch_.size())
             scratch_.resize(static_cast<size_t>(value)); // mode accumulation
         return 1;
 
     case vst::kEffMainsChanged:
+        Log("mains : %s", value != 0 ? "resume" : "suspend");
         // 0 = suspend : remise à zéro des états (départ propre au resume,
         // équivalent du Reset AU après un déplacement du curseur du DAW).
         if (value == 0) {
