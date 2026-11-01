@@ -1,0 +1,5 @@
+; RoomEq APO — exports COM (chargement par audiodg.exe via CoCreateInstance)
+LIBRARY RoomEqApo
+EXPORTS
+    DllGetClassObject
+    DllCanUnloadNow
