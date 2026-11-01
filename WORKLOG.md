@@ -1372,3 +1372,85 @@ Stage Summary:
   l'application se charge seul, sinon choisir un casque dans les listes ;
   VU In/Out mobiles à la lecture + journal ~/Library/Logs/RoomEq/
   roomeq-au.log (« process : … preset « … » »).
+
+---
+Session : 19 — 2026-11-01
+Agent : main (Z.ai)
+Task : « Je veux revenir à la version installable sur Windows : que
+l'application installe son propre driver de carte son virtuelle pour ne plus
+dépendre de VB-Cable, mais je bute sur le "driver signé Microsoft" payant —
+trouver un contournement user friendly, sans mode test. Pourquoi ce problème
+alors qu'il existe des drivers non signés installables ? »
+
+Work Log:
+- Constat d'état (pas un chantier de code) : l'application a DÉJÀ son propre
+  pilote intégré (`roomeqvad.sys`, scellé v2.2.2, livré par l'installateur à
+  côté de l'appli) — le mur n'est pas la dépendance VB-Cable mais la
+  **signature test** du pilote : chargement uniquement en mode test
+  (+ Secure Boot off), refusé par défaut par la politique produit I-INS-05
+  (consentement explicite, défaut NON). VB-CABLE est le palliatif que
+  l'utilisateur installe en pratique.
+- Recherche web factuelle (12 sources primaires, listées dans le document) :
+  politique Microsoft (code noyau x64 signé obligatoire ; Secure Boot ON =
+  signature Microsoft exigée), Hardware Dev Center (compte gratuit MAIS
+  certificat EV obligatoire pour l'inscription ET l'attestation ;
+  attestation elle-même gratuite, sans HLK pour un VAD logiciel), prix EV
+  octobre 2026 (349–669 $/an CA directes, ≈ 226–299 $/an revendeurs Certum
+  cloud), mécanisme APO documenté (Etienne Dechamps + Microsoft Learn :
+  FxProperties par endpoint render, PKEY_FX_*EffectClsid ,5/,6/,7, position
+  EFX « toujours appliquée même aux flux raw », audiodg en LocalService sans
+  accès aux profils), preuve à l'échelle (Equalizer APO : binaires non
+  signés, des millions d'installations Win 10/11 24H2 ; packs APO
+  communautaires actifs janv. 2026), écosystème OEM (VB-CABLE donationware
+  sans terme de redistribution, LoopBeAudio payant, e2eSoft VSC SDK payant).
+- **Démêlage du paradoxe « drivers non signés installables »** (5 cas :
+  signés-Microsoft-invisibles comme VB-CABLE / user-mode / class drivers /
+  Secure Boot off + cross-signing historique / mode test) — consigné dans
+  le document : VB-CABLE n'est PAS un driver non signé, c'est un driver
+  signé Microsoft qu'un éditeur offre gratuitement.
+- **Analyse + recommandation livrées** (`docs/EQ-SYSTEME-APO.md`) :
+  4 options comparées (APO / signer le pilote via EV+attestation / driver
+  OEM tiers / mode test statu quo) sur coût, mode test, UX, couverture,
+  dépendance, travail, risques. **Recommandation : APO** — installer le DSP
+  RoomEq DANS le moteur audio Windows (audiodg.exe) via un Audio Processing
+  Object user-mode position EFX : zéro pilote, zéro signature Microsoft,
+  zéro mode test, zéro dépendance tierce, installation = 1 UAC réversible ;
+  renverse l'architecture (plus besoin d'amener le son à l'application ;
+  l'appli devient télécommande de la courbe). Limites énoncées honnêtement
+  (exclusif/ASIO/KS contournent le moteur audio ; par périphérique ;
+  effets fabricant suspendus le temps de l'activation, sauvegardés ;
+  auto-réparation après MAJ pilote ; ARM64 en lot optionnel ; DRM à
+  confirmer au terrain ; mécanisme standalone éprouvé mais non officiel).
+- **Spec I-AUD-09 rédigée** (`I/audio/I-apo-systeme.md`, M-AUD-09/N-APO-01,
+  v1, vague 9 future) : contrat C# (ApoRegistrar : énumération endpoints
+  render, sauvegarde AVANT écriture des FxProperties, restauration exacte
+  idempotente, RepairAll, UninstallAll ; ApoConfigStore : courbe active
+  %ProgramData%\RoomEq\apo au format preset D23, bypass mesure), contrat
+  natif (RoomEqApo.dll COM x64+ARM64, EFX, cœur DSP réutilisé D23, poll
+  mtime ≥ 100 ms + swap atomique, APOProcess sans allocation/verrou/I/O,
+  pass-through sur config illisible, harnais roomeq_apo_host), 12 invariants
+  (zéro pilote noyau, anti-boucle cohérent I-AUD-03 v2, consentement UAC
+  explicite, désinstallation qui RESTAURE d'abord, portabilité CI Linux…)
+  et critères de test (faux registre, continuité d'échantillons à la
+  couture, compteur d'allocations RT).
+- CARTE.md : section « Module prospectif — EQ système par APO » (M-AUD-09
+  ⬜ spec prête) ; REPRISE.md : résumé + état session 19 + prochaine étape
+  (validation D24).
+- Décision **D24 PROPOSÉE, non consignée dans DECISIONS.md** (la décision
+  engage l'architecture produit : elle attend la validation de
+  l'utilisateur) — plan de vague 9 en 4 lots prêt (natif / registrar C# /
+  UI + intégration / distribution + doc + terrain).
+
+Stage Summary:
+- Session d'étude et de spécification (aucun code modifié, tests 461/461
+  inchangés) : le problème « driver signé Microsoft payant » est contourné
+  par conception — l'EQ système devient un APO user-mode dans audiodg, sans
+  pilote ni mode test ni signature ; le pilote noyau reste option avancée,
+  la signature EV+attestation (≈ 226–669 $/an) documentée comme voie
+  complémentaire long terme.
+- Livrables : `docs/EQ-SYSTEME-APO.md` (analyse sourcée + comparatif +
+  architecture + limites honnêtes + plan), `I/audio/I-apo-systeme.md`
+  (I-AUD-09 v1 prête pour la vague 9), CARTE/REPRISE à jour.
+- Prochaine étape : validation utilisateur de D24 → vague 9 lot 1
+  (natif/roomeq-apo + harnais de tests).
+

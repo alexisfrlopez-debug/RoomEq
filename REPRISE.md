@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.6.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2, v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics, v3.5.1 : fenêtre du greffon entière, v3.5.2 : ABI AEffect réparée — l'hôte appelle enfin processReplacing, et **v3.6.0 : l'AU rejoint la parité fonctionnelle du VST (D23 — édition à la souris, banque, VU, auto-chargement, journal)** |
+| **Projet** | RoomEq **v3.6.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2, v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics, v3.5.1 : fenêtre du greffon entière, v3.5.2 : ABI AEffect réparée — l'hôte appelle enfin processReplacing, **v3.6.0 : l'AU rejoint la parité fonctionnelle du VST (D23 — édition à la souris, banque, VU, auto-chargement, journal)**, et **session 19 (étude) : contourner la signature Microsoft des pilotes — recommandation APO (EQ système user-mode dans audiodg, sans pilote/mode test/dépendance), spec I-AUD-09 prête, décision D24 proposée en attente de validation** (`docs/EQ-SYSTEME-APO.md`) |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
@@ -16,7 +16,44 @@
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 18 — v3.6.0 : l'AU en parité fonctionnelle du VST)
+## 1. État (fin session 19 — étude : EQ système sans pilote, recommandation APO)
+
+**Session 19 (2026-11-01)** : « Revenir à la version installable Windows :
+l'application doit installer son propre driver de carte son virtuelle pour ne
+plus dépendre de VB-Cable, mais le "driver signé Microsoft" est payant —
+trouver un contournement user friendly, sans mode test. Pourquoi ce problème
+alors qu'il existe des drivers non signés installables ? »
+
+- **Constat** : l'appli a déjà son pilote (`roomeqvad.sys` scellé v2.2.2) —
+  le mur est sa **signature test** (mode test + Secure Boot off, refusé par
+  défaut par I-INS-05). VB-CABLE est le palliatif installé en pratique.
+- **Démêlage du paradoxe** : les « drivers non signés » qui s'installent sont
+  soit signés Microsoft sans que ça se voie (c'est le cas de VB-CABLE), soit
+  du user-mode (ASIO, APO), soit des class drivers, soit sur des machines
+  Secure Boot off / en mode test. Aucune voie gratuite légale pour signer
+  un driver noyau (EV 226–669 $/an + Hardware Dev Center).
+- **Recommandation : APO** — Audio Processing Object user-mode chargé par
+  `audiodg.exe` (position EFX, FxProperties par endpoint) : zéro pilote,
+  zéro signature Microsoft, zéro mode test, zéro dépendance tierce,
+  installation = 1 UAC réversible. Preuve à l'échelle : Equalizer APO
+  (non signé, des millions d'installations Win 10/11). Architecture
+  renversée : l'EQ vit dans le moteur audio Windows, l'appli devient
+  télécommande de la courbe (%ProgramData%, format preset D23, cœur DSP
+  partagé VST/AU réutilisé). Limites honnêtes : exclusif/ASIO/KS
+  contournent, par périphérique, effets fabricant suspendus (sauvegardés),
+  auto-réparation après MAJ pilote, ARM64 optionnel, DRM à confirmer.
+- **Livrables de la session** : `docs/EQ-SYSTEME-APO.md` (analyse sourcée,
+  4 options comparées, architecture, plan vague 9 en 4 lots) + spec
+  **I-AUD-09** `I/audio/I-apo-systeme.md` (M-AUD-09/N-APO-01 : ApoRegistrar
+  + ApoConfigStore + RoomEqApo.dll, 12 invariants, critères de test) +
+  CARTE (module prospectif ⬜ spec prête).
+- **Décision D24 PROPOSÉE (non consignée)** : l'EQ système Windows passe par
+  l'APO ; pilote noyau = option avancée ; signature EV = voie complémentaire
+  long terme. **En attente de validation utilisateur** → puis vague 9
+  (lot 1 : `natif/roomeq-apo/` + harnais `roomeq_apo_host`).
+- Aucun code modifié : tests xUnit 461/461 inchangés, natifs non touchés.
+
+## 1bis. État (fin session 18 — v3.6.0 : l'AU en parité fonctionnelle du VST)
 
 **Session 18 (2026-11-01)** : « parfait, tout fonctionne [VST 3.5.2].
 Maintenant il me faut la version pour Ableton sur macOS en AU » — livrer

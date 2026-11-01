@@ -83,6 +83,19 @@
 | M-INS-07 | Charge utile + ASIO | `I/installateur/I-charge-utile-asio.md` | futur `…/Payload.cs` + `AsioRegistration.cs` | ⬜ spec prête |
 | M-INS-08 | Interface graphique / affichage | `I/installateur/I-interface-graphique.md` | futur `…/UiSink.cs` + `Gui/` | ⬜ spec prête |
 
+## Module prospectif — EQ système par APO (proposition session 19)
+
+> Contourne l'exigence Microsoft de signature des pilotes noyau : le mode
+> « tout le son d'une sortie Windows traverse l'EQ » passe par un Audio
+> Processing Object user-mode chargé par `audiodg.exe` — sans pilote, sans
+> mode test, sans dépendance tierce (VB-CABLE). Analyse complète et options
+> comparées dans `docs/EQ-SYSTEME-APO.md` ; décision **D24 proposée, en
+> attente de validation** avant lancement de la vague 9.
+
+| ID | Module | Spec I | Code | Statut |
+|----|--------|--------|------|--------|
+| M-AUD-09 | EQ système (APO Windows) | `I/audio/I-apo-systeme.md` | futur `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/` (N-APO-01) | ⬜ spec prête |
+
 ## Blocs natifs scellés (hors périmètre de recodage — D1)
 
 | ID | Composant | Version scellée | Référence |
