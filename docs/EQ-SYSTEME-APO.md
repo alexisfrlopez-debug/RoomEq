@@ -4,7 +4,18 @@
   (2 novembre 2026) — vague 9 LIVRÉE en v3.7.0 : `natif/roomeq-apo/`
   (harnais 112 vérifications), `src/RoomEq.Audio/SystemApo/` (23 tests
   xUnit), panneau « EQ système » dans l'onglet Mixage, DLL x64 + arm64
-  déployées par l'installateur (spec as-built I-AUD-09 v1.1)
+  déployées par l'installateur (spec as-built I-AUD-09 v1.1).
+  **v3.9.1 (session 23, 2 novembre 2026)** : correctif activation sur les
+  sorties dont le pilote ne crée pas la sous-clé `FxProperties` (premier
+  retour terrain : « Ce périphérique n'expose pas de slot d'effets
+  système » sur « Haut-parleurs (Realtek(R) Audio) » — pilote générique
+  Windows). Le store CRÉE la sous-clé manquante à l'écriture (mécanisme
+  standalone d'Equalizer APO documenté § 3.2 ; « if the FxProperties key
+  is absent entirely, then no system effect APOs are used », É. Dechamps
+  — donc une clé créée EST lue par le moteur) ; la sauvegarde mémorise
+  l'existence d'origine (`FxPropertiesExisted`) et la désactivation
+  supprime la clé créée si redevenue vide ; vue registre Registry64
+  explicite (anti-WOW64). Spec I-AUD-09 v1.2, registrar 16 → 20 tests.
 - **Question posée** : « Je voudrais que l'application installe son propre
   driver de carte son virtuelle afin de ne plus dépendre de VB-Cable, mais je
   bute sur le problème du driver signé Microsoft qui demande une solution

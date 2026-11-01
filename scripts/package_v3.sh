@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.0
+VERSION=3.9.1
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -122,6 +122,14 @@ PY
   && grep -qE 'SystemApoVerdictText' "$SRC/src/RoomEq.App/Views/MixerTab.axaml" \
   && ! grep -qE 'ChannelViewModel|ConsoleMixer' "$SRC/src/RoomEq.App/ViewModels/MixerViewModel.cs" \
   && echo "   ✓ D26 : instance unique + verdict APO visible + console retirée de l'UI"
+
+# --- v3.9.1 : activation sur sortie sans FxProperties (clé créée, comme
+#     Equalizer APO — pilotes génériques sans effets déclarés) ---
+grep -qE 'OpenFxForWrite' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qE 'CreateSubKey\(ApoConstants.FxPropertiesSubkey\)' \
+        "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qE 'FxPropertiesExisted' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
+  && echo "   ✓ v3.9.1 : FxProperties créée si absente + sauvegarde d'existence (restitution exacte)"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

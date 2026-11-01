@@ -1761,3 +1761,84 @@ Stage Summary:
   (une seule fenêtre), activer l'EQ système (verdict ✓ et bouton qui
   bascule ; refuser l'UAC → verdict ✗ rouge explicite), lire un fichier
   sur une sortie APO active (aucune double correction).
+
+---
+Session : 23 — 2026-11-02
+Agent : main (Z.ai)
+Task : Retour terrain v3.9.0 (suite D26) : « voici les messages d'erreur
+lorsque j'active l'eq sur une sortie » — capture : ✗ « Activation de
+« Haut-parleurs (Realtek(R) Audio) » — Activation impossible : Ce
+périphérique n'expose pas de slot d'effets système (FxProperties) :
+impossible d'y inscrire l'égaliseur. » v3.9.1.
+
+Work Log:
+- **Diagnostic** : la cause racine n'était PAS l'affichage (corrigé D26)
+  mais le registrar lui-même : `WindowsApoEndpointStore.Set*` n'écrivait
+  que dans une sous-clé `FxProperties` DÉJÀ EXISTANTE (`OpenSubKey` →
+  null → InvalidOperationException « n'expose pas de slot d'effets
+  système »). Or un pilote sans effets déclarés — pilote générique
+  Windows, ex. « Realtek(R) Audio » (HDA inbox), typique des sorties
+  réelles — ne crée PAS cette sous-clé : l'activation échouait sur
+  exactement les sorties visées. Sources vérifiées : Microsoft Learn
+  (PKEY_FX_EndpointEffectClsid = {d04e05a6-…d1d},7, REG_SZ — confirmé) ;
+  É. Dechamps (notes APO) : « If no properties are present, or if the
+  FxProperties key is absent entirely, then no system effect APOs are
+  used » — donc le moteur lit la clé QUEL QUE SOIT son auteur : la créer
+  suffit (c'est le mécanisme standalone d'Equalizer APO, 10+ ans de
+  terrain, déjà documenté § 3.2 de docs/EQ-SYSTEME-APO.md).
+- **Correctif (store)** : `OpenFxForWrite` — l'écriture ouvre la clé de
+  l'endpoint en écriture (exception claire « clé introuvable
+  (périphérique retiré ?) » si disparue) puis `CreateSubKey` la
+  sous-clé FxProperties manquante ; JAMAIS de clé endpoint fantôme
+  (seule la sous-clé d'effets est créée). `SetString`/`SetInt` l'
+  utilisent : l'activation réussit désormais sur les sorties sans slot
+  déclaré. `GetString`/`GetInt` inchangés (null si absent).
+- **Restitution exacte (invariant 2)** : `ApoEndpointBackup` gagne
+  `FxPropertiesExisted` (défaut VRAI — les sauvegardes v3.7–v3.9 sans
+  le champ restent lisibles et ne déclenchent JAMAIS de suppression) ;
+  `Enable` capture l'existence AVANT la première écriture ; `Disable`
+  SUPPRIME la sous-clé créée si elle est redevenue vide après
+  restauration — et la GARDE si le pilote y a écrit ses propres valeurs
+  entre-temps. Nouvelles méthodes d'`IApoEndpointStore` :
+  `FxPropertiesExists` / `FxValueNames` / `DeleteFxProperties`
+  (mécanisme dans le store, politique pure dans le registrar).
+- **Anti-WOW64 (ceinture de sécurité)** : tout accès registre du module
+  passe par `OpenHklm()` = `RegistryKey.OpenBaseKey(LocalMachine,
+  Registry64)` — MMDevices et l'inscription COM vivent dans la vue
+  native (audiodg 64 bits) ; un processus 32 bits serait redirigé vers
+  WOW6432Node et ne verrait RIEN (l'appli est publiée win-x64 : garde
+  anti-régression si un build 32 bits voyait le jour). Comprend
+  `RegisterCom`/`UnregisterCom`/`ComRegistered`.
+- **Reprise des tentatives antérieures** : les clics « Activer » échoués
+  de v3.7–v3.9 avaient laissé des sauvegardes sans CLSID écrit — le
+  prochain clic réactive proprement (sauvegarde réécrite sur l'état
+  courant), et « Réparer » réécrit l'inscription (même état observable
+  qu'une MAJ de pilote : intention de l'utilisateur respectée).
+- **UI** : aide du panneau EQ système mise à jour (le cas d'échec
+  « sortie sans slot d'effets » n'existe plus ; restent invite refusée /
+  périphérique retiré).
+- **Tests** : 483/483 xUnit (Core 237, Audio 172 : registrar 16 → 20 —
+  création de clé + ordre existence→écriture, suppression à la
+  désactivation, garde des valeurs étrangères, sauvegarde héritée sans
+  suppression, inertie Linux étendue aux 3 nouvelles méthodes ; App 74
+  inchangés) ; build 0 erreur 0 avertissement ; harnais natif APO
+  rejoué : 112 vérifications, 0 échec (cœur inchangé — DLL x64+arm64
+  recompilées, contrôles PE exports/dépendances OK).
+- **Docs** : spec I-AUD-09 v1.2 (as-built : correctifs f/g/h, invariant 2
+  étendu, critères registrar 20 tests) ; docs/EQ-SYSTEME-APO.md (statut
+  v3.9.1 + diagnostic) ; README (historique v3.9.1) ; LISEZMOI 3.9.1 ;
+  build-apo.sh (version lue depuis Directory.Build.props) ;
+  package_v3.sh (VERSION 3.9.1 + vérification structurelle du correctif) ;
+  Directory.Build.props 3.9.1.
+
+Stage Summary:
+- v3.9.1 LIVRÉE : l'EQ système sans pilote s'active enfin sur les sorties
+  réelles — y compris celles dont le pilote ne déclare aucun emplacement
+  d'effets (la sous-clé FxProperties manquante est créée, comme le fait
+  Equalizer APO depuis 10 ans) — avec restitution exacte à la
+  désactivation (la clé créée disparaît si elle est redevenue vide).
+- Prochaine étape : validation terrain Windows — réinstaller via
+  Setup.exe 3.9.1, activer « Haut-parleurs (Realtek(R) Audio) » (verdict
+  ✓, état « ● EQ système actif », ~1 s de coupure du son), jouer de la
+  musique hors RoomEq et vérifier que la courbe s'applique ; puis
+  Désactiver et contrôler que la sous-clé créée disparaît (regedit).

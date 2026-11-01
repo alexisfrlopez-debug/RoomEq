@@ -1,4 +1,4 @@
-RoomEq 3.9.0 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.9.1 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,17 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    479 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    483 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
     build 0 erreur 0 avertissement.
+  • CORRECTIF 3.9.1 — ACTIVATION DE L'EQ SYSTÈME SUR TOUTES LES SORTIES :
+    les sorties dont le pilote ne déclare aucun effet (pilotes génériques
+    Windows, ex. « Haut-parleurs (Realtek(R) Audio) ») rejetaient
+    l'activation (« n'expose pas de slot d'effets système »). RoomEq crée
+    désormais lui-même l'emplacement d'effets manquant — c'est le mécanisme
+    éprouvé d'Equalizer APO (10+ ans de terrain) : l'activation réussit sur
+    ces sorties, et la désactivation supprime l'emplacement créé s'il est
+    redevenu vide (restitution exacte de l'état d'origine). Les tentatives
+    antérieures échouées sont reprises proprement au prochain clic.
   • NOUVEAU 3.9.0 — CONSOLE RETIRÉE, VERDICT VISIBLE, INSTANCE UNIQUE (D26) :
     la console de mixage interne (lecteur, générateur, pont DAW ASIO, bus
     master, EQ de piste) disparaît de l'onglet Mixage — depuis l'EQ système
@@ -16,8 +25,8 @@ CE QU'EST CETTE VERSION
     (lecteur et signaux de test de la barre du haut, greffons VST/AU pour
     les DAW). L'onglet Mixage devient le poste de pilotage de l'EQ système :
     sorties à activer, VERDICT de chaque action affiché en couleur DANS le
-    panneau (un échec d'activation — invite refusée, sortie sans slot
-    d'effets — ne peut plus passer inaperçu : « le bouton ne s'active pas »
+    panneau (un échec d'activation — invite refusée, périphérique retiré —
+    ne peut plus passer inaperçu : « le bouton ne s'active pas »
     affiche désormais sa raison), volume de la carte physique d'écoute et
     preset adapté à la sortie. Anti-double-correction étendue au lecteur
     interne : si l'EQ système couvre la sortie de lecture, l'EQ local du

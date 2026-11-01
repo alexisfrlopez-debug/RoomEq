@@ -1,10 +1,29 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.1 (as-built v3.7.0, 2
-  novembre 2026 — vague 9 LIVRÉE, décision D24 actée) · **Code** :
-  `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/` (N-APO-01)
+- **Module** : M-AUD-09 · **Version de spec** : 1.2 (as-built v3.9.1, 2
+  novembre 2026 — correctif activation « sortie sans FxProperties ») ·
+  **Code** : `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/`
+  (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.2** : retour terrain v3.9.0 — l'activation échouait sur les
+  sorties dont le pilote ne crée PAS la sous-clé `FxProperties` (pilotes
+  génériques Windows, ex. « Realtek(R) Audio ») : « Ce périphérique n'expose
+  pas de slot d'effets système ». Correctifs : (f) les ÉCRITS du store
+  CRÉENT la sous-clé manquante (`OpenFxForWrite` : l'endpoint lui-même
+  n'est jamais créé, seule sa sous-clé d'effets l'est) — le moteur audio
+  lit le contenu de la clé quel que soit son auteur (« if the FxProperties
+  key is absent entirely, then no system effect APOs are used », É.
+  Dechamps ; c'est le mécanisme standalone d'Equalizer APO, 10+ ans de
+  terrain) ; (g) la sauvegarde mémorise si la clé EXISTAIT avant nous
+  (`FxPropertiesExisted`, défaut vrai — les sauvegardes v3.7–v3.9 restent
+  lisibles) et la désactivation SUPPRIME la clé que nous avons créée si
+  elle est redevenue vide (restitution exacte ; les valeurs étrangères
+  écrites entre-temps sont conservées) ; (h) tout accès registre passe par
+  la vue **Registry64 explicite** (MMDevices et l'inscription COM vivent
+  dans la vue native — un processus 32 bits serait redirigé vers
+  WOW6432Node et ne verrait rien : ceinture de sécurité, l'appli étant
+  publiée win-x64).
 - **As-built v1.1** : contrat public respecté ; ajustements de
   réalisation — (a) l'élévation unique se fait par RELANCE de l'exécutable
   courant (`--apo-setup <verbe>`, `ApoSetupRunner` → `ApoSetupCommands`,
@@ -116,9 +135,10 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
    choisis par l'utilisateur.
 2. **Sauvegarde AVANT écriture** : aucune valeur EFX n'est écrasée sans
    copie préalable (registre + fichier) ; `Disable` restaure
-   exactement l'origine (ou supprime la valeur si elle n'existait pas) ;
-   toutes les opérations sont idempotentes ; restaurer un endpoint jamais
-   modifié = succès sans effet.
+   exactement l'origine (ou supprime la valeur si elle n'existait pas ;
+   ou supprime la sous-clé FxProperties si NOUS l'avons créée et qu'elle
+   est redevenue vide) ; toutes les opérations sont idempotentes ;
+   restaurer un endpoint jamais modifié = succès sans effet.
 3. **Anti-boucle** (ordre SÉCURITÉ, cohérent I-AUD-03 v2) : l'EQ système
    refuse tout endpoint virtuel RoomEq (« RoomEq Input ») et toute sortie
    actuellement captée par une piste de la console — le refus précède toute
@@ -157,14 +177,18 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
 
 ## Critères de test
 
-- Registrar (faux registre — `ApoRegistrarTests`, 16 tests) : énumération ;
+- Registrar (faux registre — `ApoRegistrarTests`, 20 tests) : énumération ;
   `IsForbiddenName` (câble RoomEq, VB-CABLE, VoiceMeeter, LoopBeAudio —
   négatifs inclus) ; **ordre sauvegarde→écriture vérifié par trace** ;
   restauration exacte (valeur EFX + Disable_SysFx, présentes ou absentes à
   l'origine) ; idempotence (double enable = aucune nouvelle écriture,
   sauvegarde non réécrasée ; double disable = succès sans effet) ; réparation
   après écrasement simulé (+ compte exact, 0 au second passage) ; refus
-  anti-boucle SANS AUCUNE écriture ; inertie Linux du store réel.
+  anti-boucle SANS AUCUNE écriture ; inertie Linux du store réel ;
+  **v3.9.1 : activation sur sortie sans FxProperties (clé créée, existence
+  sauvegardée AVANT écriture) ; désactivation supprime la clé créée
+  redevenue vide ; la garde si le pilote y a ajouté ses valeurs ; une
+  sauvegarde héritée (sans le champ) ne supprime JAMAIS la clé**.
 - ApoConfigStore (`ApoConfigStoreTests`, 7 tests) : aller-retour courbe
   (bandes + préampli + bande désactivée + type Notch), révision croissante,
   bypass sans perte de courbe (et idempotent), écriture atomique observée
@@ -186,5 +210,5 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
   ARM64, DLL, exports `DllGetClassObject` + `DllCanUnloadNow`, dépendances
   système uniquement (ole32, kernel32, UCRT) — contrôlés par
   `scripts/check_pe_exports.py` (binutils-objdump ne lit pas le PE ARM64).
-- Non-régression : suites xUnit 100 % vertes (484/484 : Core 237, Audio
-  168, App 79) et harnais VST/AU inchangés.
+- Non-régression : suites xUnit 100 % vertes (483/483 : Core 237, Audio
+  172, App 74) et harnais VST/AU/APO inchangés.

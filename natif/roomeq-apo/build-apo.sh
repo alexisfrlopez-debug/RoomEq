@@ -18,8 +18,8 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AU_CORE="$HERE/../roomeq-au/core"
 DIST="$HERE/dist"
-VERSION=$(sed -n 's/^project(RoomEqApo VERSION \([0-9.]*\).*/\1/p' "$HERE/CMakeLists.txt" 2>/dev/null || true)
-[[ -n "$VERSION" ]] || VERSION="3.8.0"
+VERSION=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' "$HERE/../../src/Directory.Build.props" 2>/dev/null | head -1 || true)
+[[ -n "$VERSION" ]] || VERSION="3.9.1"
 
 # ------------------------------------------------------------- localiser zig
 ZIG_BIN="${1:-${ZIG:-}}"

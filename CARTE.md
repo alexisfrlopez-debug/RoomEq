@@ -83,7 +83,7 @@
 | M-INS-07 | Charge utile + ASIO | `I/installateur/I-charge-utile-asio.md` | futur `…/Payload.cs` + `AsioRegistration.cs` | ⬜ spec prête |
 | M-INS-08 | Interface graphique / affichage | `I/installateur/I-interface-graphique.md` | futur `…/UiSink.cs` + `Gui/` | ⬜ spec prête |
 
-## Module M-AUD-09 — EQ système par APO (v3.7.0, décision D24)
+## Module M-AUD-09 — EQ système par APO (v3.7.0, décision D24 ; correctif v3.9.1 : création FxProperties)
 
 > Contourne l'exigence Microsoft de signature des pilotes noyau : le mode
 > « tout le son d'une sortie Windows traverse l'EQ » passe par un Audio
@@ -94,7 +94,7 @@
 
 | ID | Module | Spec I | Code | Statut |
 |----|--------|--------|------|--------|
-| M-AUD-09 | EQ système (APO Windows) | `I/audio/I-apo-systeme.md` **v1.1** (as-built : façade WindowsApoSystem, élévation par relance `--apo-setup`, déploiement %ProgramData% + ACL) | `src/RoomEq.Audio/SystemApo/` (7 fichiers : ApoConstants, ApoRegistrar + WindowsApoEndpointStore, ApoConfigStore, ApoSetupCommands, ApoSetupRunner, WindowsApoSystem) + **natif** `natif/roomeq-apo/` (N-APO-01 : ABI COM auto-contenue, sAPO EFX, fondu 20 ms, harnais + build Zig x64/arm64) + panneau UI `MixerViewModel.SystemApo.cs` + `MixerTab.axaml` | 🔒 v3.7.0 (D24) |
+| M-AUD-09 | EQ système (APO Windows) | `I/audio/I-apo-systeme.md` **v1.2** (as-built : façade WindowsApoSystem, élévation par relance `--apo-setup`, déploiement %ProgramData% + ACL ; v3.9.1 : sous-clé FxProperties créée si absente + sauvegarde d'existence + Registry64) | `src/RoomEq.Audio/SystemApo/` (7 fichiers : ApoConstants, ApoRegistrar + WindowsApoEndpointStore, ApoConfigStore, ApoSetupCommands, ApoSetupRunner, WindowsApoSystem) + **natif** `natif/roomeq-apo/` (N-APO-01 : ABI COM auto-contenue, sAPO EFX, fondu 20 ms, harnais + build Zig x64/arm64) + panneau UI `MixerViewModel.SystemApo.cs` + `MixerTab.axaml` | 🔒 v3.9.1 (D24 + correctif activation) |
 
 ## Blocs natifs scellés (hors périmètre de recodage — D1)
 

@@ -35,10 +35,37 @@ public interface IApoEndpointStore
 
     /// <summary>Écrit (ou supprime si null) une valeur REG_DWORD d'un endpoint.</summary>
     void SetInt(string endpointKey, string valueName, int? value);
+
+    /// <summary>
+    /// La sous-clé FxProperties de cet endpoint existe-t-elle ? Un pilote sans
+    /// effets déclarés ne la crée pas ; l'activation la créera (le moteur
+    /// audio lit cette clé quel que soit son auteur — mécanisme standalone
+    /// d'Equalizer APO, spec I-AUD-09 as-built v1.2).
+    /// </summary>
+    bool FxPropertiesExists(string endpointKey);
+
+    /// <summary>Noms des valeurs présentes dans FxProperties (vide si absente).</summary>
+    IReadOnlyList<string> FxValueNames(string endpointKey);
+
+    /// <summary>
+    /// Supprime la sous-clé FxProperties (restauration d'origine : clé créée
+    /// par nous et redevenue vide). Absente = succès sans effet.
+    /// </summary>
+    void DeleteFxProperties(string endpointKey);
 }
 
-/// <summary>Valeurs FxProperties d'origine d'un endpoint modifié par RoomEq.</summary>
-public sealed record ApoEndpointBackup(string? OriginalEndpointEffectClsid, int? OriginalDisableSysFx);
+/// <summary>
+/// Valeurs FxProperties d'origine d'un endpoint modifié par RoomEq.
+/// </summary>
+/// <param name="FxPropertiesExisted">La sous-clé FxProperties existait-elle
+/// avant activation ? Faux = c'est NOUS qui l'avons créée (pilote sans slot
+/// d'effets déclaré, ex. pilote générique Windows) : la désactivation la
+/// supprimera si elle est redevenue vide. Défaut VRAI — une sauvegarde
+/// antérieure au champ (v3.7–v3.9) ne fait JAMAIS supprimer la clé.</param>
+public sealed record ApoEndpointBackup(
+    string? OriginalEndpointEffectClsid,
+    int? OriginalDisableSysFx,
+    bool FxPropertiesExisted = true);
 
 /// <summary>Magasin de sauvegardes (JSON sur disque, ou mémoire pour les tests).</summary>
 public interface IApoBackupStore
@@ -172,10 +199,16 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
         {
             // sauvegarde AVANT écriture (invariant 2) — même si déjà actif sans
             // sauvegarde (installation antérieure perdu) : l'origine devient
-            // l'état courant, la désactivation nettoiera proprement
+            // l'état courant, la désactivation nettoiera proprement.
+            // L'EXISTENCE de la sous-clé est capturée aussi : une clé
+            // FxProperties CRÉÉE par nous (pilote sans slot déclaré —
+            // correctif v3.9.1, cf. WindowsApoEndpointStore.OpenFxForWrite)
+            // sera supprimée à la désactivation si elle est redevenue vide.
+            bool fxExisted = store.FxPropertiesExists(endpointKey);
             backups.Save(endpointKey, new ApoEndpointBackup(
                 OriginalEndpointEffectClsid: store.GetString(endpointKey, ApoConstants.FxEndpointEffectClsid),
-                OriginalDisableSysFx: store.GetInt(endpointKey, ApoConstants.FxDisableSysFx)));
+                OriginalDisableSysFx: store.GetInt(endpointKey, ApoConstants.FxDisableSysFx),
+                FxPropertiesExisted: fxExisted));
 
             store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, ApoConstants.Clsid);
 
@@ -220,6 +253,18 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
 
             store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, backup.OriginalEndpointEffectClsid);
             store.SetInt(endpointKey, ApoConstants.FxDisableSysFx, backup.OriginalDisableSysFx);
+
+            // Restitution EXACTE (invariant 2) : une sous-clé FxProperties que
+            // NOUS avons créée (pilote sans slot déclaré) et qui ne contient
+            // plus RIEN après restauration est supprimée — l'état d'origine
+            // « pas de clé » revient. Si le pilote y a écrit ses propres
+            // valeurs entre-temps, elle reste : elles ne sont pas à nous.
+            if (!backup.FxPropertiesExisted
+                && store.FxValueNames(endpointKey).Count == 0)
+            {
+                store.DeleteFxProperties(endpointKey);
+            }
+
             backups.Save(endpointKey, null);
 
             return ApoInstallResult.Ok("EQ système désactivé : valeurs d'origine de « " + name + " » restaurées.");

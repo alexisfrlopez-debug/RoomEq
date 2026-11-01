@@ -58,6 +58,21 @@ public class ApoRegistrarTests
             else
                 map[name] = value.Value;
         }
+
+        public bool FxPropertiesExists(string key)
+        {
+            Trace.Add($"exists:{key}");
+            return Values.ContainsKey(key);
+        }
+
+        public IReadOnlyList<string> FxValueNames(string key)
+            => Values.TryGetValue(key, out var v) ? v.Keys.ToList() : new List<string>();
+
+        public void DeleteFxProperties(string key)
+        {
+            Trace.Add($"delkey:{key}");
+            Values.Remove(key);
+        }
     }
 
     private sealed class MemoryBackups : IApoBackupStore
@@ -84,6 +99,9 @@ public class ApoRegistrarTests
         store.Endpoints.Add(new ApoEndpointRecord("{hp}", "Casque Realtek"));
         store.Endpoints.Add(new ApoEndpointRecord("{spk}", "Enceintes (NVIDIA HDMI)"));
         store.Endpoints.Add(new ApoEndpointRecord("{cable}", "RoomEq Input"));
+        // v3.9.1 : sortie SANS sous-clé FxProperties (pilote générique sans
+        // effets déclarés — le cas terrain qui échouait en v3.7–v3.9)
+        store.Endpoints.Add(new ApoEndpointRecord("{bt}", "Haut-parleurs (Realtek(R) Audio)"));
         // valeurs d'origine : un EFX constructeur + effets débloqués
         store.Values["{hp}"] = new()
         {
@@ -94,6 +112,7 @@ public class ApoRegistrarTests
             [ApoConstants.FxEndpointEffectClsid] = "{nvidia-efx}",
             [ApoConstants.FxDisableSysFx] = 1,
         };
+        // «{bt}» : volontairement AUCUNE entrée Values → pas de FxProperties
         var backups = new MemoryBackups();
         return (new ApoRegistrar(store, backups), store, backups);
     }
@@ -119,6 +138,79 @@ public class ApoRegistrarTests
         int writeEfx = store.Trace.IndexOf($"set:{{hp}}/{ApoConstants.FxEndpointEffectClsid}");
         Assert.True(readOrig >= 0 && writeEfx > readOrig,
             "la sauvegarde d'origine doit précéder l'écriture du CLSID");
+    }
+
+    // ------------------------------------------- v3.9.1 : clé FxProperties créée
+
+    [Fact]
+    public void Enable_WithoutFxProperties_CreatesKeyAndSucceeds()
+    {
+        var (registrar, store, backups) = Make();
+
+        // v3.7–v3.9 : échec « n'expose pas de slot d'effets système » ;
+        // v3.9.1 : la clé est CRÉÉE par l'écriture (mécanisme Equalizer APO)
+        var result = registrar.Enable("{bt}");
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxEndpointEffectClsid]);
+        var backup = backups.Load("{bt}");
+        Assert.NotNull(backup);
+        Assert.Null(backup.OriginalEndpointEffectClsid); // rien avant nous
+        Assert.False(backup.FxPropertiesExisted);        // la clé est de nous
+
+        // ORDRE : l'existence est capturée AVANT la première écriture
+        int exists = store.Trace.IndexOf("exists:{bt}");
+        int write = store.Trace.IndexOf($"set:{{bt}}/{ApoConstants.FxEndpointEffectClsid}");
+        Assert.True(exists >= 0 && write > exists,
+            "l'existence de FxProperties doit être capturée avant l'écriture");
+    }
+
+    [Fact]
+    public void Disable_AfterKeyCreation_RemovesNowEmptyFxProperties()
+    {
+        var (registrar, store, backups) = Make();
+        registrar.Enable("{bt}");
+
+        Assert.True(registrar.Disable("{bt}").Success);
+
+        // restitution exacte : la clé que NOUS avons créée disparaît
+        Assert.False(store.Values.ContainsKey("{bt}"));
+        Assert.Null(backups.Load("{bt}"));
+    }
+
+    [Fact]
+    public void Disable_AfterKeyCreation_KeepsKeyHoldingForeignValues()
+    {
+        var (registrar, store, _) = Make();
+        registrar.Enable("{bt}");
+        // le pilote (ou le service audio reconstruisant l'endpoint) a écrit
+        // sa propre valeur dans la sous-clé créée entre-temps
+        store.Values["{bt}"]["{valeur-pilote}"] = "pilote";
+
+        Assert.True(registrar.Disable("{bt}").Success);
+
+        // la clé reste (elle ne contient plus rien à nous)…
+        Assert.True(store.Values.ContainsKey("{bt}"));
+        Assert.DoesNotContain(ApoConstants.FxEndpointEffectClsid, store.Values["{bt}"].Keys);
+        // …et la valeur étrangère est intacte
+        Assert.Equal("pilote", store.Values["{bt}"]["{valeur-pilote}"]);
+    }
+
+    [Fact]
+    public void Disable_LegacyBackupWithoutExistenceFlag_NeverDeletesKey()
+    {
+        var (registrar, store, backups) = Make();
+        registrar.Enable("{bt}");
+        // sauvegarde au format v3.7–v3.9 (champ FxPropertiesExisted absent
+        // → défaut VRAI par rétrocompatibilité JSON)
+        backups.Save("{bt}", new ApoEndpointBackup(null, null));
+
+        Assert.True(registrar.Disable("{bt}").Success);
+
+        // prudence : sans la connaissance « clé créée par nous », jamais de
+        // suppression — nos valeurs sont retirées, la clé (vide) reste
+        Assert.True(store.Values.ContainsKey("{bt}"));
+        Assert.Empty(store.Values["{bt}"]);
     }
 
     [Fact]
@@ -258,6 +350,9 @@ public class ApoRegistrarTests
         Assert.Null(store.GetInt("{x}", ApoConstants.FxDisableSysFx));
         store.SetString("{x}", ApoConstants.FxEndpointEffectClsid, ApoConstants.Clsid); // no-op
         Assert.Null(store.GetString("{x}", ApoConstants.FxEndpointEffectClsid));
+        Assert.False(store.FxPropertiesExists("{x}"));
+        Assert.Empty(store.FxValueNames("{x}"));
+        store.DeleteFxProperties("{x}"); // no-op
     }
 
     [Theory]

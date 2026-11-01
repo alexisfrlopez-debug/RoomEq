@@ -47,7 +47,12 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   couleur dans le panneau et n'est jamais effacé par le rafraîchissement ;
   la sortie d'écoute suit la barre du haut ; anti double-correction
   étendue au lecteur interne ; l'application refuse de s'ouvrir plusieurs
-  fois après l'installation)
+  fois après l'installation) ; **v3.9.1** : correctif activation — les
+  sorties sans emplacement d'effets déclaré (pilotes génériques Windows,
+  ex. Realtek(R) Audio) acceptent enfin l'EQ système : la sous-clé
+  FxProperties manquante est créée à l'activation (mécanisme Equalizer
+  APO) et supprimée à la désactivation si redevenue vide (spec I-AUD-09
+  v1.2, +4 tests registrar)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
