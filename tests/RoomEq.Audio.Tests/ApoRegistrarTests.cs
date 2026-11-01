@@ -73,6 +73,21 @@ public class ApoRegistrarTests
             Trace.Add($"delkey:{key}");
             Values.Remove(key);
         }
+
+        /// <summary>v3.9.2 : sécurité à capturer (null = admins inscriptibles).</summary>
+        public ApoSecuritySnapshot? SecurityToCapture { get; set; }
+
+        public ApoSecuritySnapshot? CaptureSecurity(string key)
+        {
+            Trace.Add($"capture:{key}");
+            return SecurityToCapture;
+        }
+
+        public void RestoreSecurity(string key, ApoSecuritySnapshot? snapshot)
+        {
+            if (snapshot != null)
+                Trace.Add($"restore:{key}");
+        }
     }
 
     private sealed class MemoryBackups : IApoBackupStore
@@ -265,6 +280,105 @@ public class ApoRegistrarTests
         Assert.Equal(writesAfterFirst, store.Trace.Count(t => t.StartsWith("set:"))); // aucune nouvelle écriture
     }
 
+    // --------------------------------------- v3.9.2 : sécurité (prise de possession)
+
+    [Fact]
+    public void Enable_CapturesSecurity_BeforeFirstWrite()
+    {
+        var (registrar, store, backups) = Make();
+        // sortie dont la clé appartient à SYSTEM (cas MMDevices réel) : le
+        // store capturera owner + DACL pour restitution à la désactivation
+        var snapshot = new ApoSecuritySnapshot(
+            new ApoKeySecurity("S-1-5-18", "c3lzdGVtLWRlc2NyaXB0ZXVy"), null);
+        store.SecurityToCapture = snapshot;
+
+        var result = registrar.Enable("{bt}");
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(snapshot, backups.Load("{bt}")!.Security); // stocké dans la sauvegarde
+
+        // ORDRE (invariant 2 étendu) : la capture précède la première écriture
+        int capture = store.Trace.IndexOf("capture:{bt}");
+        int write = store.Trace.IndexOf($"set:{{bt}}/{ApoConstants.FxEndpointEffectClsid}");
+        Assert.True(capture >= 0 && write > capture,
+            "la sécurité doit être capturée avant la première écriture");
+    }
+
+    [Fact]
+    public void Disable_RestoresSecurity_AfterKeyOperations()
+    {
+        var (registrar, store, _) = Make();
+        store.SecurityToCapture = new ApoSecuritySnapshot(
+            new ApoKeySecurity("S-1-5-18", "c3lzdGVtLWRlc2NyaXB0ZXVy"), null);
+        registrar.Enable("{bt}");
+
+        Assert.True(registrar.Disable("{bt}").Success);
+
+        // la restitution de sécurité arrive APRÈS la suppression de la
+        // sous-clé — les écritures/suppressions ont besoin de l'ACE d'activation
+        int delKey = store.Trace.IndexOf("delkey:{bt}");
+        int restore = store.Trace.IndexOf("restore:{bt}");
+        Assert.True(delKey >= 0, "la sous-clé créée doit être supprimée");
+        Assert.True(restore > delKey,
+            "la sécurité est restituée après toutes les écritures/suppressions");
+    }
+
+    [Fact]
+    public void Disable_LegacyBackupWithoutSecurity_NeverRestoresSecurity()
+    {
+        var (registrar, store, backups) = Make();
+        registrar.Enable("{hp}");
+        // sauvegarde au format v3.7–v3.9.1 (champ Security absent → null)
+        backups.Save("{hp}", new ApoEndpointBackup("{realtek-efx}", null));
+        store.Trace.Clear();
+
+        Assert.True(registrar.Disable("{hp}").Success);
+
+        Assert.DoesNotContain(store.Trace, t => t.StartsWith("restore:")); // rien à restituer
+    }
+
+    [Fact]
+    public void Disable_CapturedNullSecurity_NeverRestores()
+    {
+        var (registrar, store, _) = Make();
+        // cas nominal (SecurityToCapture null) : admins déjà inscriptibles,
+        // la capture (lecture pure) retourne null — aucune restitution
+        registrar.Enable("{hp}");
+        int captures = store.Trace.Count(t => t.StartsWith("capture:"));
+
+        Assert.True(registrar.Disable("{hp}").Success);
+
+        Assert.Equal(1, captures); // la lecture a bien eu lieu…
+        Assert.DoesNotContain(store.Trace, t => t.StartsWith("restore:")); // …null → rien à restituer
+    }
+
+    [Fact]
+    public void BackupFileStore_LegacyJson_LoadsWithoutSecurity()
+    {
+        // rétrocompatibilité disque : un backups.json écrit par v3.7–v3.9.1
+        // (sans champ Security) reste lisible — Security null, jamais de
+        // fausse restitution
+        var path = Path.Combine(Path.GetTempPath(),
+            "roomeq-test-backups-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            File.WriteAllText(path,
+                """{"Endpoints":{"{hp}":{"OriginalEndpointEffectClsid":"{o}","OriginalDisableSysFx":1,"FxPropertiesExisted":false}}}""");
+            var fileStore = new ApoBackupFileStore(path);
+
+            var backup = fileStore.Load("{hp}");
+
+            Assert.NotNull(backup);
+            Assert.Null(backup.Security);            // champ absent → null
+            Assert.False(backup.FxPropertiesExisted); // champs connus préservés
+            Assert.Equal(1, backup.OriginalDisableSysFx);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     // ------------------------------------------------------------ désactivation
 
     [Fact]
@@ -353,6 +467,9 @@ public class ApoRegistrarTests
         Assert.False(store.FxPropertiesExists("{x}"));
         Assert.Empty(store.FxValueNames("{x}"));
         store.DeleteFxProperties("{x}"); // no-op
+        Assert.Null(store.CaptureSecurity("{x}")); // v3.9.2 : no-op, null
+        store.RestoreSecurity("{x}", new ApoSecuritySnapshot( // no-op, jamais d'exception
+            new ApoKeySecurity("S-1-5-18", "c3lzdGVtLWRlc2NyaXB0ZXVy"), null));
     }
 
     [Theory]

@@ -1,11 +1,34 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.2 (as-built v3.9.1, 2
-  novembre 2026 — correctif activation « sortie sans FxProperties ») ·
+- **Module** : M-AUD-09 · **Version de spec** : 1.3 (as-built v3.9.2, 2
+  novembre 2026 — correctif activation « registre protégé MMDevices ») ·
   **Code** : `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/`
   (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.3** : retour terrain v3.9.1 — l'activation était refusée par
+  le registre MÊME ÉLEVÉE (« Requested registry access is not allowed ») :
+  fait établi par le code source d'Equalizer APO (`helpers/RegistryHelper.cpp`
+  — `takeOwnership` + `makeWritable` autour de la création de FxProperties),
+  les clés d'endpoints MMDevices appartiennent à SYSTEM et leur DACL
+  n'accorde PAS l'écriture aux administrateurs. Correctifs : (i) le store
+  détecte le refus (`SecurityException`/`UnauthorizedAccessException`) et
+  applique le mécanisme Equalizer APO via `ApoRegistrySecurity` :
+  SeTakeOwnershipPrivilege → propriétaire = groupe Administrateurs
+  (RegSetKeySecurity OWNER SEUL — le DACL en place n'est jamais modifié par
+  cette étape), puis ACE FullControl héritée par les sous-clés (WRITE_DAC,
+  droit implicite du propriétaire), puis RÉESSAI — idempotent et silencieux
+  (false si le privilège manque : processus non élevé) ; (j) la SÉCURITÉ
+  d'origine (owner + DACL, descripteur binaire Base64) est capturée AVANT
+  la première écriture (`CaptureSecurity` : uniquement les clés où les
+  admins n'ont PAS déjà FullControl — les autres ne changent pas), stockée
+  dans la sauvegarde (`ApoEndpointBackup.Security`), et restituée à la
+  désactivation APRÈS la restauration des valeurs (`RestoreSecurity`,
+  SeRestorePrivilege pour réattribuer un propriétaire autre que soi —
+  réversibilité STRICTEMENT supérieure à Equalizer APO, qui ne restitue
+  jamais owner/DACL) ; (k) `SecurityException` résiduelle affiche un
+  message français ACTIONNABLE (relancez + acceptez l'invite ; logiciel de
+  sécurité) au lieu du « ex.Message » brut anglais.
 - **As-built v1.2** : retour terrain v3.9.0 — l'activation échouait sur les
   sorties dont le pilote ne crée PAS la sous-clé `FxProperties` (pilotes
   génériques Windows, ex. « Realtek(R) Audio ») : « Ce périphérique n'expose
@@ -177,7 +200,7 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
 
 ## Critères de test
 
-- Registrar (faux registre — `ApoRegistrarTests`, 20 tests) : énumération ;
+- Registrar (faux registre — `ApoRegistrarTests`, 25 tests) : énumération ;
   `IsForbiddenName` (câble RoomEq, VB-CABLE, VoiceMeeter, LoopBeAudio —
   négatifs inclus) ; **ordre sauvegarde→écriture vérifié par trace** ;
   restauration exacte (valeur EFX + Disable_SysFx, présentes ou absentes à
@@ -188,7 +211,14 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
   **v3.9.1 : activation sur sortie sans FxProperties (clé créée, existence
   sauvegardée AVANT écriture) ; désactivation supprime la clé créée
   redevenue vide ; la garde si le pilote y a ajouté ses valeurs ; une
-  sauvegarde héritée (sans le champ) ne supprime JAMAIS la clé**.
+  sauvegarde héritée (sans le champ) ne supprime JAMAIS la clé** ;
+  **v3.9.2 : capture de sécurité AVANT la première écriture (ordre vérifié
+  par trace) et stockage dans la sauvegarde ; restitution APRÈS la
+  suppression de la sous-clé (ordre vérifié par trace) ; aucune
+  restitution si le snapshot est null (clé admins-inscriptibles ou
+  sauvegarde héritée v3.7–v3.9.1) ; rétrocompatibilité disque d'un
+  backups.json sans le champ Security ; inertie Linux étendue à
+  CaptureSecurity/RestoreSecurity**.
 - ApoConfigStore (`ApoConfigStoreTests`, 7 tests) : aller-retour courbe
   (bandes + préampli + bande désactivée + type Notch), révision croissante,
   bypass sans perte de courbe (et idempotent), écriture atomique observée
@@ -210,5 +240,5 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
   ARM64, DLL, exports `DllGetClassObject` + `DllCanUnloadNow`, dépendances
   système uniquement (ole32, kernel32, UCRT) — contrôlés par
   `scripts/check_pe_exports.py` (binutils-objdump ne lit pas le PE ARM64).
-- Non-régression : suites xUnit 100 % vertes (483/483 : Core 237, Audio
-  172, App 74) et harnais VST/AU/APO inchangés.
+- Non-régression : suites xUnit 100 % vertes (488/488 : Core 237, Audio
+  177, App 74) et harnais VST/AU/APO inchangés.

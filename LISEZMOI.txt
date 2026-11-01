@@ -1,4 +1,4 @@
-RoomEq 3.9.1 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.9.2 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,20 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    483 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    488 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
     build 0 erreur 0 avertissement.
+  • CORRECTIF 3.9.2 — ACTIVATION DE L'EQ SYSTÈME : LE REGISTRE PROTÉGÉ : les
+    clés des sorties audio Windows (MMDevices) appartiennent au compte
+    SYSTEM et leur liste de permissions n'accorde PAS l'écriture aux
+    administrateurs — l'activation était donc refusée même après acceptation
+    de l'invite administrateur (« Requested registry access is not allowed »).
+    RoomEq applique désormais le mécanisme d'Equalizer APO (10+ ans de
+    terrain) : prise de possession de la clé pour les administrateurs,
+    autorisation d'écriture, puis inscription de l'égaliseur. La sécurité
+    d'origine (propriétaire + permissions) est sauvegardée AVANT et
+    intégralement restaurée à la désactivation — l'état de la machine revient
+    EXACTEMENT à ce qu'il était. Les échecs résiduels s'affichent désormais
+    en français clair avec la marche à suivre.
   • CORRECTIF 3.9.1 — ACTIVATION DE L'EQ SYSTÈME SUR TOUTES LES SORTIES :
     les sorties dont le pilote ne déclare aucun effet (pilotes génériques
     Windows, ex. « Haut-parleurs (Realtek(R) Audio) ») rejetaient

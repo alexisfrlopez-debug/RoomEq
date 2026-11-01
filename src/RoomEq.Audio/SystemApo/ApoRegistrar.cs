@@ -1,3 +1,4 @@
+using System.Security;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -52,7 +53,39 @@ public interface IApoEndpointStore
     /// par nous et redevenue vide). Absente = succès sans effet.
     /// </summary>
     void DeleteFxProperties(string endpointKey);
+
+    /// <summary>
+    /// Capture la sécurité (owner + DACL) des clés que l'activation devra
+    /// modifier (v3.9.2) — null si les administrateurs ont déjà l'écriture
+    /// (rien à restituer) ou si la lecture échoue. Lecture pure, appelée
+    /// AVANT la première écriture, jamais d'exception.
+    /// </summary>
+    ApoSecuritySnapshot? CaptureSecurity(string endpointKey);
+
+    /// <summary>
+    /// Restitue la sécurité capturée (owner + DACL d'origine), APRÈS la
+    /// restauration des valeurs et la suppression éventuelle de la
+    /// sous-clé — best effort, jamais d'exception.
+    /// </summary>
+    void RestoreSecurity(string endpointKey, ApoSecuritySnapshot? snapshot);
 }
+
+/// <summary>Sécurité (owner + DACL) d'UNE clé registre, capturée avant prise
+/// de possession — restitution exacte à la désactivation (v3.9.2).</summary>
+/// <param name="OwnerSid">SID du propriétaire d'origine (lisible, diagnostic).</param>
+/// <param name="SdBase64">Descripteur de sécurité binaire (owner + DACL)
+/// en Base64 — réappliqué tel quel à la restitution.</param>
+public sealed record ApoKeySecurity(string OwnerSid, string SdBase64);
+
+/// <summary>
+/// Sécurité des clés modifiées par une activation (v3.9.2) : l'endpoint et,
+/// si elle existait déjà, sa sous-clé FxProperties. Null = rien à restituer
+/// (administrateurs déjà inscriptibles, ou lecture impossible). Les clés
+/// d'endpoints MMDevices appartiennent à SYSTEM et n'accordent PAS l'écriture
+/// aux administrateurs : l'activation prend possession (mécanisme Equalizer
+/// APO) et la désactivation remet owner et DACL d'origine.
+/// </summary>
+public sealed record ApoSecuritySnapshot(ApoKeySecurity? Endpoint, ApoKeySecurity? Fx);
 
 /// <summary>
 /// Valeurs FxProperties d'origine d'un endpoint modifié par RoomEq.
@@ -62,10 +95,14 @@ public interface IApoEndpointStore
 /// d'effets déclaré, ex. pilote générique Windows) : la désactivation la
 /// supprimera si elle est redevenue vide. Défaut VRAI — une sauvegarde
 /// antérieure au champ (v3.7–v3.9) ne fait JAMAIS supprimer la clé.</param>
+/// <param name="Security">Sécurité (owner + DACL) capturée avant la prise
+/// de possession (v3.9.2) — null si aucune modification nécessaire, ou pour
+/// toute sauvegarde antérieure au champ. La désactivation la restitue.</param>
 public sealed record ApoEndpointBackup(
     string? OriginalEndpointEffectClsid,
     int? OriginalDisableSysFx,
-    bool FxPropertiesExisted = true);
+    bool FxPropertiesExisted = true,
+    ApoSecuritySnapshot? Security = null);
 
 /// <summary>Magasin de sauvegardes (JSON sur disque, ou mémoire pour les tests).</summary>
 public interface IApoBackupStore
@@ -205,10 +242,17 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
             // correctif v3.9.1, cf. WindowsApoEndpointStore.OpenFxForWrite)
             // sera supprimée à la désactivation si elle est redevenue vide.
             bool fxExisted = store.FxPropertiesExists(endpointKey);
+            // v3.9.2 : la SÉCURITÉ (owner + DACL) des clés à modifier est
+            // capturée AVANT la première écriture — les clés d'endpoints
+            // MMDevices n'accordent pas l'écriture aux administrateurs, le
+            // store devra prendre possession (mécanisme Equalizer APO) et la
+            // désactivation restituera l'origine (invariant 2 étendu).
+            ApoSecuritySnapshot? security = store.CaptureSecurity(endpointKey);
             backups.Save(endpointKey, new ApoEndpointBackup(
                 OriginalEndpointEffectClsid: store.GetString(endpointKey, ApoConstants.FxEndpointEffectClsid),
                 OriginalDisableSysFx: store.GetInt(endpointKey, ApoConstants.FxDisableSysFx),
-                FxPropertiesExisted: fxExisted));
+                FxPropertiesExisted: fxExisted,
+                Security: security));
 
             store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, ApoConstants.Clsid);
 
@@ -220,6 +264,17 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
                 "EQ système activé sur « " + endpoint.FriendlyName + " »" +
                 (disableSysFx == 1 ? " (effets audio du fabricant débloqués, d'origine sauvegardée)" : "") +
                 ".");
+        }
+        catch (SecurityException)
+        {
+            // v3.9.2 : francisation de « Requested registry access is not
+            // allowed » — la reprise de possession (store) n'a pas suffi :
+            // processus non élevé ou politique/antivirus verrouillant les
+            // clés audio. Message ACTIONNABLE, pas un ex.Message brut.
+            return ApoInstallResult.Fail(
+                "Le registre Windows a refusé l'écriture sur cette sortie (clé protégée). " +
+                "Relancez l'activation et acceptez l'invite administrateur ; si l'échec " +
+                "persiste, un logiciel de sécurité bloque les clés audio de Windows.");
         }
         catch (Exception ex)
         {
@@ -264,6 +319,13 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
             {
                 store.DeleteFxProperties(endpointKey);
             }
+
+            // v3.9.2 : restitution de la sécurité d'origine (owner + DACL)
+            // APRÈS la restauration des valeurs et la suppression éventuelle
+            // de la sous-clé — les écritures ci-dessus ont besoin de l'ACE
+            // ajoutée à l'activation. Best effort dans le store : jamais
+            // d'exception ici, l'audio est déjà restauré.
+            store.RestoreSecurity(endpointKey, backup.Security);
 
             backups.Save(endpointKey, null);
 

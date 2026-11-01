@@ -1,3 +1,4 @@
+using System.Security;
 using Microsoft.Win32;
 using NAudio.CoreAudioApi;
 
@@ -94,12 +95,44 @@ public sealed class WindowsApoEndpointStore : IApoEndpointStore
     /// disparu — périphérique retiré) puis crée la sous-clé FxProperties
     /// manquante. Jamais de clé « fantôme » : l'endpoint lui-même n'est
     /// jamais créé, seule sa sous-clé d'effets l'est.
+    /// v3.9.2 : les clés d'endpoints MMDevices appartiennent à SYSTEM et leur
+    /// DACL n'accorde PAS l'écriture aux administrateurs — l'écriture directe
+    /// est refusée même élevée (« Requested registry access is not allowed »,
+    /// retour terrain v3.9.1). Sur ce refus, on applique le mécanisme
+    /// Equalizer APO (helpers/RegistryHelper.cpp, 10+ ans de terrain) : prise
+    /// de possession pour les Administrateurs + ACE FullControl héritée,
+    /// puis RÉESSAI — la désactivation restituera owner et DACL d'origine
+    /// (snapshot capturé par le registrar AVANT la première écriture).
     /// </summary>
     private RegistryKey OpenFxForWrite(string endpointKey)
     {
         if (!OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException(); // garde CA1416 — appelants publics déjà gardés
+        try
+        {
+            return OpenOrCreateFx(endpointKey);
+        }
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException)
+        {
+            using var hklm = OpenHklm();
+            ApoRegistrySecurity.EnsureWritable(hklm, EndpointPath(endpointKey));
+            if (FxPropertiesExists(endpointKey))
+                ApoRegistrySecurity.EnsureWritable(hklm, FxPath(endpointKey));
+            // réessai : lève l'exception réelle si le refus persiste
+            // (takeover impossible — non élevé, politique restrictive)
+            return OpenOrCreateFx(endpointKey);
+        }
+    }
+
+    /// <summary>Ouverture en écriture ou création de FxProperties (sans reprise).</summary>
+    private RegistryKey OpenOrCreateFx(string endpointKey)
+    {
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException(); // garde CA1416 — appelée derrière OpenFxForWrite
         using var hklm = OpenHklm();
+        var fx = hklm.OpenSubKey(FxPath(endpointKey), writable: true);
+        if (fx != null)
+            return fx;
         using var endpoint = hklm.OpenSubKey(EndpointPath(endpointKey), writable: true)
             ?? throw new InvalidOperationException(
                 "la clé registre de cette sortie est introuvable (périphérique retiré ?)");
@@ -204,6 +237,61 @@ public sealed class WindowsApoEndpointStore : IApoEndpointStore
         {
             // meilleur effort : une sous-clé restante mais vide est sans effet
             // pour le moteur audio (les VALEURS, elles, sont déjà restaurées)
+        }
+    }
+
+    // --------------------------------------------- sécurité (v3.9.2, mécanisme
+    // Equalizer APO : MMDevices appartient à SYSTEM, pas aux administrateurs)
+
+    /// <summary>
+    /// Capture la sécurité des clés qui devront être modifiées par
+    /// l'activation — uniquement celles où les administrateurs n'ont PAS
+    /// déjà FullControl (les autres ne changent pas). Hors Windows : null.
+    /// </summary>
+    public ApoSecuritySnapshot? CaptureSecurity(string endpointKey)
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+        try
+        {
+            using var hklm = OpenHklm();
+            ApoKeySecurity? endpoint = null, fx = null;
+            if (!ApoRegistrySecurity.AdminsHaveFullControl(hklm, EndpointPath(endpointKey)))
+                endpoint = ApoRegistrySecurity.Capture(hklm, EndpointPath(endpointKey));
+            if (FxPropertiesExists(endpointKey)
+                && !ApoRegistrySecurity.AdminsHaveFullControl(hklm, FxPath(endpointKey)))
+                fx = ApoRegistrySecurity.Capture(hklm, FxPath(endpointKey));
+            return endpoint == null && fx == null
+                ? null
+                : new ApoSecuritySnapshot(endpoint, fx);
+        }
+        catch
+        {
+            return null; // lecture impossible : pas de snapshot, pas de garantie
+        }
+    }
+
+    /// <summary>
+    /// Restitue owner + DACL d'origine (après la restauration des valeurs et
+    /// la suppression éventuelle de la sous-clé). Best effort, jamais
+    /// d'exception — une sécurité non restituée ne change pas le son.
+    /// </summary>
+    public void RestoreSecurity(string endpointKey, ApoSecuritySnapshot? snapshot)
+    {
+        if (!OperatingSystem.IsWindows() || snapshot == null)
+            return;
+        try
+        {
+            using var hklm = OpenHklm();
+            if (snapshot.Endpoint is { } endpoint)
+                ApoRegistrySecurity.Restore(hklm, EndpointPath(endpointKey), endpoint);
+            if (snapshot.Fx is { } fx)
+                ApoRegistrySecurity.Restore(hklm, FxPath(endpointKey), fx);
+        }
+        catch
+        {
+            // les VALEURS sont déjà restaurées : une ACL/Admins restante est
+            // sans effet auditif (et sans risque : admin uniquement)
         }
     }
 

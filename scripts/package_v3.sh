@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.1
+VERSION=3.9.2
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -130,6 +130,16 @@ grep -qE 'OpenFxForWrite' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointSto
         "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
   && grep -qE 'FxPropertiesExisted' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
   && echo "   ✓ v3.9.1 : FxProperties créée si absente + sauvegarde d'existence (restitution exacte)"
+
+# --- v3.9.2 : prise de possession des clés MMDevices (mécanisme Equalizer
+#     APO takeOwnership/makeWritable — les clés endpoints appartiennent à
+#     SYSTEM et refusent l'écriture aux administrateurs, même élevés) ---
+[[ -f "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrySecurity.cs" ]] \
+  && grep -qE 'SeTakeOwnershipPrivilege' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrySecurity.cs" \
+  && grep -qE 'SeRestorePrivilege' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrySecurity.cs" \
+  && grep -qE 'EnsureWritable' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qE 'CaptureSecurity|RestoreSecurity' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
+  && echo "   ✓ v3.9.2 : takeover registre (owner+DACL) + snapshot avant écriture + restitution à la désactivation"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

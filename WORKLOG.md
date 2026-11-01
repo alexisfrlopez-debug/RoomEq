@@ -1842,3 +1842,98 @@ Stage Summary:
   ✓, état « ● EQ système actif », ~1 s de coupure du son), jouer de la
   musique hors RoomEq et vérifier que la courbe s'applique ; puis
   Désactiver et contrôler que la sous-clé créée disparaît (regedit).
+
+Session : 24 — 2026-11-02
+Agent : main (Z.ai)
+Task : Retour terrain v3.9.1 (suite) : « voici les messages d'erreur lorsque
+j'active l'eq sur une sortie » — capture : ✗ activation de « Casque (JBL
+Tune Flex 2) » refusée, « Requested registry access is not allowed » (le
+bouton restait non activé après rafraîchissement). v3.9.2.
+
+Work Log:
+- **Diagnostic (cause racine, établie par le code source d'Equalizer APO
+  lui-même)** : l'erreur est une SecurityException .NET d'ouverture registre
+  en ÉCRITURE (ACCESS_DENIED → « Requested registry access is not allowed »).
+  La chaîne v3.9.1 est correcte jusqu'au registrar (le processus élevé
+  tourne : Deploy est passé, sinon l'erreur aurait été « Déploiement
+  impossible : Access to the path … is denied » sur bin/Users-RX) — le refus
+  vient donc de l'ouverture de la clé de l'ENDPOINT elle-même. FAIT ÉTABLI :
+  les clés d'endpoints MMDevices (HKLM\…\MMDevices\Audio\Render\{GUID}) sont
+  créées par le service audio (SYSTEM) et leur DACL n'accorde PAS l'écriture
+  aux administrateurs — même ÉLEVÉ. Preuve par le code : DeviceAPOInfo.cpp
+  (Equalizer APO) enveloppe la création de FxProperties d'un
+  catch(RegistryException) → takeOwnership(keyPath) + makeWritable(keyPath)
+  → retry, commentaire d'origine « Permissions were not sufficient, so
+  change them » (helpers/RegistryHelper.cpp, miroir GitHub alebcay/
+  equalizer-apo, lu intégralement : privilège SeTakeOwnershipPrivilege via
+  OpenProcessToken/LookupPrivilegeValue/AdjustTokenPrivileges, owner =
+  SID BUILTIN\Administrateurs via RegSetKeySecurity(OWNER_SECURITY_INFO),
+  DACL = SetEntriesInAcl(KEY_ALL_ACCESS, SET_ACCESS,
+  SUB_CONTAINERS_AND_OBJECTS_INHERIT) via RegSetKeySecurity(DACL)). Source
+  SourceForge directe bloquée par Cloudflare → miroir GitHub.
+- **Correctif (takeover registre)** : nouveau
+  `src/RoomEq.Audio/SystemApo/ApoRegistrySecurity.cs` (portage C# fidèle,
+  [SupportedOSPlatform("windows")], tout échec → false/null, jamais
+  d'exception) : EnablePrivilege (P/Invoke token, détection
+  ERROR_NOT_ALL_ASSIGNED = non élevé), AdminsHaveFullControl (lecture DACL
+  par SID S-1-5-32-544, indépendant de la langue), EnsureWritable =
+  TakeOwnership (RegSetKeySecurity OWNER SEUL sur descripteur neuf — le DACL
+  n'est JAMAIS touché à cette étape, contrairement à
+  RegistryKey.SetAccessControl qui persisterait un DACL absent) puis
+  GrantAdminsFullControl (GetAccessControl → AddAccessRule FullControl
+  ContainerInherit → SetAccessControl : l'ancien DACL + notre ACE),
+  Capture/Restore (descripteur binaire Base64, RegSetKeySecurity
+  OWNER|DACL, SeRestorePrivilege).
+- **Store** : `OpenFxForWrite` tente l'ouverture/création, et sur
+  SecurityException/UnauthorizedAccessException applique
+  EnsureWritable(endpoint) + EnsureWritable(FxProperties si existante) puis
+  RÉESSAI (l'exception réelle remonte si le refus persiste : takeover
+  impossible). `CaptureSecurity` : snapshot owner+DACL des SEULES clés où
+  les admins n'ont pas déjà FullControl (les autres ne changent pas) —
+  null si rien à restituer. `RestoreSecurity` : best effort, jamais
+  d'exception. Inertie hors Windows inchangée (null/no-op).
+- **Registrar (invariant 2 étendu à la sécurité)** : `Enable` capture la
+  sécurité AVANT la première écriture (comme fxExisted) et la stocke dans
+  `ApoEndpointBackup.Security` (record `ApoSecuritySnapshot` :
+  Endpoint/Fx × OwnerSid/SdBase64 — champ optionnel, les sauvegardes
+  v3.7–v3.9.1 restent lisibles : Security null, JAMAIS de fausse
+  restitution) ; `Disable` restitue APRÈS la restauration des valeurs et
+  la suppression éventuelle de la sous-clé (les écritures ont besoin de
+  l'ACE d'activation). `SecurityException` résiduelle → message français
+  ACTIONNABLE (relancez + acceptez l'invite ; logiciel de sécurité) au
+  lieu de l'anglais brut. Interface IApoEndpointStore +2 méthodes
+  (CaptureSecurity/RestoreSecurity — mécanisme dans le store, politique
+  pure dans le registrar).
+- **Réversibilité SUPÉRIEURE à la référence** : Equalizer APO ne restitue
+  JAMAIS owner/DACL (vérifié dans leur uninstall) ; RoomEq restitue les
+  deux (SeRestorePrivilege pour réattribuer SYSTEM). Non-restituée (clé
+  disparue, privilège absent) = best effort silencieux : les VALEURS sont
+  déjà restaurées, une ACE Admins restante est sans effet auditif ni
+  risque (admin uniquement).
+- **Tests** : 488/488 xUnit (Core 237, Audio 172 → 177 : registrar 20 → 25
+  — capture AVANT première écriture + stockage snapshot (ordre par trace),
+  restitution APRÈS suppression de sous-clé (ordre par trace), aucune
+  restitution si snapshot null, sauvegarde héritée sans Security jamais
+  restaurée, rétrocompatibilité disque d'un backups.json v3.9.1 sans le
+  champ, inertie Linux CaptureSecurity/RestoreSecurity ; App 74 inchangés)
+  ; build 0 erreur 0 avertissement (CA1416 gardé par OperatingSystem
+  .IsWindows() en ligne — nouvelle garde dans OpenOrCreateFx).
+- **Docs** : spec I-AUD-09 v1.3 (as-built correctifs i/j/k) ;
+  docs/EQ-SYSTEME-APO.md (fait établi MMDevices § après 3.2 + statut
+  v3.9.2) ; README (historique v3.9.2) ; LISEZMOI 3.9.2 (488 tests) ;
+  package_v3.sh (VERSION 3.9.2 + vérification structurelle du takeover :
+  SeTakeOwnershipPrivilege/SeRestorePrivilege/EnsureWritable/
+  CaptureSecurity) ; Directory.Build.props 3.9.2.
+
+Stage Summary:
+- v3.9.2 LIVRÉE : l'activation de l'EQ système franchit enfin le dernier
+  verrou Windows — les clés des sorties audio appartiennent à SYSTEM et
+  refusent l'écriture aux administrateurs ; RoomEq prend possession le
+  temps de l'inscription (mécanisme Equalizer APO, 10+ ans de terrain) et
+  restitue intégralement owner + permissions à la désactivation, mieux que
+  la référence. Les échecs résiduels s'affichent en français actionnable.
+- Prochaine étape : validation terrain Windows — réinstaller via Setup.exe
+  3.9.2, activer « Casque (JBL Tune Flex 2) » (verdict ✓, état « ● EQ
+  système actif », ~1 s de coupure), jouer de la musique hors RoomEq ;
+  puis Désactiver et contrôler dans regedit que owner/DACL de la clé
+  endpoint sont revenus à SYSTEM (propriétés > sécurité > propriétaire).

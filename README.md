@@ -52,7 +52,14 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   ex. Realtek(R) Audio) acceptent enfin l'EQ système : la sous-clé
   FxProperties manquante est créée à l'activation (mécanisme Equalizer
   APO) et supprimée à la désactivation si redevenue vide (spec I-AUD-09
-  v1.2, +4 tests registrar)
+  v1.2, +4 tests registrar) ; **v3.9.2** : correctif activation (suite) —
+  les clés des sorties MMDevices appartiennent à SYSTEM et refusent
+  l'écriture aux administrateurs même élevés (« Requested registry access
+  is not allowed ») : prise de possession + autorisation à l'activation
+  (mécanisme takeOwnership/makeWritable d'Equalizer APO), sécurité
+  d'origine (owner + DACL) sauvegardée avant écriture et restituée à la
+  désactivation, message d'échec en français clair (spec I-AUD-09 v1.3,
+  +5 tests registrar)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`

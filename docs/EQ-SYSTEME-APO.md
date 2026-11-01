@@ -16,6 +16,23 @@
   l'existence d'origine (`FxPropertiesExisted`) et la désactivation
   supprime la clé créée si redevenue vide ; vue registre Registry64
   explicite (anti-WOW64). Spec I-AUD-09 v1.2, registrar 16 → 20 tests.
+  **v3.9.2 (session 24, 2 novembre 2026)** : correctif activation (second
+  retour terrain : « Requested registry access is not allowed » sur
+  « Casque (JBL Tune Flex 2) »). FAIT ÉTABLI par le code source même
+  d'Equalizer APO (`helpers/RegistryHelper.cpp` : le `createKey`
+  FxProperties est enveloppé d'un `catch` « Permissions were not
+  sufficient » → `takeOwnership` + `makeWritable` → retry) : les clés
+  d'endpoints MMDevices appartiennent à SYSTEM et leur DACL n'accorde
+  PAS l'écriture aux administrateurs — même élevé. Portage C# fidèle
+  (`ApoRegistrySecurity.cs`) : SeTakeOwnershipPrivilege → owner = groupe
+  Administrateurs (RegSetKeySecurity OWNER seul — le DACL n'est jamais
+  touché par cette étape), puis ACE FullControl héritée (WRITE_DAC,
+  droit implicite de l'owner), puis réessai ; la SÉCURITÉ d'origine
+  (owner + DACL, descripteur binaire) est capturée AVANT la première
+  écriture (`CaptureSecurity`, stockée dans la sauvegarde) et restituée
+  à la désactivation (`RestoreSecurity`, SeRestorePrivilege — après la
+  restauration des valeurs, avant l'effacement de la sauvegarde).
+  Spéc I-AUD-09 v1.3, registrar 20 → 25 tests.
 - **Question posée** : « Je voudrais que l'application installe son propre
   driver de carte son virtuelle afin de ne plus dépendre de VB-Cable, mais je
   bute sur le problème du driver signé Microsoft qui demande une solution
@@ -165,6 +182,18 @@ fail » sur certains périphériques). C'est le prix du gratuit : il faut
 prévoir la **réparation automatique** (cf. § 3.4) et tester sur les
 machines cibles. Depuis 10+ ans et des versions entières de Windows, ce
 mécanisme n'a jamais été verrouillé par Microsoft.
+
+**Fait établi v3.9.2 (permissions du registre MMDevices)** : les clés
+d'endpoints sont créées par le service audio (SYSTEM) et leur DACL
+n'accorde PAS l'écriture aux administrateurs — la preuve vit dans le code
+d'Equalizer APO lui-même (`DeviceAPOInfo.cpp` : `createKey(FxProperties)`
+est enveloppé d'un `catch (RegistryException) { takeOwnership;
+makeWritable; createKey; }`, commentaire d'origine « Permissions were not
+sufficient, so change them »). RoomEq fait exactement pareil (prise de
+possession pour les Administrateurs + ACE FullControl héritée), À UNE
+DIFFÉRENCE PRÈS, exigée par notre invariant de réversibilité : Equalizer
+APO ne restitue JAMAIS owner/DACL d'origine — RoomEq les capture avant la
+première écriture et les restitue à la désactivation (SeRestorePrivilege).
 
 ### 3.3 Ce que ça devient dans RoomEq
 
