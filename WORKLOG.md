@@ -1924,6 +1924,11 @@ Work Log:
   package_v3.sh (VERSION 3.9.2 + vérification structurelle du takeover :
   SeTakeOwnershipPrivilege/SeRestorePrivilege/EnsureWritable/
   CaptureSecurity) ; Directory.Build.props 3.9.2.
+- **Installateur** : build_setup.sh rejoué — RoomEq-win-Setup.exe régénéré
+  avec la release 3.9.2 (Velopack « Building release 3.9.2 » visible,
+  52 Mo, PE contrôlé) puis re-téléversé sur Drive (l'ancien, qui
+  embarquait encore la 3.9.1, a été remplacé au premier niveau des
+  Livrables).
 
 Stage Summary:
 - v3.9.2 LIVRÉE : l'activation de l'EQ système franchit enfin le dernier
