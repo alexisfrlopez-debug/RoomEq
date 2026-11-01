@@ -790,15 +790,23 @@ static void TestAutoLoad()
     writeAt("03-vrai.json", realJson);
 
     // récence : plat le plus récent, corrompu, puis la vraie correction
+    // (st_mtimespec sur macOS/BSD, st_mtim sur Linux — même raison que
+    // preset_editor.cpp)
     const auto setMtime = [&store](const char* name, long secondsAgo) {
         const std::string path = store + "/" + name;
         struct stat st;
         if (stat(path.c_str(), &st) != 0)
             return;
         struct timespec times[2];
+#if defined(__APPLE__)
+        times[0] = st.st_atimespec;
+        times[1].tv_sec = st.st_mtimespec.tv_sec - secondsAgo;
+        times[1].tv_nsec = st.st_mtimespec.tv_nsec;
+#else
         times[0] = st.st_atim;
         times[1].tv_sec = st.st_mtim.tv_sec - secondsAgo;
         times[1].tv_nsec = st.st_mtim.tv_nsec;
+#endif
         utimensat(AT_FDCWD, path.c_str(), times, 0);
     };
     setMtime("01-plat.json", 0);     // le plus récent

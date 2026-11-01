@@ -33,16 +33,17 @@ fi
 echo "— Zig      : $ZIG_BIN ($("$ZIG_BIN" version))"
 
 # ------------------------------------------------------------------- sources
+# (banque casques + écriture JSON : cœur partagé AU depuis D23)
 SOURCES=(
     "$HERE/vst/RoomEqVst.cpp"
     "$HERE/vst/EditorWin32.cpp"
-    "$HERE/vst/headphone_bank.cpp"
-    "$HERE/vst/preset_write.cpp"
     "$AU_CORE/roomeq/dsp/biquad.cpp"
     "$AU_CORE/roomeq/dsp/eq_chain.cpp"
     "$AU_CORE/roomeq/json/mini_json.cpp"
     "$AU_CORE/roomeq/preset/preset_json.cpp"
     "$AU_CORE/roomeq/preset/preset_ffp.cpp"
+    "$AU_CORE/roomeq/preset/preset_write.cpp"
+    "$AU_CORE/roomeq/headphones/headphone_bank.cpp"
 )
 for f in "${SOURCES[@]}"; do
     [[ -f "$f" ]] || { echo "ÉCHEC : source absent : $f" >&2; exit 1; }

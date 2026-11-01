@@ -388,6 +388,7 @@ static void PropertyChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
         && magic[2] == 'P' && magic[3] == '1'
         && read(&version, 4) && read(&preamp, 8) && read(&nameLen, 1);
     if (ok) {
+        (void)version; // décodée pour la forme, non affichée
         name.resize(nameLen);
         ok = read(name.data(), nameLen) && read(&count, 4);
     }

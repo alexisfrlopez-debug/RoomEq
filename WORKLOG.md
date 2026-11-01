@@ -1327,6 +1327,17 @@ Work Log:
   étaient des bugs des TESTS (guillemets français au lieu d'ASCII, bande
   Notch laissée désactivée, attente de résumé, clamp jamais déclenché —
   préamplis sources tous dans [-8,7 ; -1,2], vérifié par script) : corrigés.
+- PREMIER TOUR DE CI (d252a89) : deux échecs corrigés dans la foulée —
+  (1) macOS n'expose pas st_mtim en C++17 strict (BSD : st_mtimespec) :
+  preset_editor.cpp et test_main.cpp passés en #if defined(__APPLE__)
+  (la branche POSIX du VST n'est compilée que sous Linux, inchangée) ;
+  (2) build-vst.sh (cross-compilation Zig, hors CMake) gardait sa propre
+  liste de sources avec les ANCIENS chemins de headphone_bank/preset_write
+  — re-pointés vers le cœur partagé, build local revalidé (DLL 588K, PE32,
+  exports VSTPluginMain + main). Au passage : build-macos.sh installe le
+  bundle AVANT auval (l'outil ne voit que les composants enregistrés —
+  recette CI ; défaut préexistant où la validation portait sur une
+  éventuelle version périmée).
 - Versions alignées : CMake AU 3.6.0, Directory.Build.props 3.6.0,
   package_v3.sh 3.6.0. CARTE.md (en-tête + statut + M-AUD-07 avec la
   couche edit/ et 15 671 vérifications), DECISIONS.md (D23 complète),

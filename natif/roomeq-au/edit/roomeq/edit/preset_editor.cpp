@@ -102,8 +102,15 @@ std::vector<std::string> PresetFilesByRecency(const std::string& dir)
             if (stat((dir + "/" + name).c_str(), &st) != 0
                 || (st.st_mode & S_IFMT) != S_IFREG)
                 continue;
+#if defined(__APPLE__)
+            // BSD : timespec de modification (macOS n'expose pas st_mtim
+            // en C++17 strict — CMAKE_CXX_EXTENSIONS OFF)
+            const long nanos = st.st_mtimespec.tv_nsec;
+#else
+            const long nanos = st.st_mtim.tv_nsec;
+#endif
             candidates.push_back({ static_cast<long long>(st.st_mtime) * 1000000000LL
-                    + st.st_mtim.tv_nsec,
+                    + nanos,
                 dir + "/" + name });
         }
         closedir(d);
