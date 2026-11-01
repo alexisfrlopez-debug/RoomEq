@@ -647,3 +647,41 @@ banque, données statiques du bundle, est lue directement par la vue (aucune
 propriété nécessaire). Les VU-mètres sont des atomiques écrits par le noyau
 du canal 0 au rendu et sondés par la vue à 30 Hz (décroissance locale,
 jamais de verrou au rendu — invariant 4 respecté).
+
+## D24 — EQ système par APO : le DSP RoomEq dans le moteur audio Windows (2 novembre 2026)
+
+| | |
+|---|---|
+| **D24** | Demande développeur : « je voudrais que l'application installe son propre driver de carte son virtuelle afin de ne plus dépendre de VB-CABLE, mais je bute sur le problème du driver signé Microsoft qui demande une solution payante. Je veux un moyen de contourner ça, user friendly, sans mode test » (+ validation implicite du choix APO en reprenant le besoin : auto-suffisant, aucun logiciel tiers, « j'installe l'appli, je choisis la sortie RoomEq, je route vers le vrai périphérique ») |
+| **Décision** | L'égalisation système Windows (« tout le son d'une sortie traverse l'EQ ») passe par un **Audio Processing Object** RoomEq (`RoomEqApo.dll`, user-mode, position EFX) chargé par `audiodg.exe` : **aucune signature Microsoft, aucun mode test, aucune dépendance tierce, latence ajoutée nulle** — le mur de la signature ne s'applique qu'au code NOYAU, l'APO est du code utilisateur chargé par le moteur audio lui-même (mécanisme des effets Realtek/Dolby, prouvé à l'échelle par Equalizer APO). La « carte son virtuelle RoomEq » littérale reste impossible gratuitement (certificat EV 226–669 $/an, cf. `docs/EQ-SYSTEME-APO.md`) : l'APO renverse l'architecture — au lieu d'amener le son à l'application, le DSP va au son. Livré en v3.7.0 : cœur natif D23 réutilisé (parité bit à bit), panneau « EQ système » dans l'onglet Mixage (activer/désactiver par sortie, une invite UAC, réversible, réparable), courbe poussée en temps réel depuis l'onglet Égaliseur avec fondu 20 ms (le son ne s'interrompt jamais), bypass automatique pendant les mesures. Le pilote noyau `roomeqvad` (mode test, I-INS-05) reste une option avancée ; la signature EV/attestation reste la voie « propre » si le produit se commercialise. Mêmes correctifs livrés : rafraîchissement des périphériques en UNE passe en arrière-plan (fin des gels à chaque clic — bouton ⟳ animé) et latence console 50 → 30 ms (désynchro son/image en vidéo corrigée de fond par l'APO, à latence nulle) |
+| **Alternatives écartées** | Signer `roomeqvad.sys` via attestation (coût récurrent, vérification d'entité légale — reporté tant que le produit le justifie) ; redistribuer un pilote tiers signé (remplace une dépendance par une autre + contrat) ; mode test (filigrane, insécurité, refusé par l'utilisateur et par I-INS-05) ; WASAPI loopback seul (couverture partielle : une seule sortie captée, latence de chaîne complète) |
+| **Validation** | Harnais natif `roomeq_apo_tests` : **112 vérifications, 0 échec** (ABI COM vérifiée contre le SDK 10.0.10240 + Equalizer APO, parité de courbe bit à bit avec EqChain [0.00e+00], **0 allocation/libération en régime établi** [compteurs new/delete globaux], continuité échantillon par échantillon à la réécriture identique, fondu enchaîné reproduit au demi-ULP, bypass, config corrompue/supprimée, mono + 6 canaux [L/R traités, autres intacts], reformatage, BUFFER_*/in-place). DLL livrées : x64 452 Ko + arm64 412 Ko (Zig, PE32+ vérifiés, exports COM, dépendances système uniquement). xUnit : **484/484** (Core 237, Audio 168 [+18 APO : ordre sauvegarde→écriture, restauration exacte, idempotence, réparation, anti-boucle, inertie], App 79). Terrain : checklist de validation à exécuter sur machine Windows (Realtek/Intel/NVIDIA/BT/HDMI, MAJ pilote, mode exclusif) |
+
+**Détail technique — pourquoi ça marche sans signature.** Un sAPO est un
+objet COM in-process (interfaces `IAudioProcessingObject{,RT,Configuration}`
++ `IAudioSystemEffects`) que `audiodg.exe` (LocalService) instancie via
+`CoCreateInstance` : du code UTILISATEUR. L'activation standalone écrit (1)
+l'inscription COM du CLSID (`HKLM\SOFTWARE\Classes\CLSID\{EAA24610-…}` →
+DLL déployée dans `%ProgramData%\RoomEq\apo\bin`, lecture seule pour les
+utilisateurs standard — une DLL chargée par un service ne doit pas être
+remplaçable par un compte non administrateur) et (2) le CLSID en valeur EFX
+des `FxProperties` de l'endpoint choisi
+(`{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},7` — « toujours appliquée, même aux
+flux raw », Microsoft Learn), avec déblocage de `PKEY_AudioEndpoint_Disable_
+SysFx` si besoin. Le service audio est alors redémarré (~1 s). L'APO lit
+`%ProgramData%\RoomEq\apo\active.json` (format preset D23) via un thread de
+fond (sondage 100 ms, horodatage fin — `st_mtime` à la seconde raterait les
+réécritures pendant un glissement de curseur), reconstruit sa chaîne HORS du
+chemin audio et publie par pointeur atomique ; `APOProcess` ne fait ni
+allocation ni verrou ni E/S (les libérations sont confiées à un cimetière
+vidé par le thread de fond), et **aucune méthode ne retourne jamais d'échec**
+: après 10 échecs, le moteur désactiverait les effets système du périphérique
+(y compris ceux du fabricant) — tout imprévu dégrade en pass-through et se
+journalise. Anti-boucle (I-AUD-03 v2) : l'activation refuse toute entrée de
+câble virtuel (RoomEq, VB-CABLE, VoiceMeeter, LoopBeAudio). Inconvénients
+assumés et documentés dans l'UI : WASAPI exclusif/ASIO/KS contournent tout
+effet système ; les effets EFX du fabricant sont suspendus sur une sortie
+activée (sauvegardés, restaurés) ; une MAJ de pilote peut écraser
+FxProperties → bouton « Réparer » + réparation automatique au branchement à
+chaud ; mécanisme standalone éprouvé (Equalizer APO, 10+ ans) mais non
+officiellement supporté par Microsoft.

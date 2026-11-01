@@ -12,6 +12,101 @@ namespace RoomEq.Audio.Routing;
 /// </summary>
 public sealed class AudioDeviceCatalog
 {
+    /// <summary>
+    /// Photographie TOUT l'état audio en UNE seule passe (correctif v3.7.0 :
+    /// l'ancien RefreshDevices faisait jusqu'à six balayages COM consécutifs
+    /// + le chargement des pilotes ASIO, chacun pouvant bloquer des centaines
+    /// de millisecondes — l'interface gelait à chaque clic). Les résultats
+    /// sont immuables : prêts à être appliqués sur le thread UI depuis un
+    /// travail d'arrière-plan.
+    /// </summary>
+    public sealed record DeviceSnapshot(
+        IReadOnlyList<TrackSource> CaptureSources,
+        IReadOnlyList<TrackSource> LoopbackSources,
+        IReadOnlyList<OutputDeviceInfo> RenderDevices,
+        VirtualCardStatus VirtualCard,
+        string? DefaultCaptureId)
+    {
+        public static DeviceSnapshot Empty { get; } = new(
+            Array.Empty<TrackSource>(), Array.Empty<TrackSource>(),
+            Array.Empty<OutputDeviceInfo>(), new VirtualCardStatus(), null);
+    }
+
+    /// <summary>
+    /// Capture l'état complet pour le fournisseur de carte virtuelle donné
+    /// (une seule énumération par sens + défauts — jamais d'exception).
+    /// </summary>
+    public DeviceSnapshot CaptureSnapshot(IVirtualAudioProvider? provider = null)
+    {
+        provider ??= VirtualAudioCatalog.Default;
+        if (!OperatingSystem.IsWindows())
+            return DeviceSnapshot.Empty;
+
+        var captures = new List<TrackSource>();
+        var loopbacks = new List<TrackSource>();
+        var renders = new List<OutputDeviceInfo>();
+        bool hasIn = false, hasOut = false;
+        string? inName = null, inId = null, outName = null, outId = null;
+        string? defName = null, defId = null;
+        string? defCaptureId = null;
+
+        try
+        {
+            var e = Enumer();
+            foreach (var d in e.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+            {
+                renders.Add(new OutputDeviceInfo("wasapi|" + d.ID, d.FriendlyName, "WASAPI"));
+                loopbacks.Add(TrackSource.LoopbackDevice(d.ID, d.FriendlyName + " (boucle)"));
+                if (provider.IsRenderEndpoint(d.FriendlyName) && !hasIn)
+                {
+                    hasIn = true;
+                    inName = d.FriendlyName;
+                    inId = d.ID;
+                }
+            }
+            foreach (var d in e.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
+            {
+                captures.Add(TrackSource.CaptureDevice(d.ID, d.FriendlyName));
+                if (provider.IsCaptureEndpoint(d.FriendlyName) && !hasOut)
+                {
+                    hasOut = true;
+                    outName = d.FriendlyName;
+                    outId = d.ID;
+                }
+            }
+
+            var def = e.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
+            defName = def.FriendlyName;
+            defId = def.ID;
+
+            var defCap = e.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Console);
+            defCaptureId = defCap.ID;
+        }
+        catch
+        {
+            // sous-système audio indisponible : les listes déjà remplies
+            // restent exploitables, le statut reste vide
+        }
+
+        return new DeviceSnapshot(
+            captures, loopbacks, renders,
+            new VirtualCardStatus
+            {
+                ProviderId = provider.Id,
+                ProviderDisplayName = provider.DisplayName,
+                CableInputFound = hasIn,
+                CableOutputFound = hasOut,
+                IsDefaultRender = hasIn && defId == inId,
+                CableInputName = inName,
+                CableInputId = inId,
+                CableOutputName = outName,
+                CableOutputId = outId,
+                DefaultRenderName = defName,
+                DefaultRenderId = defId,
+            },
+            defCaptureId);
+    }
+
     private MMDeviceEnumerator? _enumerator;
 
     private MMDeviceEnumerator Enumer()

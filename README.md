@@ -31,11 +31,21 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   (inclusions libc++ macOS) + bundle universel arm64/x86_64 ; **v3.3.0** :
   **installation en 1 clic** (D20 — `RoomEq-win-Setup.exe` Windows via
   Velopack cross-compilé, `.pkg` macOS pour le greffon ; aucune dépendance
-  ajoutée à l'application)
+  ajoutée à l'application) ; **v3.7.0** : **EQ système sans pilote** (D24,
+  module M-AUD-09 — le DSP RoomEq s'installe dans le moteur audio Windows
+  via un Audio Processing Object : tout le son d'une sortie traverse
+  l'égaliseur, sans signature Microsoft ni mode test ni VB-CABLE, latence
+  ajoutée nulle, activation par sortie en une invite administrateur ;
+  correctifs : fin des gels d'interface au rafraîchissement des
+  périphériques — capture en une passe en arrière-plan — et latence du
+  routage console réduite 50 → 30 ms contre la désynchronisation
+  son/image en vidéo)
 - **Reprise** : lire `REPRISE.md` en premier
-- **Décisions** : `docs/DECISIONS.md` (D1-D20) · **Carte** : `CARTE.md`
+- **Décisions** : `docs/DECISIONS.md` (D1-D24) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
 - **Greffon AudioUnit** (Ableton Live, macOS) : `natif/roomeq-au/README.md`
+- **EQ système APO** (Windows, sans pilote) : `natif/roomeq-apo/README.md` +
+  analyse `docs/EQ-SYSTEME-APO.md`
 
 ## Structure
 

@@ -49,6 +49,16 @@ public sealed class RoomMeasurementEngine : IDisposable
     /// <summary>Libère le périphérique de capture (fermeture de l'application).</summary>
     public void Dispose() => _capture.Dispose();
 
+    /// <summary>
+    /// Invoque le bypass EQ système sans jamais lever (le câblage vient de
+    /// l'interface ; une mesure ne doit pas échouer pour un problème APO).
+    /// </summary>
+    private void InvokeSystemEqBypass(bool on)
+    {
+        try { SystemEqBypass?.Invoke(on); }
+        catch { /* le bypass système ne doit jamais casser une mesure */ }
+    }
+
     /// <summary>Périphérique de capture à utiliser (« capture|… », ou null = micro par défaut).</summary>
     public string? CaptureDeviceId { get; set; }
 
@@ -70,6 +80,14 @@ public sealed class RoomMeasurementEngine : IDisposable
 
     /// <summary>Phase courante de la mesure multi-signaux (texte pour l'interface).</summary>
     public event Action<string>? PhaseChanged;
+
+    /// <summary>
+    /// Bypass de l'EQ SYSTÈME pendant la mesure (spec I-AUD-09, invariant 9) :
+    /// invoqué avec true AVANT toute émission et avec false après — on mesure
+    /// la pièce, pas la correction, y compris sur les sorties où l'APO RoomEq
+    /// est actif. Câblé par l'application vers WindowsApoSystem.SetMeasurementBypass.
+    /// </summary>
+    public Action<bool>? SystemEqBypass { get; set; }
 
     /// <summary>Résultat d'une mesure multi-signaux complète.</summary>
     public sealed class MultiSignalResult
@@ -98,6 +116,7 @@ public sealed class RoomMeasurementEngine : IDisposable
     {
         bool previousBypass = _playback.Eq.Bypass;
         _playback.Eq.Bypass = true; // on mesure la pièce, pas l'égaliseur
+        InvokeSystemEqBypass(true);
 
         var chunks = new List<float[]>();
         var gate = new object();
@@ -126,6 +145,7 @@ public sealed class RoomMeasurementEngine : IDisposable
             _playback.Stop();
             _capture.Stop();
             _playback.Eq.Bypass = previousBypass;
+            InvokeSystemEqBypass(false);
         }
 
         // laisser arriver les derniers fragments
@@ -180,6 +200,7 @@ public sealed class RoomMeasurementEngine : IDisposable
 
         bool previousBypass = _playback.Eq.Bypass;
         _playback.Eq.Bypass = true;
+        InvokeSystemEqBypass(true);
 
         var curves = new List<SignalCurve>();
         var warnings = new List<string>();
@@ -286,6 +307,7 @@ public sealed class RoomMeasurementEngine : IDisposable
         finally
         {
             _playback.Eq.Bypass = previousBypass;
+            InvokeSystemEqBypass(false);
         }
 
         if (curves.Count == 0)

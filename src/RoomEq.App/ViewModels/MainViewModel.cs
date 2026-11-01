@@ -30,6 +30,9 @@ public partial class MainViewModel : ObservableObject
     public AsioViewModel Asio { get; }
     public MixerViewModel Mixer { get; }
 
+    /// <summary>EQ système par APO (D24) : partagé entre Mixage et mesure.</summary>
+    public RoomEq.Audio.SystemApo.WindowsApoSystem SystemEq { get; } = new();
+
     /// <summary>Menu des signaux de test de la barre supérieure.</summary>
     public TestSignalMenu Signals { get; }
 
@@ -64,9 +67,13 @@ public partial class MainViewModel : ObservableObject
         Analyzer = new AnalyzerViewModel(Engine, AnalyzerCapture);
         Calibration = new CalibrationViewModel(Engine, Measurement, Mic);
         Asio = new AsioViewModel(() => Engine.Stop());
-        Mixer = new MixerViewModel(Engine, SyncVolumeFromRouted);
+        Mixer = new MixerViewModel(Engine, SyncVolumeFromRouted, SystemEq);
         Signals = new TestSignalMenu(Engine, setStatus: s => StatusText = s);
         OutputPresets = new OutputPresetCoordinator(Eq, Mixer);
+
+        // EQ système (APO, D24) : les mesures de calibration bypassent l'APO
+        // (on mesure la pièce, pas la correction — invariant 9 de I-AUD-09)
+        Measurement.SystemEqBypass = SystemEq.SetMeasurementBypass;
 
         // initialisations croisées
         Eq.Init(Engine);
@@ -140,6 +147,7 @@ public partial class MainViewModel : ObservableObject
             Mixer.SaveConfig();
             Mixer.Mixer.Stop();
             Mixer.Shutdown();
+            SystemEq.Dispose();
             Engine.Stop();
             AnalyzerCapture.Dispose();
             Engine.Dispose();
@@ -196,6 +204,7 @@ public partial class MainViewModel : ObservableObject
         {
             RefreshOutputs();
             Mixer.RefreshDevices();
+            Mixer.RefreshSystemApoCore(); // endpoints ajoutés/retirés à chaud
             try { Analyzer.RefreshAudioDevices(); } catch { /* énumération indisponible */ }
             try { Calibration.RefreshAudioDevices(); } catch { /* énumération indisponible */ }
             OutputPresets.Evaluate(Mixer.SelectedOutput);

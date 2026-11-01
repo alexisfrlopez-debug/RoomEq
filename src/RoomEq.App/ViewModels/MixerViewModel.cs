@@ -6,6 +6,7 @@ using RoomEq.Audio.Asio;
 using RoomEq.Audio.Mac;
 using RoomEq.Audio.Playback;
 using RoomEq.Audio.Routing;
+using RoomEq.Audio.SystemApo;
 using RoomEq.Core.Io;
 
 namespace RoomEq.App.ViewModels;
@@ -29,6 +30,10 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     private readonly EndpointVolumeController _endpointVolume = new();
     private readonly DriverSetupManager _driverSetup = new();
     private DispatcherTimer? _eqSyncDebounce;
+
+    // rafraîchissement des périphériques : UNE recapture à la fois — les clics
+    // en rafale (⟳, branchements à chaud) s'ignorent au lieu de s'empiler
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
 
     // synchro des deux curseurs de volume (barre du haut + Mixage) : une seule
     // source de vérité (le volume Windows de la carte), tous les affichages suivent
@@ -93,10 +98,16 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
     /// <summary>Vrai sur macOS : pilote les adaptations d'interface (pas de pnputil, pont périphérique).</summary>
     public bool IsMacOS => OperatingSystem.IsMacOS();
 
-    public MixerViewModel(PlaybackEngine engine, Action<double>? syncTopBarVolume = null)
+    public MixerViewModel(PlaybackEngine engine, Action<double>? syncTopBarVolume = null,
+        WindowsApoSystem? systemApo = null)
     {
         _engine = engine;
         _syncTopBarVolume = syncTopBarVolume;
+
+        // EQ système (APO) — partagé avec le moteur de mesure (bypass pendant
+        // les balayages) : créé ici, câblé par le shell via SystemEqBypass
+        SystemApo = systemApo ?? new WindowsApoSystem();
+        SystemApo.Changed += () => Dispatcher.UIThread.Post(RefreshSystemApoCore);
 
         if (IsMacOS)
         {
@@ -145,6 +156,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         });
 
         RefreshDevices();
+        RefreshSystemApoCore();
         _timer.Start();
 
         // Pont du périphérique virtuel (macOS) ou ASIO (Windows) : la section
@@ -166,7 +178,8 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
 
     // ================================================================ EQ master
 
-    /// <summary>Le bus master suit en permanence l'égaliseur de l'onglet Égaliseur.</summary>
+    /// <summary>Le bus master suit en permanence l'égaliseur de l'onglet Égaliseur
+    /// — et l'EQ système (APO) reçoit la même courbe quand il est actif.</summary>
     private void SyncMasterEqFromMain()
     {
         try
@@ -174,6 +187,7 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
             var preset = _engine.Eq.Preset;
             Mixer.MasterEq.SetPreset(preset);
             Mixer.MasterEq.Bypass = _engine.Eq.Bypass;
+            SystemApo.PushCurve(preset, _engine.Eq.Bypass);
         }
         catch
         {
@@ -191,44 +205,105 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
 
     // ================================================================ périphériques
 
+    /// <summary>Rafraîchissement en cours (bouton ⟳ animé/désactivé).</summary>
+    [ObservableProperty] private bool isRefreshingDevices;
+
+    /// <summary>
+    /// Version ATTENDUE du rafraîchissement (bouton ⟳, flux d'installation) :
+    /// capture en arrière-plan en UNE passe, application sur le thread UI.
+    /// </summary>
     [RelayCommand]
+    public Task RefreshDevicesAsync() => RefreshDevicesCoreAsync();
+
+    /// <summary>
+    /// Point d'entrée historique (démarrage, arrêt de routage, changement de
+    /// protocole) : lance le même rafraîchissement SANS l'attendre —
+    /// l'interface ne bloque plus JAMAIS sur une énumération audio
+    /// (correctif v3.7.0 : chaque clic gelait l'application le temps de six
+    /// balayages COM + du chargement des pilotes ASIO).
+    /// Hors Windows : application synchrone inchangée (macOS sonde CoreAudio
+    /// localement, Linux/CI obtient des listes vides — aucun gel possible,
+    /// et les tests restent déterministes).
+    /// </summary>
     public void RefreshDevices()
     {
-        if (IsMacOS)
+        if (OperatingSystem.IsWindows())
         {
-            VirtualCard = MacAudioBridge.Probe();
-            OnPropertyChanged(nameof(DriverPackagePresent));
-            VirtualStatusText = !VirtualCard.PartiallyInstalled
-                ? "Greffon RoomEqHAL non détecté — réinstallez le paquet RoomEq (.pkg)."
-                : VirtualCard.FullyRouted
-                    ? "Périphérique virtuel actif : « RoomEq Virtual » est la sortie par défaut de macOS"
-                    : "Périphérique virtuel installé : choisissez « RoomEq Virtual » comme sortie macOS (Réglages Système › Son)";
-
-            RebuildOutputs();
-            RebuildAvailableSources();
+            _ = RefreshDevicesCoreAsync();
             return;
         }
+        if (IsMacOS)
+        {
+            ApplyMacDevices();
+            return;
+        }
+        var snap = _catalog.CaptureSnapshot(SelectedProvider);
+        ApplySnapshot(snap, Mixer.EnumerateOutputs());
+    }
 
-        VirtualCard = _catalog.ProbeVirtualCard(SelectedProvider);
+    private async Task RefreshDevicesCoreAsync()
+    {
+        if (!await _refreshGate.WaitAsync(0).ConfigureAwait(false))
+            return; // une recapture déjà en cours : les clics s'ignorent
+        try
+        {
+            IsRefreshingDevices = true;
+            var provider = SelectedProvider;
+            var snap = await Task.Run(() => _catalog.CaptureSnapshot(provider)).ConfigureAwait(false);
+            var outputs = await Task.Run(() => ConsoleMixer.EnumerateOutputs(snap.RenderDevices))
+                .ConfigureAwait(false);
+            await Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(snap, outputs));
+        }
+        catch
+        {
+            // un rafraîchissement ne doit jamais faire échouer un clic
+        }
+        finally
+        {
+            IsRefreshingDevices = false;
+            _refreshGate.Release();
+        }
+    }
+
+    /// <summary>Chemin macOS : sonde le greffon, puis listes CoreAudio.</summary>
+    private void ApplyMacDevices()
+    {
+        VirtualCard = MacAudioBridge.Probe();
         OnPropertyChanged(nameof(DriverPackagePresent));
         VirtualStatusText = !VirtualCard.PartiallyInstalled
-            ? SelectedProvider.IsPreinstalled
-                ? "Boucle WASAPI native : aucune installation nécessaire"
-                : SelectedProvider.DisplayName + " non installé"
-            : !VirtualCard.Installed
-                ? SelectedProvider.DisplayName + " : un seul côté détecté ("
-                  + (VirtualCard.CableInputFound ? VirtualCard.CableInputName : VirtualCard.CableOutputName) + ")"
-                : VirtualCard.FullyRouted
-                    ? $"Carte virtuelle active : « {VirtualCard.CableInputName} » est la sortie par défaut de Windows"
-                    : $"Carte virtuelle installée : « {VirtualCard.CableInputName} » — pas encore sortie par défaut";
+            ? "Greffon RoomEqHAL non détecté — réinstallez le paquet RoomEq (.pkg)."
+            : VirtualCard.FullyRouted
+                ? "Périphérique virtuel actif : « RoomEq Virtual » est la sortie par défaut de macOS"
+                : "Périphérique virtuel installé : choisissez « RoomEq Virtual » comme sortie macOS (Réglages Système › Son)";
 
         RebuildOutputs();
         RebuildAvailableSources();
     }
 
-    private void RebuildOutputs()
+    /// <summary>Applique une photographie de périphériques (thread UI).</summary>
+    private void ApplySnapshot(AudioDeviceCatalog.DeviceSnapshot snap,
+        IReadOnlyList<OutputDeviceInfo> outputs)
     {
-        var list = Mixer.EnumerateOutputs();
+        VirtualCard = snap.VirtualCard;
+        OnPropertyChanged(nameof(DriverPackagePresent));
+        VirtualStatusText = !snap.VirtualCard.PartiallyInstalled
+            ? SelectedProvider.IsPreinstalled
+                ? "Boucle WASAPI native : aucune installation nécessaire"
+                : SelectedProvider.DisplayName + " non installé"
+            : !snap.VirtualCard.Installed
+                ? SelectedProvider.DisplayName + " : un seul côté détecté ("
+                  + (snap.VirtualCard.CableInputFound ? snap.VirtualCard.CableInputName : snap.VirtualCard.CableOutputName) + ")"
+                : snap.VirtualCard.FullyRouted
+                    ? $"Carte virtuelle active : « {snap.VirtualCard.CableInputName} » est la sortie par défaut de Windows"
+                    : $"Carte virtuelle installée : « {snap.VirtualCard.CableInputName} » — pas encore sortie par défaut";
+
+        RebuildOutputs(outputs);
+        RebuildAvailableSources(snap.CaptureSources, snap.LoopbackSources);
+    }
+
+    private void RebuildOutputs(IReadOnlyList<OutputDeviceInfo>? preCaptured = null)
+    {
+        var list = preCaptured ?? Mixer.EnumerateOutputs();
         Outputs.Clear();
         foreach (var o in list) Outputs.Add(o);
 
@@ -268,7 +343,8 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         }
     }
 
-    private void RebuildAvailableSources()
+    private void RebuildAvailableSources(IReadOnlyList<TrackSource>? captureSources = null,
+        IReadOnlyList<TrackSource>? loopbackSources = null)
     {
         AvailableSources.Clear();
         if (IsMacOS)
@@ -278,8 +354,10 @@ public partial class MixerViewModel : ObservableObject, IOutputPresetMixerView
         }
         else
         {
-            foreach (var s in _catalog.EnumerateCaptureSources()) AvailableSources.Add(s);
-            foreach (var s in _catalog.EnumerateLoopbackSources()) AvailableSources.Add(s);
+            var captures = captureSources ?? _catalog.EnumerateCaptureSources();
+            var loopbacks = loopbackSources ?? _catalog.EnumerateLoopbackSources();
+            foreach (var s in captures) AvailableSources.Add(s);
+            foreach (var s in loopbacks) AvailableSources.Add(s);
             AvailableSources.Add(TrackSource.AsioBridgeSource());
         }
         AvailableSources.Add(TrackSource.InternalPlayer());

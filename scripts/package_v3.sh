@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.6.0
+VERSION=3.7.0
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -35,6 +35,17 @@ echo "── Publication win-x64 auto-contenue…"
 rm -rf "$PUBLISH"
 dotnet publish src/RoomEq.App -c Release -r win-x64 --self-contained true \
     -p:PublishDir="$PUBLISH" 2>&1 | tail -3
+
+echo "── DLL APO (EQ système, D24) dans le dossier publié…"
+for arch in x64 arm64; do
+    [[ -f "$SRC/natif/roomeq-apo/dist/RoomEqApo_$arch.dll" ]] \
+        || { echo "ERREUR : RoomEqApo_$arch.dll absente — lancez natif/roomeq-apo/build-apo.sh"; exit 1; }
+done
+mkdir -p "$PUBLISH/apo"
+cp "$SRC/natif/roomeq-apo/dist/RoomEqApo_x64.dll" \
+   "$SRC/natif/roomeq-apo/dist/RoomEqApo_arm64.dll" \
+   "$PUBLISH/apo/"
+echo "   ✓ apo/RoomEqApo_{x64,arm64}.dll déployées"
 
 echo "── Vérification de la version…"
 propagated=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' src/Directory.Build.props | head -1)
@@ -96,6 +107,15 @@ PY
 [[ $? -eq 0 ]] && echo "   ✓ Parité casques : ≥ 320 modèles (D9)"
 [[ -f "$SRC/LISEZMOI.txt" ]] && echo "   ✓ LISEZMOI.txt v3"
 
+# --- v3.7.0 : EQ système par APO (D24) ---
+[[ -f "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
+   && -f "$SRC/natif/roomeq-apo/apo/RoomEqApo.cpp" \
+   && -f "$SRC/I/audio/I-apo-systeme.md" ]] \
+  && grep -qE 'class ApoRegistrar' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
+  && grep -qE 'FxEndpointEffectClsid' "$SRC/src/RoomEq.Audio/SystemApo/ApoConstants.cs" \
+  && grep -qE 'SystemApoEnableCommand' "$SRC/src/RoomEq.App/Views/MixerTab.axaml" \
+  && echo "   ✓ EQ système APO (D24) : registrar + DLL + panneau UI + spec I-AUD-09"
+
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }
 cp "$PUBLISH/RoomEq.App.exe" "$PUBLISH/RoomEq.exe"         # public (silencieux)
@@ -146,7 +166,8 @@ t_main=$(unzip -l "$OUT/RoomEq-$VERSION-win-x64-test.zip" | grep -cE "RoomEq/Roo
 t_test=$(unzip -l "$OUT/RoomEq-$VERSION-win-x64-test.zip" | grep -cE "RoomEq/RoomEq-test\.exe" || true)
 t_telemetry=$(unzip -p "$OUT/RoomEq-$VERSION-win-x64-test.zip" RoomEq/telemetrie.json | python3 -c "import json,sys; d=json.load(sys.stdin); print('ok' if 'folder_id' in d else 'ko')" 2>/dev/null || echo ABSENT)
 t_no_app=$(unzip -l "$OUT/RoomEq-$VERSION-win-x64-test.zip" | grep -cE "RoomEq\.App\.exe" || true)
-echo "   test zip  : RoomEq.exe=$t_main  RoomEq-test.exe=$t_test  telemetrie=$t_telemetry  RoomEq.App.exe résiduel=$t_no_app (attendu 0)"
+t_apo=$(unzip -l "$OUT/RoomEq-$VERSION-win-x64-test.zip" | grep -cE "RoomEq/apo/RoomEqApo_(x64|arm64)\.dll" || true)
+echo "   test zip  : RoomEq.exe=$t_main  RoomEq-test.exe=$t_test  telemetrie=$t_telemetry  RoomEq.App.exe résiduel=$t_no_app (attendu 0)  DLL APO=$t_apo (attendu 2)"
 
 p_main=$(unzip -l "$OUT/RoomEq-$VERSION-win-x64-public.zip" | grep -cE "RoomEq/RoomEq\.exe" || true)
 p_no_test=$(unzip -l "$OUT/RoomEq-$VERSION-win-x64-public.zip" | grep -cE "RoomEq-test\.exe" || true)
@@ -161,7 +182,7 @@ echo "   source zip: telemetrie réel=$s_telemetry (attendu 0)  specs I=$s_specs
 
 echo "   tailles   : test=$(du -h "$OUT/RoomEq-$VERSION-win-x64-test.zip" | cut -f1)  public=$(du -h "$OUT/RoomEq-$VERSION-win-x64-public.zip" | cut -f1)  source=$(du -h "$OUT/RoomEq-$VERSION-source.zip" | cut -f1)"
 
-[[ "$t_main" -ge 1 && "$t_test" -ge 1 && "$t_no_app" == "0" && "$t_telemetry" == "ok" ]] \
+[[ "$t_main" -ge 1 && "$t_test" -ge 1 && "$t_no_app" == "0" && "$t_telemetry" == "ok" && "$t_apo" -eq 2 ]] \
     || { echo "ERREUR : contenu du zip TEST incorrect"; exit 1; }
 [[ "$p_main" -ge 1 && "$p_no_test" == "0" && "$p_no_telemetry" == "0" ]] \
     || { echo "ERREUR : contenu du zip PUBLIC incorrect"; exit 1; }

@@ -19,8 +19,12 @@ namespace RoomEq.Audio.Routing;
 /// </summary>
 public sealed class ConsoleMixer : IDisposable
 {
-    /// <summary>Latence du bus master en WASAPI partagé (ms) — plus courte que la lecture classique.</summary>
-    public const int MasterLatencyMs = 50;
+    /// <summary>Latence du bus master en WASAPI partagé (ms) — plus courte que la lecture classique.
+    /// v3.7.0 : 50 → 30 ms (correctif désynchronisation son/image en vidéo : la
+    /// chaîne complète câble virtuel → mixeur → sortie physique cumulait trop
+    /// de retard ; l'EQ système APO, qui n'ajoute AUCUNE latence, reste la
+    /// correction de fond pour « tout le son »).</summary>
+    public const int MasterLatencyMs = 30;
 
     /// <summary>Latence indicative par défaut des autres sorties (ASIO…).</summary>
     public const int DefaultOtherLatencyMs = 12;
@@ -83,6 +87,28 @@ public sealed class ConsoleMixer : IDisposable
         }
 
         list.AddRange(_catalog.EnumerateRenderDevices());
+        try
+        {
+            foreach (var name in AsioOut.GetDriverNames())
+                list.Add(new OutputDeviceInfo("asio|" + name, "ASIO · " + name, "ASIO"));
+        }
+        catch
+        {
+            // pas de pilotes ASIO : sans importance
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Même énumération, à partir des sorties WASAPI DÉJÀ capturées (v3.7.0 :
+    /// le rafraîchissement des périphériques se fait en arrière-plan en une
+    /// seule passe — seule la sonde ASIO reste ici, exécutée hors du thread
+    /// interface par l'appelant).
+    /// </summary>
+    public static IReadOnlyList<OutputDeviceInfo> EnumerateOutputs(
+        IReadOnlyList<OutputDeviceInfo> preCapturedRender)
+    {
+        var list = new List<OutputDeviceInfo>(preCapturedRender);
         try
         {
             foreach (var name in AsioOut.GetDriverNames())

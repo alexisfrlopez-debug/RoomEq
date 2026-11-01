@@ -97,8 +97,9 @@
                     </ComboBox>
                     <controls:HelpButton HelpTitle="Protocoles de carte virtuelle"
                                          HelpText="Le protocole choisit l'infrastructure qui fait passer le son Windows dans RoomEq :&#10;&#10;• Carte virtuelle RoomEq : pilote intégré, paire « RoomEq Input / RoomEq Output », aucune application tierce.&#10;• Boucle WASAPI native : rien à installer, fonctionne partout (léger décalage possible).&#10;&#10;« Installer le pilote RoomEq » exécute le pilote livré AVEC l'application (aucun téléchargement) ; acceptez l'invite administrateur."/>
-                    <Button Content="⟳" FontSize="11" MinWidth="30" Command="{Binding RefreshDevicesCommand}"
-                            ToolTip.Tip="Rafraîchir périphériques et carte virtuelle"/>
+                    <Button Content="⟳" FontSize="11" MinWidth="30" Command="{Binding RefreshDevicesAsyncCommand}"
+                            IsEnabled="{Binding !IsRefreshingDevices}"
+                            ToolTip.Tip="Rafraîchir périphériques et carte virtuelle (sans bloquer l'interface)"/>
                 </StackPanel>
                 </ScrollViewer>
 
@@ -157,6 +158,57 @@
                                    Text="Table de mixage : chaque piste = une entrée ou une sortie de Windows (ou une source interne), avec son propre égaliseur (bouton EQ de la tranche), son fader, son pan, Mute/Solo et ses VU."/>
                     </StackPanel>
                 </Expander>
+
+                <!-- ═══ EQ système (APO) — décision D24 : le DSP dans le moteur
+                     audio Windows lui-même, sans pilote ni mode test ni tierce
+                     partie ; une activation = une invite administrateur ═══ -->
+                <Border IsVisible="{Binding !IsMacOS}" Background="#1B1F27" CornerRadius="6"
+                        BorderBrush="#2A2F3A" BorderThickness="1" Padding="8,6" Margin="0,6,0,0">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="EQ système (sans pilote)" FontWeight="Bold" FontSize="12"
+                                       VerticalAlignment="Center"
+                                       Classes.active="{Binding AnySystemApoEnabled}"/>
+                            <controls:HelpButton HelpTitle="EQ système — comment ça marche"
+                                                 HelpText="L'égaliseur de RoomEq s'installe DANS le moteur audio de Windows (technologie officielle « Audio Processing Object », la même que les effets Realtek/Dolby) : tout ce qui sort par une sortie activée traverse l'égaliseur — musique, navigateur, jeux, notifications.&#10;&#10;• Aucun pilote, aucun mode test, aucun logiciel tiers ; latence ajoutée NULLE (aucune désynchro son/image).&#10;• Activation = une invite administrateur, le son s'interrompt ~1 s (redémarrage du service audio), effet immédiat et réversible (bouton Désactiver).&#10;• La courbe est celle de l'onglet Égaliseur, en temps réel ; les mesures de calibration bypassent automatiquement l'EQ système.&#10;&#10;Limites honnêtes : les flux WASAPI exclusif / ASIO contournent tout effet système (les DAW ont le pont ASIO intégré) ; les effets du fabricant (Realtek, Dolby…) sont suspendus sur une sortie activée — sauvegardés et restaurés à la désactivation ; une mise à jour de pilote peut effacer l'inscription — bouton « Réparer » (et réparation automatique au branchement à chaud)."/>
+                            <Button Content="Réparer" FontSize="11" Command="{Binding SystemApoRepairCommand}"
+                                    IsEnabled="{Binding !IsSystemApoBusy}"
+                                    IsVisible="{Binding AnySystemApoEnabled}"
+                                    ToolTip.Tip="Re-vérifie et réécrit l'inscription sur les sorties activées (une mise à jour de pilote audio peut l'effacer) — invite administrateur"/>
+                            <Button Content="Tout retirer" FontSize="11" Command="{Binding SystemApoUninstallCommand}"
+                                    IsEnabled="{Binding !IsSystemApoBusy}" IsVisible="{Binding AnySystemApoEnabled}"
+                                    ToolTip.Tip="Restaure toutes les sorties à leur état d'origine, retire l'inscription et les fichiers partagés — invite administrateur"/>
+                            <ProgressBar Width="120" Height="8" IsIndeterminate="True"
+                                         IsVisible="{Binding IsSystemApoBusy}" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding SystemApoStatusText}" FontSize="10.5" Foreground="#8B93A7"
+                                   TextWrapping="Wrap"/>
+
+                        <ItemsControl ItemsSource="{Binding ApoEndpoints}" IsVisible="{Binding SystemApoSupported}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                        <TextBlock Text="{Binding Display}" FontSize="11" Width="250"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding Name}"/>
+                                        <TextBlock Text="{Binding State}" FontSize="10.5" Width="150"
+                                                   VerticalAlignment="Center" Foreground="#8B93A7"/>
+                                        <Button Content="Activer l'EQ sur cette sortie" FontSize="10.5"
+                                                Command="{Binding $parent[UserControl].DataContext.SystemApoEnableCommand}"
+                                                CommandParameter="{Binding}"
+                                                IsVisible="{Binding !Enabled}"
+                                                IsEnabled="{Binding !Forbidden}"/>
+                                        <Button Content="Désactiver" FontSize="10.5"
+                                                Command="{Binding $parent[UserControl].DataContext.SystemApoDisableCommand}"
+                                                CommandParameter="{Binding}"
+                                                IsVisible="{Binding Enabled}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 

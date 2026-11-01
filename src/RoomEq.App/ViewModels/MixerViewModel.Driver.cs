@@ -127,7 +127,7 @@ public partial class MixerViewModel
             StatusText = result.Message;
             if (result.Success)
             {
-                RefreshDevices();
+                await RefreshDevicesAsync(); // attendu : la suite lit VirtualCard
                 if (VirtualCard.Installed)
                 {
                     EnsureCableTrack();
@@ -138,7 +138,7 @@ public partial class MixerViewModel
                         else if (!string.IsNullOrEmpty(VirtualCard.CableInputId) && !VirtualCard.IsDefaultRender)
                             DefaultDeviceSetter.SetDefaultRender(VirtualCard.CableInputId);
 
-                        RefreshDevices();
+                        await RefreshDevicesAsync();
                         StatusText = result.Message + " Chaîne active : Windows → « "
                                    + (VirtualCard.CableInputName ?? "carte virtuelle") + " » → EQ → « "
                                    + (SelectedOutput?.DisplayName ?? "?") + " ».";
@@ -176,7 +176,7 @@ public partial class MixerViewModel
             var setup = new DriverSetupManager(new Progress<InstallProgress>(p => InstallPhaseText = p.Message));
             var result = await setup.UninstallAsync(SelectedProvider.Installer, ct);
             StatusText = result.Message;
-            RefreshDevices();
+            await RefreshDevicesAsync();
         }
         finally
         {

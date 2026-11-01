@@ -7,16 +7,69 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.6.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.1/v3.4.2, v3.5.0 : égaliseur éditable dans le greffon, banque casques embarquée (321 modèles), VU-mètre + diagnostics, v3.5.1 : fenêtre du greffon entière, v3.5.2 : ABI AEffect réparée — l'hôte appelle enfin processReplacing, **v3.6.0 : l'AU rejoint la parité fonctionnelle du VST (D23 — édition à la souris, banque, VU, auto-chargement, journal)**, et **session 19 (étude) : contourner la signature Microsoft des pilotes — recommandation APO (EQ système user-mode dans audiodg, sans pilote/mode test/dépendance), spec I-AUD-09 prête, décision D24 proposée en attente de validation** (`docs/EQ-SYSTEME-APO.md`) |
+| **Projet** | RoomEq **v3.7.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), et **v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09) — le DSP RoomEq s'installe dans le moteur audio Windows via un APO (audiodg.exe, position EFX) : tout le son d'une sortie traverse l'égaliseur, sans signature Microsoft, sans mode test, sans VB-CABLE, latence ajoutée nulle, activation par sortie = 1 UAC réversible ; + correctifs : fin des gels d'interface au rafraîchissement des périphériques (capture UNE passe en arrière-plan, bouton ⟳ animé) et latence console 50 → 30 ms (désynchro son/image en vidéo)** — 484 tests xUnit + harnais APO 112 vérifications |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 484 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 19 — étude : EQ système sans pilote, recommandation APO)
+## 1. État (fin session 20 — v3.7.0 : EQ système APO livré + correctifs gel/désynchro)
+
+**Session 20 (2026-11-02)** : « Je veux la solution driver pour avoir une
+carte son RoomEq dans les périphériques Windows et une appli auto-suffisante
+et user friendly ; corriger le re-sondage des périphériques à chaque clic
+(ça freeze) — plutôt un bouton refresh ; et le son se désynchronise de
+l'image en vidéo. »
+
+- **D24 ACTÉE et livrée** (vague 9 complète) : la « carte virtuelle RoomEq »
+  littérale est impossible gratuitement (signature noyau) — l'EQ système
+  APO livre le MÊME résultat utilisateur avec un flux plus simple :
+  installer l'appli → onglet Mixage → panneau « EQ système (sans pilote) » →
+  « Activer l'EQ sur cette sortie » → tout le son de cette sortie traverse
+  l'égaliseur (latence nulle). Le pilotage reste l'onglet Égaliseur, en
+  temps réel.
+  - **Natif** `natif/roomeq-apo/` (N-APO-01) : ABI COM APO auto-contenue
+    (vérifiée SDK 10.0.10240 + Equalizer APO), sAPO position EFX, cœur DSP
+    D23 réutilisé, thread de fond + swap atomique, **fondu enchaîné 20 ms**
+    entre courbes, horodatage fin (ns/100 ns — st_mtime raterait les
+    réécritures pendant un glissement), cimetière de chaînes (le chemin RT
+    ne libère jamais de mémoire), règle de survie (jamais d'échec : 10
+    échecs = effets système désactivés). Harnais **112 vérifications, 0
+    échec** (parité bit à bit, 0 alloc en régime établi, continuité à la
+    réécriture, fondu reproduit au demi-ULP, 6 canaux/mono/reformatage…).
+    DLL x64 452 Ko + arm64 412 Ko (Zig, PE32+ contrôlés par
+    `scripts/check_pe_exports.py`).
+  - **C#** `src/RoomEq.Audio/SystemApo/` (M-AUD-09) : `ApoRegistrar` (logique
+    pure, faux registre en CI — ordre sauvegarde→écriture, restauration
+    exacte, idempotence, réparation, anti-boucle), `WindowsApoEndpointStore`
+    (registre MMDevices, inerte hors Windows), `ApoConfigStore` (active.json
+    atomique + révision), `ApoSetupRunner` (relance élevée
+    `--apo-setup`, refus UAC = rien modifié), `ApoSetupCommands` (déploiement
+    %ProgramData% + ACL par SID [bin en lecture seule standard], inscription
+    COM, redémarrage audiosrv), `WindowsApoSystem` (façade UI + bypass
+    mesure câblé sur `RoomMeasurementEngine.SystemEqBypass`).
+  - **UI** : panneau « EQ système » dans l'onglet Mixage (état par sortie,
+    activer/désactiver/réparer/tout retirer, aide avec limites honnêtes),
+    courbe poussée via l'anti-rebond existant, réparation au branchement à
+    chaud.
+- **Correctif gel** : `RefreshDevices` refait en **une seule passe COM en
+  arrière-plan** (`AudioDeviceCatalog.CaptureSnapshot` + sémaphore, plus
+  jamais 6 balayages + ASIO sur le thread UI) ; bouton ⟳ lié à la commande
+  asynchrone animée ; hors Windows : synchrone inchangé (CI déterministe).
+- **Correctif désynchro A/V** : latence console 50 → 30 ms + l'EQ système
+  APO (latence nulle) comme voie « tout le son » recommandée.
+- **Validation** : 484/484 xUnit (Core 237, Audio 168 [+23 APO], App 79) +
+  harnais APO 112 + VST/AU inchangés. Version 3.7.0, packaging APO intégré
+  (`package_v3.sh` + `build_setup.sh` déploient `apo/RoomEqApo_{x64,arm64}.dll`).
+- **Terrain restant** : checklist Windows réelle (Realtek/Intel/NVIDIA/BT/
+  HDMI, MAJ pilote, mode exclusif) — le comportement APO est éprouvé par
+  Equalizer APO à grande échelle mais NOTRE binaire doit être validé sur
+  machine cible.
+
+## 1bis. État (fin session 19 — étude : EQ système sans pilote, recommandation APO)
 
 **Session 19 (2026-11-01)** : « Revenir à la version installable Windows :
 l'application doit installer son propre driver de carte son virtuelle pour ne

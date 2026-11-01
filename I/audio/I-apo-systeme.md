@@ -1,10 +1,24 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1 (proposition session 19 —
-  décision D24 en attente de validation) · **Code** : futur — vague 9
+- **Module** : M-AUD-09 · **Version de spec** : 1.1 (as-built v3.7.0, 2
+  novembre 2026 — vague 9 LIVRÉE, décision D24 actée) · **Code** :
   `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/` (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.1** : contrat public respecté ; ajustements de
+  réalisation — (a) l'élévation unique se fait par RELANCE de l'exécutable
+  courant (`--apo-setup <verbe>`, `ApoSetupRunner` → `ApoSetupCommands`,
+  verdict lu dans `setup-result.json`) et non par un binaire externe ;
+  (b) les DLL sont déployées vers `%ProgramData%\RoomEq\apo\bin` avec ACL
+  restrictive (lecture seule pour les utilisateurs standard — sécurité : une
+  DLL chargée par audiodg ne doit pas être remplaçable par un compte non
+  administrateur), la racine `apo` restant modifiable par Utilisateurs et
+  `NT SERVICE\Audiosrv` (courbe active + journal) ; (c) le registrar gère
+  aussi `PKEY_AudioEndpoint_Disable_SysFx` (sauvegardé puis mis à 0 si les
+  effets sont désactivés) ; (d) `RepairAll` opère en process élevé via la
+  même relance ; (e) le cœur natif ajoute un fondu enchaîné de 20 ms entre
+  courbes (le son ne s'interrompt jamais) et un cimetière de chaînes pour
+  que le chemin temps réel ne libère JAMAIS de mémoire.
 
 ## Intention
 
@@ -143,19 +157,34 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
 
 ## Critères de test
 
-- Registrar (faux registre) : énumération ; `IsForbiddenEndpoint` (câble
-  RoomEq, sortie captée) ; ordre sauvegarde→écriture vérifié par trace ;
-  restauration exacte (valeur présente/absente à l'origine) ; idempotence
-  (double enable, double disable) ; réparation après écrasement simulé ;
-  refus UAC = rien modifié ; inertie Linux.
-- ApoConfigStore : aller-retour courbe (bandes + préampli, format preset
-  D23), bypass activé/désactivé, écriture atomique observée (temp+rename),
-  répertoire override pour les tests.
-- Natif (roomeq_apo_host) : instanciation COM du CLSID depuis un hôte
-  extérieur ; blocs traités ; parité de courbe avec RoomEq.Core sur signal
-  test (tolérance 0) ; rechargement de config sans discontinuité
-  (continuité échantillon par échantillon à la couture) ; pass-through
-  (config absente/corrompue/bypass) ; **0 allocation dans APOProcess** en
-  régime établi (compteur instrumenté) ; multi-canaux (L/R traités, autres
-  intacts) ; build croisé x64 vérifié (PE64, exports COM).
-- Non-régression : suites xUnit existantes 100 % vertes (CI Linux).
+- Registrar (faux registre — `ApoRegistrarTests`, 16 tests) : énumération ;
+  `IsForbiddenName` (câble RoomEq, VB-CABLE, VoiceMeeter, LoopBeAudio —
+  négatifs inclus) ; **ordre sauvegarde→écriture vérifié par trace** ;
+  restauration exacte (valeur EFX + Disable_SysFx, présentes ou absentes à
+  l'origine) ; idempotence (double enable = aucune nouvelle écriture,
+  sauvegarde non réécrasée ; double disable = succès sans effet) ; réparation
+  après écrasement simulé (+ compte exact, 0 au second passage) ; refus
+  anti-boucle SANS AUCUNE écriture ; inertie Linux du store réel.
+- ApoConfigStore (`ApoConfigStoreTests`, 7 tests) : aller-retour courbe
+  (bandes + préampli + bande désactivée + type Notch), révision croissante,
+  bypass sans perte de courbe (et idempotent), écriture atomique observée
+  (temp+renommage, aucun résidu, active.json seul), fichier absent/corrompu
+  → null sans exception.
+- Natif (roomeq_apo_tests, **112 vérifications, 0 échec**) : IIDs
+  littérales, fabrique COM, QI multi-base (thunks), agrégation refusée,
+  latence 0, propriétés d'enregistrement, pass-through sans courbe (bit à
+  bit), BUFFER_SILENT/BUFFER_INVALID, parité de courbe bit à bit avec
+  EqChain (tolérance 0), in-place, **0 allocation et 0 libération en régime
+  établi** (compteurs new/delete globaux), réécriture identique = continuité
+  échantillon par échantillon (aucun swap), changement de courbe = fondu
+  enchaîné reproduit au demi-ULP puis parité stricte, bypass transparent,
+  config corrompue/supprimée = courbe conservée, Reset, 6 canaux (L/R
+  traités, 4 autres intacts bit à bit) + mono 44,1 kHz (reconstruction de
+  chaîne au reformatage), format non float = pass-through, déverrouillé =
+  no-op sans écriture.
+- Binaire livré (`build-apo.sh`, refuse le contraire) : PE32+ x86-64 et
+  ARM64, DLL, exports `DllGetClassObject` + `DllCanUnloadNow`, dépendances
+  système uniquement (ole32, kernel32, UCRT) — contrôlés par
+  `scripts/check_pe_exports.py` (binutils-objdump ne lit pas le PE ARM64).
+- Non-régression : suites xUnit 100 % vertes (484/484 : Core 237, Audio
+  168, App 79) et harnais VST/AU inchangés.

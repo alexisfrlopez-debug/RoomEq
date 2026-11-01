@@ -44,6 +44,17 @@ cp "$PUBLISH/RoomEq.App.exe" "$PUBLISH/RoomEq.exe"         # public (silencieux)
 cp "$PUBLISH/RoomEq.App.exe" "$PUBLISH/RoomEq-test.exe"    # test (journalisé)
 rm "$PUBLISH/RoomEq.App.exe"
 
+echo "── DLL APO (EQ système, D24) dans le dossier publié…"
+for arch in x64 arm64; do
+    [[ -f "$SRC/natif/roomeq-apo/dist/RoomEqApo_$arch.dll" ]] \
+        || { echo "ERREUR : RoomEqApo_$arch.dll absente — lancez natif/roomeq-apo/build-apo.sh"; exit 1; }
+done
+mkdir -p "$PUBLISH/apo"
+cp "$SRC/natif/roomeq-apo/dist/RoomEqApo_x64.dll" \
+   "$SRC/natif/roomeq-apo/dist/RoomEqApo_arm64.dll" \
+   "$PUBLISH/apo/"
+echo "   ✓ apo/RoomEqApo_{x64,arm64}.dll déployées (l'activation les copie vers %ProgramData% avec élévation)"
+
 echo "── Outil vpk (Velopack $VPK_VERSION, épinglé)…"
 # vpk 1.x n'a pas d'option --version : la bannière de --help la porte.
 # « || true » obligatoire : vpk absent → « command not found » → sans lui,

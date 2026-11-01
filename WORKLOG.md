@@ -1454,3 +1454,132 @@ Stage Summary:
 - Prochaine étape : validation utilisateur de D24 → vague 9 lot 1
   (natif/roomeq-apo + harnais de tests).
 
+
+---
+Session : 20 — 2026-11-02
+Agent : main (Z.ai)
+Task : Vague 9 complète — EQ système par APO (D24 actée, v3.7.0) + correctifs
+gel de l'interface au rafraîchissement des périphériques et désynchronisation
+son/image en vidéo. Reprise directe de l'étude session 19.
+
+Work Log:
+- **Sandbox recyclée en cours de session 19-bis** (outils morts) : outils
+  réinstallés (dotnet 8.0.427, Zig 0.14.1 sous `/home/z/my-project/tools/`
+  pour survivre aux recycles), travail natif intact sur disque.
+- **Natif `natif/roomeq-apo/` (N-APO-01, lot 1)** :
+  - `apo_abi.h` : ABI COM APO AUTO-CONTENUE — interfaces
+    `IAudioProcessingObject{,RT,Configuration}` + `IAudioSystemEffects` +
+    structures (`APO_CONNECTION_{PROPERTY,DESCRIPTOR}`, `APO_REG_PROPERTIES`,
+    `UNCOMPRESSEDAUDIOFORMAT`) et IIDs vérifiés bit à bit contre le SDK
+    Windows 10.0.10240 (audioenginebaseapo.h/audiomediatype.h/AudioAPOTypes.h)
+    et le comportement d'Equalizer APO (TheFireKahuna). Compile à l'identique
+    DLL Windows (Zig/MinGW) et harnais Linux (g++) ; héritage COM multiple
+    aux layouts équivalents MSVC.
+  - `RoomEqApo` : sAPO position EFX. **Règle de survie** (Microsoft Learn,
+    Implementing APOs : 10 échecs = effets système DÉSACTIVÉS pour le
+    périphérique) : aucune méthode ne retourne jamais d'échec — tout imprévu
+    dégrade en pass-through et se journalise. L/R traités (mono = voie 0),
+    autres canaux intacts ; BUFFER_SILENT préservé (leçon Equalizer APO) ;
+    BUFFER_INVALID = ne rien toucher ; GetLatency = 0 (latence nulle =
+    l'argument anti-désynchro) ; in-place et out-of-place sûrs.
+  - `apo_config` : surveillant de `active.json` (%ProgramData%, format
+    preset D23 — audiodg en LocalService n'a pas accès aux profils) : thread
+    de fond, sondage 100 ms, **horodatage fin** (ns Linux via st_mtim, 100 ns
+    Windows via GetFileAttributesExA déclarée à la main — st_mtime à la
+    SECONDE raterait les réécritures pendant un glissement de courbe, bug
+    réel trouvé par le harnais), reconstruction HORS du chemin audio,
+    publication par pointeur atomique, **aucun swap à contenu identique**
+    (états de filtres conservés = continuité), réécriture illisible = courbe
+    courante conservée, **cimetière de chaînes** (le chemin RT ne libère
+    JAMAIS de mémoire — CAS vers un slot vidé par le thread de fond).
+  - **Fondu enchaîné linéaire 20 ms** entre deux courbes (mélange w·ancienne
+    + (1−w)·nouvelle, trame par trame) : le son ne s'interrompt jamais,
+    même en plein réglage.
+  - Harnais `tests/test_main.cpp` (**112 vérifications, 0 échec**) : IIDs
+    littérales, fabrique COM (CLSID inconnu = REGDB_E_CLASSNOTREG, agrégation
+    refusée), QI depuis CHAQUE base (thunks d'héritage multiple), latence 0,
+    propriétés d'enregistrement, pass-through bit à bit, drapeaux de tampon,
+    **parité de courbe bit à bit avec EqChain (0.00e+00)** via un « miroir
+    d'ère » nourri des mêmes blocs, **RT-safety par compteurs globaux
+    new/delete surchargés (0 allocation ET 0 libération en régime établi)**,
+    réécriture identique = continuité échantillon par échantillon, fondu
+    reproduit au demi-ULP (tolérance 1e-7) puis parité stricte, bypass,
+    JSON corrompu/supprimé, Reset, 6 canaux (L/R parité, canaux 2-5 intacts
+    bit à bit), **mono 44,1 kHz après reformatage → reconstruction de chaîne
+    (bug réel trouvé et corrigé : RebuildForFormat au LockForProcess — sans
+    lui, une chaîne stéréo ne traitait rien en mono)**, format non float,
+    déverrouillé = no-op sans écriture.
+  - `build-apo.sh` : cross-compilation Zig x64 + ARM64 → `RoomEqApo_x64.dll`
+    (452 Ko) + `RoomEqApo_arm64.dll` (412 Ko), contrôles PE32+/DLL/exports
+    COM/dépendances système par `scripts/check_pe_exports.py` (parseur PE
+    autonome — binutils-objdump ne reconnaît pas le PE ARM64 sur cette
+    chaîne) + `dist/RoomEq-APO-3.7.0-win.zip`.
+  - Commit intermédiaire `03f7258` (harnais vert).
+- **C# `src/RoomEq.Audio/SystemApo/` (lot 2)** :
+  - `ApoConstants` : CLSID `{EAA24610-…}` (miroir du natif), valeur EFX
+    `{d04e05a6-…},7`, `PKEY_AudioEndpoint_Disable_SysFx`, chemins
+    %ProgramData% — tout ce qui s'inscrit sur la machine au même endroit.
+  - `ApoRegistrar` : **logique pure** sur `IApoEndpointStore` (faux registre
+    en CI) : anti-boucle AVANT toute mutation (RoomEq/VB-CABLE/VoiceMeeter/
+    LoopBeAudio), **sauvegarde AVANT écriture** (ordre vérifié par trace),
+    déblocage de Disable_SysFx sauvegardé, restauration exacte (valeur
+    présente/absente), idempotence (double activation = zéro nouvelle
+    écriture, sauvegarde jamais réécrasée), `RepairEnabled` (compte exact),
+    `UninstallAll` (restaure TOUT, invariant 11).
+  - `WindowsApoEndpointStore` : registre MMDevices réel (gardes CA1416 en
+    ligne), énumération NAudio, inscription COM statique — inerte hors
+    Windows.
+  - `ApoConfigStore` : `active.json` (DTO preset + Bypass + Revision),
+    écriture atomique temp+renommage, révision croissante, bypass sans perte
+    de courbe, `apo.log` sondé pour le diagnostic « APO chargé ».
+  - `ApoSetupRunner`/`ApoSetupCommands` : élévation par RELANCE de
+    l'exécutable (`--apo-setup`, Program.cs intercepte AVANT Avalonia) —
+    verdict via `setup-result.json`, refus UAC (1223) = succès-faux lisible
+    sans rien modifier ; déploiement des DLL vers `%ProgramData%\RoomEq\apo\
+    bin` + **ACL par SID** (icacls, indépendant de la langue : bin en lecture
+    seule standard — une DLL chargée par audiodg ne doit pas être remplaçable
+    par un utilisateur non administrateur —, racine modifiable par
+    Utilisateurs + `NT SERVICE\Audiosrv`), inscription COM vers l'architecture
+    de la machine, redémarrage du service audio (`net stop/start`, ~1 s).
+  - `WindowsApoSystem` : façade UI (statuts par lecture seule, opérations
+    élevées, courbe poussée en continu, bypass mesure) ; hook
+    `RoomMeasurementEngine.SystemEqBypass` invoqué autour de chaque mesure
+    (invariant 9 : on mesure la pièce, pas la correction).
+- **UI + intégration (lot 3)** : panneau « EQ système (sans pilote) » dans
+  l'onglet Mixage (liste des sorties avec état ●/○/interdit/défaut, activer/
+  désactiver par sortie, Réparer, Tout retirer, barre de progression UAC,
+  aide avec les limites honnêtes) ; `MixerViewModel.SystemApo.cs` ;
+  `SyncMasterEqFromMain` pousse aussi la courbe APO (anti-rebond existant) ;
+  rafraîchissement APO au branchement à chaud.
+- **Correctif gel** (demande explicite) : `RefreshDevices` refait —
+  `AudioDeviceCatalog.CaptureSnapshot` capture TOUT en **une seule passe
+  COM** (l'ancien chemin en faisait jusqu'à 6 + chargement des pilotes ASIO
+  sur le thread UI), application via `Dispatcher.UIThread`, sémaphore
+  d'exclusion (les clics en rafale s'ignorent), `IsRefreshingDevices` anime
+  le bouton ⟳ (commande asynchrone) ; flux d'installation → variante
+  attendue `RefreshDevicesAsync` ; hors Windows : synchrone inchangé (CI
+  déterministe, macOS inchangé).
+- **Correctif désynchro A/V** (demande explicite) : latence du bus master
+  console 50 → 30 ms (`ConsoleMixer.MasterLatencyMs`) ; correction de fond :
+  l'EQ système APO n'ajoute AUCUNE latence (GetLatency = 0) — la voie
+  recommandée pour « tout le son » en vidéo.
+- **Packaging** : `package_v3.sh` + `build_setup.sh` déploient
+  `apo/RoomEqApo_{x64,arm64}.dll` dans le publish (contrôles zip : 2 DLL
+  attendues) ; version 3.7.0 ; `.gitignore` pour `natif/roomeq-apo/dist/`.
+- **Docs** : D24 consignée (DECISIONS.md, détail technique complet) ;
+  I-AUD-09 v1.1 as-built ; CARTE M-AUD-09 🔒 v3.7.0 ; REFERENCE-NATIF
+  N-APO-01 ; README ; REPRISE (résumé + état session 20) ; EQ-SYSTEME-APO
+  statut D24 actée.
+- **Tests** : 484/484 xUnit (Core 237, Audio 168 — dont 23 nouveaux APO :
+  ApoRegistrarTests 16, ApoConfigStoreTests 7 —, App 79) ; harnais natif APO
+  112/112 ; VST/AU non touchés.
+
+Stage Summary:
+- Vague 9 LIVRÉE : l'EQ système Windows existe sans pilote, sans signature
+  Microsoft, sans mode test, sans dépendance tierce — activation par sortie
+  en une invite UAC réversible, courbe temps réel avec fondu 20 ms, latence
+  ajoutée nulle. Les deux correctifs d'UX demandés (gel du rafraîchissement,
+  désynchro vidéo) sont livrés dans la même version.
+- Prochaine étape : validation terrain sur machine Windows réelle
+  (checklist : Realtek/Intel/NVIDIA/Bluetooth/HDMI, MAJ de pilote → Réparer,
+  mode exclusif, DRM Netflix/Spotify) puis itération selon retours.

@@ -16,5 +16,9 @@ natif/roomeq-au/build-core/
 natif/roomeq-vst/dist/
 natif/roomeq-vst/build*/
 
+# module APO : sorties de build locales (build-apo.sh les produit)
+natif/roomeq-apo/dist/
+natif/roomeq-apo/build*/
+
 # bytecode Python des outils locaux
 __pycache__/

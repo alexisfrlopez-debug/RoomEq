@@ -1,4 +1,4 @@
-RoomEq 3.4.1 — recodage TRIADE + export Pro-Q 3 + greffon Ableton + installation 1 clic + VST 32 bits
+RoomEq 3.7.0 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -6,56 +6,62 @@ CE QU'EST CETTE VERSION
   • RECODAGE COMPLET de l'application (RoomEq.Core, RoomEq.Audio, RoomEq.App)
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
-    cartographié à adresse stable (CARTE.md) — 45 modules, 34 spécifications,
-    461 tests verts + 420 vérifications natives (AU 118 + VST 302), build
-    0 erreur 0 avertissement.
-  • NOUVEAU 3.1.0 — EXPORT FABFILTER PRO-Q 3 (.ffp) : onglet Égaliseur,
-    bouton « Exporter Pro-Q 3 (.ffp) » — le preset courant (bandes actives
-    + préampli, qui devient le gain de sortie du greffon) est écrit en
-    fichier binaire chargeable dans FabFilter Pro-Q 3 (bouton des presets
-    ▸ Load…, ou glisser-déposer du fichier sur le greffon ; pour le
-    retrouver dans le menu : Documents\FabFilter\Presets\Pro-Q 3).
-    Limites du greffon appliquées : 24 bandes actives maximum (les bandes
-    décochées ne sont pas exportées), 10 Hz–30 kHz, Q 0,025–40, ±30 dB.
-  • NOUVEAU 3.2.0 — ANTI-BOUCLE AU ROUTAGE : un périphérique déjà routé en
-    ENTRÉE (piste « boucle ») ne peut plus être choisi comme sortie master —
-    il est grisé dans le sélecteur du MASTER avec le motif, la sélection est
-    refusée immédiatement avec un message actionnable, et réciproquement une
-    piste ne peut plus capturer la sortie master active (D18, spec I-AUD-03
-    v2 ; la validation au lancement reste en défense en profondeur).
-  • NOUVEAU 3.2.0 — GREFFON AUDIOUNIT POUR ABLETON LIVE (.component) :
-    « RoomEq: Correction » applique vos corrections RoomEq DANS le DAW
-    (macOS) — chargez un preset .json de l'application ou un .ffp Pro-Q 3
-    (bouton ou glisser-déposer), courbe affichée, préampli automatisable,
-    bypass standard, état sauvegardé avec le projet (D19, natif/roomeq-au/,
-    parité bit à bit avec l'application, validé par auval ; livré dans les
-    releases GitHub : RoomEq-AU-<version>-macos.zip, bundle universel
-    arm64 + x86_64 ; 3.2.1 corrige la compilation macOS du greffon).
-  • NOUVEAU 3.3.0 — INSTALLATION EN 1 CLIC (D20) : Windows →
-    RoomEq-win-Setup.exe : double-clic, c'est tout — installation
-    utilisateur SANS droits administrateur (%LOCALAPPDATA%\RoomEq),
-    raccourcis Bureau + Menu démarrer, désinstalleur « Paramètres →
-    Applications » ; macOS → RoomEq-AU-<version>-macos.pkg : le greffon
-    Ableton s'installe pareil (double-clic → /Library/Audio/Plug-Ins/
-    Components, base des composants re-scannée). Produits par la CI à
-    chaque release ; aucune dépendance ajoutée à l'application. Les zips
-    portables restent l'alternative sans installation.
-  • NOUVEAU 3.4.0 — GREFFON VST 2 32 BITS POUR WINDOWS (D21) :
-    « RoomEq Correction » (RoomEq.dll) applique vos corrections RoomEq dans
-    un DAW 32 bits (Ableton Live 9 et antérieurs, FL Studio 11, Cubase 5,
-    REAPER 32…) — chargez un preset .json de l'application ou un .ffp
-    Pro-Q 3 (bouton « Charger… » ou glisser-déposer), courbe affichée,
-    préampli automatisable, bypass standard, état sauvegardé avec le
-    projet. Installation : copier RoomEq.dll dans le dossier VST 32 bits
-    du DAW (Live 9 : C:\Program Files (x86)\VstPlugins), puis « Rescan ».
-    Parité bit à bit avec l'application (même cœur C++ que le greffon AU) ;
-    livré dans les releases GitHub : RoomEq-VST-<version>-win32.zip.
-    3.4.1 : à l'ouverture, le preset le plus récent enregistré dans
-    l'application (%APPDATA%\RoomEq\presets) est chargé AUTOMATIQUEMENT —
-    la correction s'entend dès l'insertion ; sans preset, l'éditeur
-    affiche « Aucun preset chargé » en orange (le son passe tel quel) ;
-    diagnostic : %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log (ligne du
-    premier bloc audio).
+    cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
+    484 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    build 0 erreur 0 avertissement.
+  • NOUVEAU 3.7.0 — EQ SYSTÈME SANS PILOTE (D24) : l'onglet Mixage gagne un
+    panneau « EQ système (sans pilote) ». Activez l'EQ sur une ou plusieurs
+    sorties Windows (enceintes, casque, HDMI…) : TOUT le son de ces sorties
+    — musique, navigateur, jeux, notifications — traverse l'égaliseur de
+    l'onglet Égaliseur, en temps réel. L'installation se fait DANS le moteur
+    audio de Windows (technologie officielle « Audio Processing Object », la
+    même que les effets Realtek/Dolby) : AUCUN pilote, AUCUN mode test,
+    AUCUN logiciel tiers (VB-CABLE n'est plus nécessaire), et AUCUNE latence
+    ajoutée — aucune désynchronisation son/image en vidéo. Activation = une
+    invite administrateur (le son s'interrompt ~1 s le temps de relancer le
+    service audio), effet immédiat et 100 % réversible (bouton « Désactiver »
+    qui restaure les effets d'origine, « Tout retirer » à la désinstallation).
+    La courbe se pilote dans l'onglet Égaliseur (fondu enchaîné 20 ms : le
+    son ne s'interrompt jamais, même en plein réglage) ; les mesures de
+    calibration contournent automatiquement l'EQ système (on mesure la
+    pièce, pas la correction). Limites honnêtes : les flux WASAPI
+    exclusif / ASIO contournent tout effet système (les DAW ont le pont
+    ASIO intégré de RoomEq) ; les effets du fabricant (Realtek, Dolby…)
+    sont suspendus sur une sortie activée — sauvegardés, restaurés à la
+    désactivation ; une mise à jour de pilote peut effacer l'inscription —
+    bouton « Réparer » (et réparation automatique au branchement à chaud).
+  • NOUVEAU 3.7.0 — FIN DES GELS À CHAQUE CLIC : le rafraîchissement des
+    périphériques se fait maintenant en arrière-plan en une seule passe
+    (l'interface ne se bloque plus) ; le bouton ⟳ s'anime pendant
+    l'actualisation. La latence du routage par câble virtuel est réduite
+    (50 → 30 ms) pour limiter le décalage son/image en vidéo — l'EQ système
+    (latence nulle) restant la voie recommandée pour « tout le son ».
+  • NOUVEAU 3.5.0/3.6.0 — GREFFONS ÉDITABLES DANS LE DAW : le VST 2 32 bits
+    Windows (D21) et l'AudioUnit macOS (D19, v3.6.0 en parité) embarquent
+    l'égaliseur éditable à la souris (glisser un point = fréquence/gain,
+    molette = Q, double-clic = reset, clic droit = type/activation), la
+    banque des 321 corrections casques, des VU-mètres et l'auto-chargement
+    du dernier preset de l'application. Presets .json RoomEq et .ffp
+    Pro-Q 3 chargeables (bouton ou glisser-déposer), état sauvegardé avec
+    le projet DAW.
+  • EXPORT FABFILTER PRO-Q 3 (.ffp) : onglet Égaliseur, bouton
+    « Exporter Pro-Q 3 (.ffp) » — le preset courant (bandes actives +
+    préampli, qui devient le gain de sortie du greffon) est écrit en
+    fichier binaire chargeable dans FabFilter Pro-Q 3. Limites du greffon
+    appliquées : 24 bandes actives maximum, 10 Hz–30 kHz, Q 0,025–40,
+    ±30 dB.
+  • ANTI-BOUCLE AU ROUTAGE (3.2.0) : un périphérique déjà routé en ENTRÉE
+    ne peut pas être choisi comme sortie master (grisé + motif), et
+    réciproquement (D18, I-AUD-03 v2).
+  • INSTALLATION EN 1 CLIC (3.3.0, D20) : RoomEq-win-Setup.exe (Windows,
+    sans droits administrateur) et RoomEq-AU-<version>-macos.pkg (macOS).
+  • GREFFON AUDIOUNIT macOS (3.2.0, D19) : « RoomEq Correction » pour
+    Ableton Live — livré dans les releases GitHub (zip + pkg).
+  • GREFFON VST 2 32 BITS Windows (3.4.0, D21) : pour les DAW 32 bits
+    (Live 9, FL 11, Cubase 5, REAPER 32) — copier RoomEq.dll dans le
+    dossier VST 32 bits du DAW puis « Rescan » ; auto-chargement du dernier
+    preset de l'application à l'ouverture (3.4.1) ; journal
+    %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log.
   • PARITÉ FONCTIONNELLE 2.2.2 ÉTABLIE point par point (docs/PARITE-v2.2.2.md) :
     égaliseur paramétrique, analyseur RTA, calibration multi-signaux, profils
     micro (36), corrections casques (321 modèles AutoEq), preset automatique

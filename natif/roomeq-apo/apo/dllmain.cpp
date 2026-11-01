@@ -20,12 +20,12 @@ extern "C" int __stdcall DllMain(void* hModule, unsigned long reason, void* /*re
 
 extern "C" HRESULT __stdcall DllGetClassObject(const GUID& rclsid, const GUID& riid, void** ppv)
 {
-    return roomeq::apo::RoomeqDllGetClassObject(rclsid, riid, ppv);
+    return RoomeqDllGetClassObject(rclsid, riid, ppv);
 }
 
 extern "C" HRESULT __stdcall DllCanUnloadNow()
 {
-    return roomeq::apo::RoomeqDllCanUnloadNow();
+    return RoomeqDllCanUnloadNow();
 }
 
 #endif // _WIN32

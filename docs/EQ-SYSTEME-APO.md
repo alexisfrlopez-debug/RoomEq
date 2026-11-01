@@ -1,7 +1,10 @@
 # EQ système sans pilote — contourner l'exigence de signature Microsoft
 
-- **Session** : 19 (1er novembre 2026) · **Statut** : analyse + recommandation +
-  spec `I-AUD-09` prête — **décision D24 PROPOSÉE, en attente de validation**
+- **Session** : 19 (1er novembre 2026) · **Statut** : **DÉCISION D24 ACTÉE**
+  (2 novembre 2026) — vague 9 LIVRÉE en v3.7.0 : `natif/roomeq-apo/`
+  (harnais 112 vérifications), `src/RoomEq.Audio/SystemApo/` (23 tests
+  xUnit), panneau « EQ système » dans l'onglet Mixage, DLL x64 + arm64
+  déployées par l'installateur (spec as-built I-AUD-09 v1.1)
 - **Question posée** : « Je voudrais que l'application installe son propre
   driver de carte son virtuelle afin de ne plus dépendre de VB-Cable, mais je
   bute sur le problème du driver signé Microsoft qui demande une solution
