@@ -565,3 +565,34 @@ empaquetage uniquement). Setup.exe local : PE32+ GUI x86-64 vérifié,
 222 fichiers de l'application embarqués, raccourcis Desktop + StartMenu
 confirmés dans le journal vpk. `.pkg` : produit par la CI macOS après
 `auval` vert (job `plugin-au`).
+
+## D21 — Greffon VST 2 32 bits Windows « RoomEq Correction » (1er novembre 2026)
+
+| ID | Décision | Choix retenu | Alternatives rejetées |
+|---|---|---|---|
+| D21 | Demande développeur : « fais un VST 32 bits » — appliquer la correction RoomEq dans un DAW **Windows 32 bits** (Ableton Live ≤ 9.7, FL Studio 11, Cubase 5, REAPER 32…) | **VST 2, PE32 i386** (`natif/roomeq-vst/`, module M-AUD-08/N-VST-01) : le greffon réutilise **tel quel le cœur C++ du greffon AU** (parité bit à bit RoomEq.Core — D19) derrière une **ABI VST 2.4 autodéclarée** (`vst/vst2_abi.h`, réécrite intégralement, chaque constante vérifiée contre le SDK 2.4 authentique et l'en-tête vestige — le SDK VST 2 n'étant plus concédé par Steinberg) ; paramètre « Preamp » automatisable, chunks (preset restauré avec le projet DAW), bypass officiel (`effSetBypass`), éditeur Win32 (bouton « Charger… », glisser-déposer, courbe 97 points), entrées usine `VSTPluginMain` + `main` (alias `.def`) ; **cross-compilé Linux → win32 avec Zig 0.14.1** (MinGW-w64 + libc++ embarqués, aucun sudo, SSE2 forcé `-mcpu=pentium4 -msse2 -mfpmath=sse -mstackrealign`) → `RoomEq.dll` livré dans `RoomEq-VST-<v>-win32.zip` | VST 3 (quasi absent des hôtes 32 bits — Live 9 = VST 2 uniquement) ; en-têtes VST2 copiées d'un miroir (licence Steinberg interdit la redistribution) ; JUCE (AGPL/commercial, contraire au zéro-dépendance — déjà écarté en D19) ; 64 bits et macOS (non demandés : le 64 bits = un drapeau du script, macOS couvert par l'AU D19) ; édition des bandes dans le greffon (v1 lecture seule, comme l'AU) |
+
+**Développement.** Le cœur n'est pas dupliqué : `natif/roomeq-vst/CMakeLists.txt`
+compile les sources de `roomeq-au/core` (le module AU reste propriétaire et
+scellé — REFERENCE-NATIF « code source vivant »). Le modèle de threads est le
+miroir de l'AU (preset publié par `shared_ptr` + version atomique,
+reconstruction au bloc suivant ; paramètres atomiques ; chunk ≠ paramètre,
+l'hôte fait foi). Validation : 228 vérifications natives (parité **bit à bit
+0.00e+00** vs références C# sur 48 k stéréo / 44,1 k mono / bordes /
+transparent), mini-hôte `dlopen` (38 vérifications — cycle de vie ABI complet),
+**exécution 32 bits sous qemu-i386** (228 vérifications, parité bit à bit —
+sémantique d'instructions exacte), contrôles du binaire (PE32 i386, exports
+`VSTPluginMain`+`main`, DSP en SSE2 pur). CI : nouveau job `plugin-vst`
+(ubuntu, joint `RoomEq-VST-<v>-win32.zip` aux releases). Écart ulp possible
+des `sin`/`pow` de la CRT Windows vs glibc (≤ ~1e-13 relatif, inaudible —
+même limite documentée pour l'AU arm64). Le point de vigilance « bibliothèque
+partagée C++ 32 bits construite par Zig segfaulte APRÈS dlclose » est un
+défaut du crt Zig 0.14.1 (reproductible en 5 lignes avec une seule
+`std::string` statique locale), sans effet sur la DLL Windows (CRT MinGW :
+destructeurs au `FreeLibrary`) — documenté dans `natif/roomeq-vst/README.md`.
+
+**Vérification R5 (pré-commit).** Build 0 erreur / 0 avertissement, 461/461
+tests xUnit verts (aucun code applicatif modifié), 118/118 tests natifs AU
+(non régressés), 228 + 38 vérifications VST (Linux x86-64), 228 vérifications
+VST en exécution 32 bits (qemu-i386), `build-vst.sh` : PE32 i386 + exports
+vérifiés.

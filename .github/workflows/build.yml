@@ -6,6 +6,8 @@ name: Build RoomEq v3
 #   • installateur Windows « 1 clic » RoomEq-win-Setup.exe (D20 — Velopack
 #     cross-compilé Linux → win-x64, aucune dépendance applicative) ;
 #   • greffon AudioUnit macOS (D19) + son installateur .pkg « 1 clic » (D20) ;
+#   • greffon VST 2 32 bits Windows « RoomEq Correction » (D21 — cross-compilé
+#     Linux → win32 avec Zig, cœur C++ du greffon AU) ;
 #   • le pilote WDM et la DLL ASIO restent scellés v2.2.2 (décision D1,
 #     natif/REFERENCE-NATIF.md) : ils s'installent via
 #     RoomEqDriverSetup-2.2.2.exe, non recompilés ici.
@@ -239,6 +241,63 @@ jobs:
             gh release create "$TAG" --draft --title "RoomEq $TAG" \
               --notes "Recodage TRIADE v3 (parité v2.2.2 — docs/PARITE-v2.2.2.md)." \
               artifacts/RoomEq-win-Setup.exe
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 5. Greffon VST 2 32 bits Windows (D21) : RoomEq.dll — même cœur C++
+  #    que le greffon AU, cross-compilé Linux → win32 avec Zig 0.14.1
+  #    (SSE2 forcé), ABI VST 2 autodéclarée (aucune dépendance tierce).
+  # ───────────────────────────────────────────────────────────────────────────
+  plugin-vst:
+    name: Greffon VST 2 32 bits (RoomEq.dll win32)
+    runs-on: ubuntu-latest
+    needs: [tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Cœur C++ + tests natifs + mini-hôte (parité bit à bit)"
+        run: |
+          cmake -S natif/roomeq-vst -B build-vst -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-vst --parallel
+          ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data
+          ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so \
+            natif/roomeq-au/tests/data
+
+      - name: "Compiler RoomEq.dll (32 bits, Zig 0.14.1 épinglé)"
+        run: |
+          curl -sL --retry 3 -o /tmp/zig.tar.xz \
+            https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz
+          tar -xJ -C /tmp -f /tmp/zig.tar.xz
+          ZIG=/tmp/zig-x86_64-linux-0.14.1/zig bash natif/roomeq-vst/build-vst.sh
+          mkdir -p artifacts
+          cp natif/roomeq-vst/dist/RoomEq-VST-* artifacts/
+          ls -la artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roomeq-vst-win32-${{ github.sha }}
+          path: artifacts/RoomEq-VST-*
+          if-no-files-found: error
+
+      - name: Joindre au tag (Release) si présent
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # le job « package » crée la release : attendre qu'elle existe pour
+          # ne créer qu'UNE seule draft (créations parallèles = doublon) ;
+          # repli en création si elle n'apparaît pas
+          for i in $(seq 1 30); do
+            gh release view "$TAG" >/dev/null 2>&1 && break
+            sleep 10
+          done
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/RoomEq-VST-* --clobber
+          else
+            gh release create "$TAG" --draft --title "RoomEq $TAG" \
+              --notes "Recodage TRIADE v3 (parité v2.2.2 — docs/PARITE-v2.2.2.md)." \
+              artifacts/RoomEq-VST-*
           fi
         env:
           GH_TOKEN: ${{ github.token }}

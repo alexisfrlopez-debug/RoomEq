@@ -1,14 +1,14 @@
-RoomEq 3.3.0 — recodage TRIADE + export Pro-Q 3 + greffon Ableton + installation 1 clic
-===========================================================================
+RoomEq 3.4.0 — recodage TRIADE + export Pro-Q 3 + greffon Ableton + installation 1 clic + VST 32 bits
+=====================================================================================================
 
 CE QU'EST CETTE VERSION
 -----------------------
   • RECODAGE COMPLET de l'application (RoomEq.Core, RoomEq.Audio, RoomEq.App)
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
-    cartographié à adresse stable (CARTE.md) — 44 modules, 33 spécifications,
-    461 tests verts + 118 vérifications natives (greffon AU), build 0 erreur
-    0 avertissement.
+    cartographié à adresse stable (CARTE.md) — 45 modules, 34 spécifications,
+    461 tests verts + 384 vérifications natives (AU 118 + VST 266), build
+    0 erreur 0 avertissement.
   • NOUVEAU 3.1.0 — EXPORT FABFILTER PRO-Q 3 (.ffp) : onglet Égaliseur,
     bouton « Exporter Pro-Q 3 (.ffp) » — le preset courant (bandes actives
     + préampli, qui devient le gain de sortie du greffon) est écrit en
@@ -40,6 +40,16 @@ CE QU'EST CETTE VERSION
     Components, base des composants re-scannée). Produits par la CI à
     chaque release ; aucune dépendance ajoutée à l'application. Les zips
     portables restent l'alternative sans installation.
+  • NOUVEAU 3.4.0 — GREFFON VST 2 32 BITS POUR WINDOWS (D21) :
+    « RoomEq Correction » (RoomEq.dll) applique vos corrections RoomEq dans
+    un DAW 32 bits (Ableton Live 9 et antérieurs, FL Studio 11, Cubase 5,
+    REAPER 32…) — chargez un preset .json de l'application ou un .ffp
+    Pro-Q 3 (bouton « Charger… » ou glisser-déposer), courbe affichée,
+    préampli automatisable, bypass standard, état sauvegardé avec le
+    projet. Installation : copier RoomEq.dll dans le dossier VST 32 bits
+    du DAW (Live 9 : C:\Program Files (x86)\VstPlugins), puis « Rescan ».
+    Parité bit à bit avec l'application (même cœur C++ que le greffon AU) ;
+    livré dans les releases GitHub : RoomEq-VST-<version>-win32.zip.
   • PARITÉ FONCTIONNELLE 2.2.2 ÉTABLIE point par point (docs/PARITE-v2.2.2.md) :
     égaliseur paramétrique, analyseur RTA, calibration multi-signaux, profils
     micro (36), corrections casques (321 modèles AutoEq), preset automatique

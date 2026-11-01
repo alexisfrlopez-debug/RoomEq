@@ -2,17 +2,18 @@
 
 > Couche C du protocole TRIADE pour ce dépôt. Index de navigation à adresses
 > stables. **Règle : toute modification de `src/` doit mettre à jour la ligne
-> correspondante de la Carte.** Dernière mise à jour : `v3.3.0` (D20 —
+> correspondante de la Carte.** Dernière mise à jour : `v3.4.0` (D21 —
+> greffon VST 2 32 bits Windows, module natif M-AUD-08/N-VST-01) ;
 > installation « 1 clic » : Setup.exe Windows Velopack + .pkg greffon macOS ;
 > empaquetage pur, aucun module de `src/` modifié).
 
 | En-tête | Valeur |
 |---|---|
-| projet | RoomEq v3.3.0 — égaliseur acoustique temps réel |
+| projet | RoomEq v3.4.0 — égaliseur acoustique temps réel |
 | profil de cible | x86-64-pc-windows-msvc (.NET 8 + Avalonia 11) + macOS (greffon scellé + greffon AudioUnit `natif/roomeq-au/`) |
 | base de référence | v2.2.2 (GitHub alexisfrlopez-debug/RoomEq @ `deff25c`, tag v2.2.2) |
 | empreinte legacy | clone git `roomeq-git-ref` (code, CI verte) + miroir Drive `roomeq-legacy` (docs, 284 fichiers) |
-| statut | 🔒 v3.3.0 (D20 : installation « 1 clic » — `RoomEq-win-Setup.exe` Windows [Velopack, `scripts/build_setup.sh`] + `RoomEq-AU-<v>-macos.pkg` macOS, sans dépendance ajoutée à l'application ; D18 : anti-boucle au moment du routage — M-AUD-03 spec v2 ; D19 : greffon AudioUnit « RoomEq Correction » `.component` — module natif M-AUD-07, CI macOS + auval ; 461 tests verts + 118 tests natifs) sur la suite cristallisée v3.0.2 (D14 ; v3.0.0/v3.0.1 = étapes intermédiaires à CI rouge, conservées sans déplacement de tag) — 44 modules 🔒, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
+| statut | 🔒 v3.3.0 (D20 : installation « 1 clic » — `RoomEq-win-Setup.exe` Windows [Velopack, `scripts/build_setup.sh`] + `RoomEq-AU-<v>-macos.pkg` macOS, sans dépendance ajoutée à l'application ; D18 : anti-boucle au moment du routage — M-AUD-03 spec v2 ; D19 : greffon AudioUnit « RoomEq Correction » `.component` — module natif M-AUD-07, CI macOS + auval ; 461 tests verts + 118 tests natifs ; D21 : greffon VST 2 32 bits Windows « RoomEq Correction » `.dll` — module natif M-AUD-08/N-VST-01, ABI VST 2 autodéclarée, CI `plugin-vst` ; +266 vérifications natives VST) sur la suite cristallisée v3.0.2 (D14 ; v3.0.0/v3.0.1 = étapes intermédiaires à CI rouge, conservées sans déplacement de tag) — 45 modules 🔒, parité v2.2.2 établie (`docs/PARITE-v2.2.2.md`) |
 
 ## Modules — couche I (intention) / B (code)
 
@@ -51,6 +52,8 @@
 | M-AUD-05 | Pont macOS | `I/audio/I-pont-macos.md` | `…/Mac/CoreAudioApi.cs` + `CoreAudioCatalog.cs` + `CoreAudioOutput.cs` + `CoreAudioCapture.cs` + `MacAudioBridge.cs` | `…/DeviceBridgeTests.cs` | 🔒 |
 | M-AUD-06 | Moteur de mesure | `I/audio/I-moteur-mesure.md` | `…/Measurement/RoomMeasurementEngine.cs` | `…/MeasurementEngineTests.cs` | 🔒 |
 | M-AUD-07 | Greffon AudioUnit macOS | `I/audio/I-greffon-au.md` | **natif** `natif/roomeq-au/` (N-AU-01 : cœur C++ + AUv2 ausdk + vue Cocoa + CI macOS/auval) | natifs : `natif/roomeq-au/tests/` (118 vérifications, parité bit à bit RoomEq.Core) + CI `plugin-au` (auval) | 🔒 |
+| M-AUD-08 | Greffon VST 2 32 bits Windows | `I/audio/I-greffon-vst.md` | **natif** `natif/roomeq-vst/` (N-VST-01 : ABI VST 2 autodéclarée + cœur C++ réutilisé de roomeq-au + éditeur Win32 + mini-hôte) | natifs : `natif/roomeq-vst/tests/` (228 vérifications) + mini-hôte ABI (38) + CI `plugin-vst` (PE32/exports) | 🔒 |
+| M-AUD-08 | Greffon VST 2 32 bits Windows | `I/audio/I-greffon-vst.md` | **natif** `natif/roomeq-vst/` (N-VST-01 : ABI VST 2 autodéclarée + cœur C++ réutilisé de roomeq-au + éditeur Win32 + mini-hôte) | natifs : `natif/roomeq-vst/tests/` (228 vérifications) + mini-hôte ABI (38) + CI `plugin-vst` (PE32/exports) | 🔒 |
 | M-APP-01 | Shell + MVVM | `I/app/I-shell.md` | `src/RoomEq.App/…` (Program, App, MainWindow, MainViewModel, TestSignalMenu, OutputPresetCoordinator) | `…/OutputPresetCoordinatorTests.cs` + `…/SecondaryTabsTests.cs` | 🔒 |
 | M-APP-02 | Onglet calibration | `I/app/I-onglet-calibration.md` | `…/Views/CalibrationTab…` + `ViewModels/CalibrationViewModel.cs` + `CalibrationOptions.cs` + `LiveMicMonitor.cs` | `…/SecondaryTabsTests.cs` | 🔒 |
 | M-APP-03 | Onglet mixage | `I/app/I-onglet-mixage.md` | `…/Views/MixerTab…` + `ViewModels/MixerViewModel.cs` + `.Routing` + `.Volume` + `.Driver` + `.Persist` + `ChannelViewModel.cs` + `TrackEqViewModel.cs` | `…/BandTrackChannelTests.cs` | 🔒 |

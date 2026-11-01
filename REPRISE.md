@@ -7,16 +7,39 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.3.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS) |
+| **Projet** | RoomEq **v3.4.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/roomeq` — branche `main` (recodage), miroirs Drive + GitHub `v3-recodage` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Werror -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 461 verts ; greffon AU : `g++ -std=c++17 -Wall -Wextra -Inatif/roomeq-au/core natif/roomeq-au/core/roomeq/{dsp,preset,json}/*.cpp natif/roomeq-au/tests/test_main.cpp -o /tmp/t && /tmp/t natif/roomeq-au/tests/data` (118 ; gcc 14 : `-Wno-error=maybe-uninitialized`, faux positif scellé) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (228 + 38) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*`) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 9 — v3.3.0 : installation « 1 clic »)
+## 1. État (fin session 10 — v3.4.0 : greffon VST 2 32 bits Windows)
+
+**Session 10 (2026-11-01)** : demande développeur « fais un VST 32 bits » →
+décision **D21** :
+
+- **D21 — greffon VST 2 32 bits Windows « RoomEq Correction »** (module natif
+  M-AUD-08/N-VST-01, `natif/roomeq-vst/`, spec `I/audio/I-greffon-vst.md`) :
+  applique les presets RoomEq `.json`/`.ffp` dans un DAW Windows 32 bits
+  (Live ≤ 9.7, FL 11, Cubase 5, REAPER 32). Cœur C++ réutilisé tel quel du
+  greffon AU (D19 — parité bit à bit) ; ABI VST 2.4 autodéclarée
+  (`vst/vst2_abi.h` : aucune copie d'en-tête Steinberg, constantes vérifiées
+  contre le SDK authentique + vestige) ; paramètre « Preamp » automatisable,
+  chunks, bypass `effSetBypass`, éditeur Win32 (Charger…/glisser-déposer/
+  courbe), exports `VSTPluginMain`+`main` (alias `.def`). Cross-compilation
+  **Zig 0.14.1** Linux → win32 (SSE2 forcé) → `RoomEq.dll` PE32 i386 dans
+  `RoomEq-VST-<v>-win32.zip` (CI `plugin-vst`). Validation : 228 + 38
+  vérifications natives/ABI (parité **bit à bit**), **228 en exécution 32
+  bits (qemu-i386)**, contrôles PE32/exports. Limites documentées : écart ulp
+  CRT Windows ≤ ~1e-13 (inaudible), non testé dans un hôte Windows réel
+  (journal `%LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log`), stéréo 2/2.
+  Outils persistés : `natif/roomeq-vst/build-vst.sh` ; Zig + CMake portables
+  dans `~/tools/` (aucun sudo).
+
+## 1bis. État (fin session 9 — v3.3.0 : installation « 1 clic »)
 
 **Session 9 (2026-11-01)** : demande développeur « une installation en
 1 clic plutôt qu'en ligne de commande » → décision **D20** :

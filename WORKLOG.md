@@ -682,3 +682,77 @@ corrigé — 7 assets : zips test/public/source, RoomEq-win-Setup.exe,
 RoomEq-AU-3.3.0-macos.zip, RoomEq-AU-3.3.0-macos.pkg, RoomEq-AU-LISEZMOI.md.
 La règle « tags immuables » est respectée en esprit : aucun consommateur
 n'a jamais vu le premier pointage.
+
+---
+Session : 10 — 2026-11-01
+Agent : main (Z.ai)
+Task : Demande développeur « fais un VST 32 bits ». Livrée en v3.4.0 sur la
+branche active — décision D21, module natif M-AUD-08/N-VST-01.
+
+Work Log:
+- Reprise : baseline confirmée (build 0/0, 461/461 xUnit, 118/118 natifs AU ;
+  gcc 14 local émet un faux positif maybe-uninitialized sur biquad.cpp du
+  cœur scellé — neutralisé en local par -Wno-error=maybe-uninitialized,
+  aucune modification du module AU).
+- Étude d'ABI : le SDK VST 2 n'étant plus distribué/concédé par Steinberg,
+  `vst/vst2_abi.h` est rédigé de zéro (structure AEffect, opcodes, drapeaux,
+  constantes de chaînes) avec DOUBLE vérification de chaque constante : SDK
+  2.4 authentique (lecture de contrôle) + en-tête publique vestige
+  (LMMS/falkTX). Découvertes : effSetProgram=2 (le déprécié effGetVu occupe
+  le rang 9), effEditIdle=19, effGetChunk=23/effSetChunk=24, effSetBypass=44,
+  audioMasterUpdateDisplay=42 ; kVstMaxParamStrLen=8 → libellé ASCII
+  « Preamp » (« Préampli » ne tient pas en UTF-8).
+- Implémentation `natif/roomeq-vst/` : cœur C++ réutilisé TEL QUEL de
+  roomeq-au/core (aucune duplication, le module AU reste propriétaire) ;
+  wrapper miroir de l'AU (paramètre Preamp automatisable −36…+36, chunks =
+  octets bruts du preset avec sniff à la restauration, chunk ≠ paramètre,
+  bypass effSetBypass, processReplacing par canal avec EqChain mono, mode
+  accumulation historique par scratch, effMainsChanged(0) = Reset, journal
+  %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log) ; éditeur Win32 sans ressources
+  (Charger…/GetOpenFileNameW, glisser-déposer WM_DROPFILES, courbe 97 points,
+  fenêtre enfant défensive) ; entrées usine VSTPluginMain + main (symbole
+  littéral « main » impossible en C++ → étiquette asm sous Linux, ALIAS .def
+  sous Windows : l'export dllexport déclenchait l'amorçage EXE du CRT MinGW
+  scrnsave/WinMain).
+- Cross-compilation : Zig 0.14.1 (MinGW-w64 + libc++ embarqués, AUCUN sudo)
+  cible x86-windows-gnu, SSE2 FORCÉ (-mcpu=pentium4 -msse2 -mfpmath=sse
+  -mstackrealign) → arithmétique double identique au 64 bits (vérifié :
+  x87 confinée aux retours libm, DSP 100 % SSE2) ; contrôles build-vst.sh :
+  PE32 i386 DLL, exports VSTPluginMain + main, zip win32 + LISEZMOI.
+- Validation : 228 vérifications natives (parité BIT À BIT 0.00e+00 vs
+  références C# : 48 k stéréo, 44,1 k mono, bordes, transparent + chunks +
+  préampli + bypass + accumulation + chaînes + rejets) ; mini-hôte dlopen
+  (38 vérifications : cycle de vie ABI complet, parité bit à bit, entrée
+  main historique) ; EXÉCUTION 32 BITS : suite complète compilée
+  x86-linux-gnu+SSE2 exécutée sous qemu-i386 (sémantique d'instructions
+  exacte) → 228/228, parité bit à bit ; cycle dlopen 32 bits vérifié pas à
+  pas (open/processReplacing/chunk/bypass/close/main/close).
+- Enquête qemu : un .so C++ 32 bits construit par Zig segfaulte APRÈS
+  dlclose — reproduit avec 5 lignes et une seule std::string statique locale
+  → défaut du crt Zig 0.14.1 32 bits (désenregistrement __cxa_atexit), sans
+  rapport avec le greffon ni effet sur la DLL Windows (CRT MinGW :
+  destructeurs au FreeLibrary). Documenté dans natif/roomeq-vst/README.md.
+- CI : job plugin-vst (ubuntu, needs tests) — cmake + 228 + 38 vérifications,
+  télécharge Zig 0.14.1 épinglé, build-vst.sh, artefact + joint aux releases
+  sur tag (même garde « une seule draft » que les autres jobs).
+- Docs : spec I/audio/I-greffon-vst.md écrite AVANT le code (M-AUD-08,
+  invariants/critères) ; CARTE (M-AUD-08, statut v3.4.0, 45 modules) ;
+  DECISIONS D21 (alternatives rejetées : VST3, en-têtes copiées, JUCE) ;
+  README/LISEZMOI/REPRISE (session 10)/REFERENCE-NATIF (N-VST-01) ; versions
+  3.4.0 partout (Directory.Build.props, package_v3.sh, CMake du VST).
+- Packaging : zips 3.4.0 test/public/source (package_v3.sh) +
+  RoomEq-VST-3.4.0-win32.zip dans download/ ; miroir Drive synchronisé.
+
+Stage Summary:
+- GREFFON VST 2 32 BITS LIVRÉ : « RoomEq Correction » (RoomEq.dll PE32 i386,
+  SSE2) pour DAW Windows 32 bits (Live ≤ 9.7, FL 11, Cubase 5, REAPER 32) —
+  presets .json/.ffp, éditeur Win32 (charger/glisser/courbe), préampli
+  automatisable, chunks, bypass ; parité bit à bit avec l'application.
+- Validation : 461/461 xUnit + 118/118 AU (non régressés) + 228 + 38
+  vérifications VST (Linux x64, parité 0.00e+00) + 228 vérifications en
+  exécution 32 bits (qemu-i386, parité 0.00e+00) + contrôles PE32/exports.
+- 45 modules 🔒 ; CI 7 jobs (dont plugin-vst) ; livrable
+  RoomEq-VST-3.4.0-win32.zip (download/ + Drive + release GitHub).
+- Limites documentées : écart ulp CRT Windows ≤ ~1e-13 (inaudible) ;
+  non testé dans un hôte Windows réel (journal local prévu) ; stéréo 2/2 ;
+  défaut crt Zig 32 bits post-dlclose (Linux uniquement, hors livrable).

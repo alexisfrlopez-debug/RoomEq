@@ -1,0 +1,591 @@
+// RoomEq VST — greffon VST 2 « RoomEq Correction » (spec I-AUD-08) :
+// implémentation. Le cœur DSP est celui du greffon AU (natif/roomeq-au/core,
+// parité bit à bit avec RoomEq.Core) ; cette couche fait l'intégration VST 2.
+//
+// Modèle de threads (miroir du greffon AU, spec I-AUD-07) :
+//   • le thread audio appelle processReplacing — aucune allocation, aucun
+//     lock SAUF si la version du preset a changé (rare : chargement
+//     interactif, reconstruction au début du bloc) ;
+//   • le thread interface (hôte/éditeur) touche preset_/presetBytes_ sous
+//     stateMutex_ ; les paramètres sont des atomiques ;
+//   • le contrat VST 2 sérialise setSampleRate/setBlockSize/mainsChanged
+//     avec process — accès simples pour la configuration du flux.
+#include "RoomEqVst.h"
+
+#include "roomeq/preset/preset_io.h"
+
+#include <algorithm>
+#include <cstdarg>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#if defined(_WIN32) && !defined(ROOMEQ_VST_NO_EDITOR)
+#include <direct.h> // _mkdir (journal)
+#endif
+
+namespace {
+
+// ------------------------------------------------------------- journalisme
+
+/// Journal best-effort (diagnostic des vieux hôtes 32 bits — le greffon est
+/// instancié puis fermé par le scanner du DAW, impossible à instrumenter
+/// autrement côté utilisateur). Une entrée = un fopen/append/fclose : sûr
+/// même si plusieurs hôtes chargent le greffon en parallèle.
+void Log(const char* fmt, ...) noexcept
+{
+#ifdef ROOMEQ_VST_DISABLE_LOG
+    (void)fmt;
+#else
+    char path[512];
+#if defined(_WIN32)
+    const char* root = std::getenv("LOCALAPPDATA");
+    if (root == nullptr)
+        root = "C:";
+    std::snprintf(path, sizeof(path), "%s\\RoomEq\\logs", root);
+    _mkdir(path); // best effort (existe après installation de l'application)
+    std::snprintf(path, sizeof(path), "%s\\RoomEq\\logs\\roomeq-vst.log", root);
+#else
+    std::snprintf(path, sizeof(path), "/tmp/roomeq-vst.log");
+#endif
+    std::FILE* f = std::fopen(path, "a");
+    if (f == nullptr)
+        return;
+    char line[256];
+    va_list args;
+    va_start(args, fmt);
+    std::vsnprintf(line, sizeof(line), fmt, args);
+    va_end(args);
+    std::fprintf(f, "%s\n", line);
+    std::fclose(f);
+#endif
+}
+
+/// Copie tronquée avec terminateur (les tampons ABI sont bornés).
+template <size_t N>
+void CopyBounded(char (&dst)[N], const char* text)
+{
+    std::snprintf(dst, N, "%s", text);
+}
+
+/// Nom de preset raccourci pour un nom de programme (≤ 23 caractères).
+std::string Shorten(const std::string& text, size_t maxChars)
+{
+    if (text.size() <= maxChars)
+        return text;
+    return text.substr(0, maxChars - 1) + "~";
+}
+
+} // namespace
+
+// ------------------------------------------------------------------ entrée usine
+
+RoomEqVst::RoomEqVst(vst::HostCallback host) : host_(host)
+{
+    // AEffect (base) : champs dans l'ordre EXACT de l'ABI.
+    magic = vst::kEffectMagic;
+    dispatcher = &RoomEqVst::Dispatcher;
+    process = &RoomEqVst::ProcessAccumulate;
+    setParameter = &RoomEqVst::SetParameter;
+    getParameter = &RoomEqVst::GetParameter;
+    numPrograms = 1;
+    numParams = kNumParams;
+    numInputs = kChannels;
+    numOutputs = kChannels;
+    flags = vst::kEffFlagsCanReplacing | vst::kEffFlagsProgramChunks;
+    if (kHasEditor)
+        flags |= vst::kEffFlagsHasEditor;
+    resvd1 = 0;
+    resvd2 = 0;
+    initialDelay = 0;
+    uniqueID = kUniqueId;
+    version = kVersion;
+    processReplacing = &RoomEqVst::ProcessReplace;
+    processDoubleReplacing = nullptr;
+    std::memset(future, 0, sizeof(future));
+
+    preset_ = std::make_shared<const roomeq::preset::PresetDef>(
+        roomeq::preset::MakeIdentityPreset());
+}
+
+RoomEqVst::~RoomEqVst()
+{
+    // l'éditeur ne doit pas survivre au greffon (fenêtre enfant orphaned)
+    if (kHasEditor)
+        VstEditorClose(*this);
+}
+
+vst::AEffect* CreateRoomEqVst(vst::HostCallback host)
+{
+    if (host == nullptr)
+        return nullptr;
+    return new RoomEqVst(host);
+}
+
+// ------------------------------------------------------------------ callbacks
+
+vst::IntPtr RoomEqVst::Dispatcher(vst::AEffect* effect, int32_t opcode,
+    int32_t index, vst::IntPtr value, void* ptr, float opt)
+{
+    if (effect == nullptr || effect->magic != vst::kEffectMagic)
+        return 0;
+    return static_cast<RoomEqVst*>(effect)->HandleDispatcher(opcode, index,
+        value, ptr, opt);
+}
+
+void RoomEqVst::SetParameter(vst::AEffect* effect, int32_t index, float value)
+{
+    if (effect == nullptr || effect->magic != vst::kEffectMagic)
+        return;
+    auto* self = static_cast<RoomEqVst*>(effect);
+    if (index != kParamPreampDb)
+        return;
+    const float clamped = std::clamp(value, kPreampMinDb, kPreampMaxDb);
+    self->preampParam_.store(clamped, std::memory_order_relaxed);
+}
+
+float RoomEqVst::GetParameter(vst::AEffect* effect, int32_t index)
+{
+    if (effect == nullptr || effect->magic != vst::kEffectMagic
+        || index != kParamPreampDb)
+        return 0.0f;
+    return static_cast<RoomEqVst*>(effect)->PreampParam();
+}
+
+// ------------------------------------------------------------------ dispatcher
+
+vst::IntPtr RoomEqVst::HandleDispatcher(int32_t opcode, int32_t index,
+    vst::IntPtr value, void* ptr, float opt)
+{
+    // index (banque/programme des chunks, index de paramètre…) n'est pas
+    // discriminant ici : un seul programme, un seul paramètre.
+    (void)index;
+    switch (opcode) {
+    case vst::kEffOpen:
+        return HandleOpen();
+
+    case vst::kEffClose:
+        Log("close");
+        delete this;
+        return 0;
+
+    case vst::kEffSetProgram:
+        return value == 0 ? 1 : 0; // un seul programme
+
+    case vst::kEffGetProgram:
+        return 0;
+
+    case vst::kEffSetProgramName:
+        if (ptr != nullptr)
+            SetProgramName(static_cast<const char*>(ptr));
+        return 1;
+
+    case vst::kEffGetProgramName:
+        if (ptr != nullptr)
+            CopyBounded(*static_cast<char (*)[vst::kMaxProgNameLen]>(ptr),
+                ProgramName().c_str());
+        return 1;
+
+    case vst::kEffGetParamLabel:
+        if (ptr != nullptr)
+            CopyBounded(*static_cast<char (*)[vst::kMaxParamStrLen]>(ptr), "dB");
+        return 1;
+
+    case vst::kEffGetParamDisplay:
+        if (ptr != nullptr) {
+            char text[vst::kMaxParamStrLen];
+            std::snprintf(text, sizeof(text), "%.1f", PreampParam());
+            CopyBounded(*static_cast<char (*)[vst::kMaxParamStrLen]>(ptr), text);
+        }
+        return 1;
+
+    case vst::kEffGetParamName:
+        // kVstMaxParamStrLen = 8 : « Préampli » ne tient pas en UTF-8
+        // (« é » = 2 octets) — libellé ASCII stable entre hôtes.
+        if (ptr != nullptr)
+            CopyBounded(*static_cast<char (*)[vst::kMaxParamStrLen]>(ptr), "Preamp");
+        return 1;
+
+    case vst::kEffSetSampleRate:
+        SetSampleRate(static_cast<double>(opt));
+        SyncChainsFromFormat(); // sérialisé avec process (contrat VST 2)
+        return 1;
+
+    case vst::kEffSetBlockSize:
+        SetBlockSize(static_cast<int32_t>(value));
+        if (static_cast<size_t>(value) > scratch_.size())
+            scratch_.resize(static_cast<size_t>(value)); // mode accumulation
+        return 1;
+
+    case vst::kEffMainsChanged:
+        // 0 = suspend : remise à zéro des états (départ propre au resume,
+        // équivalent du Reset AU après un déplacement du curseur du DAW).
+        if (value == 0) {
+            for (auto& chain : chains_)
+                chain.Reset();
+        }
+        return 1;
+
+    case vst::kEffEditGetRect:
+        if (ptr != nullptr && kHasEditor) {
+            static vst::ERect rect = { 0, 0, 240, 520 }; // top,left,bottom,right
+            *static_cast<vst::ERect**>(ptr) = &rect;
+            return 1;
+        }
+        return 0;
+
+    case vst::kEffEditOpen:
+        if (ptr != nullptr && kHasEditor && VstEditorOpen(*this, ptr)) {
+            Log("editor open");
+            return 1;
+        }
+        return 0;
+
+    case vst::kEffEditClose:
+        if (kHasEditor)
+            VstEditorClose(*this);
+        return 1;
+
+    case vst::kEffEditIdle:
+        if (kHasEditor)
+            VstEditorIdle(*this);
+        return 0;
+
+    case vst::kEffGetChunk: {
+        // [index] 0 = bank, 1 = programme — un seul programme, même blob.
+        if (ptr == nullptr)
+            return 0;
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        if (presetBytes_.empty()) {
+            *static_cast<void**>(ptr) = nullptr;
+            return 0;
+        }
+        chunkOut_ = presetBytes_; // stable jusqu'au prochain GetChunk
+        *static_cast<void**>(ptr) = chunkOut_.data();
+        return static_cast<vst::IntPtr>(chunkOut_.size());
+    }
+
+    case vst::kEffSetChunk: {
+        // [ptr] données, [value] taille, [index] 0 bank / 1 programme.
+        const auto* data = static_cast<const uint8_t*>(ptr);
+        const auto size = static_cast<size_t>(value);
+        if (data == nullptr || size == 0) {
+            // chunk vide = aucun preset chargé : transparent.
+            std::lock_guard<std::mutex> lock(stateMutex_);
+            preset_ = std::make_shared<const roomeq::preset::PresetDef>(
+                roomeq::preset::MakeIdentityPreset());
+            presetBytes_.clear();
+            programName_ = "Init";
+            presetVersion_.fetch_add(1, std::memory_order_release);
+            return 1;
+        }
+        std::string error;
+        const bool ok = ApplyPresetBytes(data, size, false, error);
+        if (!ok)
+            Log("setChunk refuse (%zu octets) : %s", size, error.c_str());
+        return ok ? 1 : 0;
+    }
+
+    case vst::kEffGetPlugCategory:
+        return vst::kPlugCategoryEffect;
+
+    case vst::kEffSetBypass:
+        SetBypassed(value != 0);
+        return 1;
+
+    case vst::kEffGetEffectName:
+        if (ptr != nullptr)
+            CopyBounded(*static_cast<char (*)[vst::kMaxEffectNameLen]>(ptr),
+                "RoomEq Correction");
+        return 1;
+
+    case vst::kEffGetVendorString:
+        if (ptr != nullptr)
+            CopyBounded(*static_cast<char (*)[vst::kMaxVendorStrLen]>(ptr),
+                "RoomEq");
+        return 1;
+
+    case vst::kEffGetProductString:
+        if (ptr != nullptr)
+            CopyBounded(*static_cast<char (*)[vst::kMaxProductStrLen]>(ptr),
+                "RoomEq Correction");
+        return 1;
+
+    case vst::kEffGetVendorVersion:
+        return kVersion;
+
+    case vst::kEffCanDo: {
+        const auto* query = static_cast<const char*>(ptr);
+        if (query != nullptr && std::strcmp(query, "bypass") == 0)
+            return 1;
+        return 0; // « don't know »
+    }
+
+    case vst::kEffGetTailSize:
+        return 0;
+
+    case vst::kEffGetVstVersion:
+        return vst::kVstVersion;
+
+    case vst::kEffStartProcess:
+    case vst::kEffStopProcess:
+        return 1;
+
+    default:
+        return 0;
+    }
+}
+
+vst::IntPtr RoomEqVst::HandleOpen()
+{
+    Log("open (VST %d, editor=%d)", vst::kVstVersion, kHasEditor ? 1 : 0);
+    SyncChainsFromFormat();
+    return 1;
+}
+
+// ------------------------------------------------------------------ preset
+
+bool RoomEqVst::ApplyPresetBytes(const uint8_t* data, size_t size,
+    bool updateParameter, std::string& error)
+{
+    if (data == nullptr || size == 0) {
+        error = "preset vide";
+        return false;
+    }
+
+    auto parsed = std::make_shared<roomeq::preset::PresetDef>();
+    const auto format = roomeq::preset::SniffFormat(data, size);
+    bool ok = false;
+    if (format == "ffp") {
+        ok = roomeq::preset::FromFfp(data, size, *parsed, error);
+    } else {
+        const std::string text(reinterpret_cast<const char*>(data), size);
+        ok = roomeq::preset::FromJson(text, *parsed, error);
+    }
+    if (!ok) {
+        Log("preset refuse : %s", error.c_str());
+        return false;
+    }
+
+    double preampOfPreset = 0.0;
+    {
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        preampOfPreset = parsed->preampDb;
+        preset_ = std::move(parsed);
+        presetBytes_.assign(data, data + size);
+        programName_ = Shorten(preset_->name,
+            static_cast<size_t>(vst::kMaxProgNameLen) - 1);
+    }
+    presetVersion_.fetch_add(1, std::memory_order_release);
+
+    if (updateParameter) {
+        const float value = static_cast<float>(std::clamp(preampOfPreset,
+            static_cast<double>(kPreampMinDb), static_cast<double>(kPreampMaxDb)));
+        preampParam_.store(value, std::memory_order_relaxed);
+        // notifier l'hôte : automatisation + rafraîchissement de l'affichage
+        if (host_ != nullptr) {
+            host_(this, vst::kAudioMasterAutomate, kParamPreampDb, 0, nullptr,
+                value);
+            host_(this, vst::kAudioMasterUpdateDisplay, 0, 0, nullptr, 0.0f);
+        }
+    }
+    Log("preset charge (%zu octets, format %.*s)", size,
+        static_cast<int>(format.size()), format.data());
+    return true;
+}
+
+roomeq::preset::PresetDef RoomEqVst::CurrentPreset() const
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    return *preset_;
+}
+
+std::vector<uint8_t> RoomEqVst::PresetBytes() const
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    return presetBytes_;
+}
+
+std::string RoomEqVst::ProgramName() const
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    return programName_;
+}
+
+void RoomEqVst::SetProgramName(const char* name)
+{
+    if (name == nullptr)
+        return;
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    programName_ = Shorten(name,
+        static_cast<size_t>(vst::kMaxProgNameLen) - 1);
+}
+
+
+// ------------------------------------------------------------------ courbe
+
+std::vector<double> RoomEqVst::ResponseCurve() const
+{
+    constexpr int kCurvePoints = 97; // comme la vue du greffon AU
+
+    std::shared_ptr<const roomeq::preset::PresetDef> preset;
+    {
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        preset = preset_;
+    }
+    const double rate = sampleRate_ > 0.0 ? sampleRate_ : 48000.0;
+    const double preampParam = static_cast<double>(PreampParam());
+
+    roomeq::dsp::EqChain chain; // chaîne de calcul, pas de rendu
+    chain.Configure(rate, 1);
+    chain.SetPreset(*preset);
+
+    std::vector<double> pairs(static_cast<size_t>(kCurvePoints) * 2);
+    const double logMin = std::log10(20.0), logMax = std::log10(20000.0);
+    for (int i = 0; i < kCurvePoints; ++i) {
+        const double f = std::pow(10.0,
+            logMin + (logMax - logMin) * i / (kCurvePoints - 1));
+        pairs[static_cast<size_t>(i) * 2] = f;
+        pairs[static_cast<size_t>(i) * 2 + 1] = chain.ResponseDb(f)
+                                                + (preampParam - preset->preampDb);
+    }
+    return pairs;
+}
+
+// ------------------------------------------------------------------ rendu
+
+void RoomEqVst::SyncChainsFromFormat()
+{
+    // Reconstruire si le format a changé (premier bloc ou reconfiguration).
+    if (configuredChannels_ == kChannels && configuredRate_ == sampleRate_)
+        return;
+    for (auto& chain : chains_)
+        chain.Configure(sampleRate_, 1);
+    configuredChannels_ = kChannels;
+    configuredRate_ = sampleRate_;
+}
+
+void RoomEqVst::ProcessChannels(float** inputs, float** outputs,
+    int32_t sampleFrames, bool accumulate)
+{
+    if (sampleFrames <= 0 || inputs == nullptr || outputs == nullptr)
+        return;
+
+    SyncChainsFromFormat();
+
+    // reconfiguration paresseuse du preset : version atomique d'abord, mutex
+    // seulement si un chargement a eu lieu (rare — action utilisateur)
+    const uint64_t version = PresetVersion();
+    std::shared_ptr<const roomeq::preset::PresetDef> pending;
+    bool needRebuild = false;
+    for (int c = 0; c < kChannels; ++c)
+        if (seenVersion_[c] != version)
+            needRebuild = true;
+    if (needRebuild) {
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        pending = preset_;
+    }
+
+    const double preamp = static_cast<double>(PreampParam());
+    const bool bypass = Bypassed();
+
+    for (int c = 0; c < kChannels; ++c) {
+        if (needRebuild && pending != nullptr) {
+            chains_[c].SetPreset(*pending);
+            seenVersion_[c] = version;
+        }
+        chains_[c].SetPreampDb(preamp);
+        chains_[c].SetBypass(bypass);
+
+        const float* src = inputs[c];
+        float* dst = outputs[c];
+        if (src == nullptr || dst == nullptr)
+            continue;
+
+        if (!accumulate) {
+            // remplacer : traitement en place après copie éventuelle
+            if (src != dst)
+                std::memcpy(dst, src, static_cast<size_t>(sampleFrames) * sizeof(float));
+            chains_[c].Process(dst, static_cast<size_t>(sampleFrames));
+        } else {
+            // accumulation (process, déprécié) : out += traitement(in)
+            if (static_cast<size_t>(sampleFrames) > scratch_.size())
+                scratch_.resize(static_cast<size_t>(sampleFrames));
+            std::memcpy(scratch_.data(), src,
+                static_cast<size_t>(sampleFrames) * sizeof(float));
+            chains_[c].Process(scratch_.data(), static_cast<size_t>(sampleFrames));
+            for (int32_t i = 0; i < sampleFrames; ++i)
+                dst[i] += scratch_[static_cast<size_t>(i)];
+        }
+    }
+}
+
+void RoomEqVst::ProcessReplace(vst::AEffect* effect, float** inputs,
+    float** outputs, int32_t sampleFrames)
+{
+    if (effect == nullptr || effect->magic != vst::kEffectMagic)
+        return;
+    static_cast<RoomEqVst*>(effect)->ProcessChannels(inputs, outputs,
+        sampleFrames, false);
+}
+
+void RoomEqVst::ProcessAccumulate(vst::AEffect* effect, float** inputs,
+    float** outputs, int32_t sampleFrames)
+{
+    if (effect == nullptr || effect->magic != vst::kEffectMagic)
+        return;
+    static_cast<RoomEqVst*>(effect)->ProcessChannels(inputs, outputs,
+        sampleFrames, true);
+}
+
+// ------------------------------------------------------------------ exports
+
+#if defined(_WIN32)
+#define ROOMEQ_EXPORT extern "C" __declspec(dllexport)
+#else
+#define ROOMEQ_EXPORT extern "C" __attribute__((visibility("default")))
+#endif
+
+/// Entrée usine VST 2 moderne (tous les hôtes ≥ VST 2.0 l'utilisent).
+ROOMEQ_EXPORT vst::AEffect* VSTPluginMain(vst::HostCallback host)
+{
+    if (host == nullptr)
+        return nullptr;
+    // saluer le hôte (usage standard : effet nul pour la requête de version)
+    const vst::IntPtr version =
+        host(nullptr, vst::kAudioMasterVersion, 0, 0, nullptr, 0.0f);
+    if (version < 1)
+        Log("hote sans audioMasterVersion (%d) — chargement quand meme",
+            static_cast<int>(version));
+    return CreateRoomEqVst(host);
+}
+
+/// Entrée historique (hôtes antérieurs à VST 2.0). Le C++ interdit un
+/// `main` de signature différente : le symbole est posé par étiquette
+/// d'assembleur — le nom exporté reste exactement « main », sans trait de
+/// soulignement, comme l'exige GetProcAddress. (Exclu des exécutables de
+/// test, qui ont leur propre main — le mini-hôte valide l'export via
+/// dlopen sur le module.)
+#if !defined(ROOMEQ_VST_NO_LEGACY_MAIN)
+#if defined(_WIN32)
+// Windows : l'export d'un symbole littéral « main » déclenche l'attachement
+// de l'amorçage EXE du CRT MinGW (scrnsave/WinMain) — le symbole garde donc
+// son nom propre et l'export « main » est posé par ALIAS dans le .def
+// (build-vst.sh). Sous Linux, l'étiquette d'assembleur suffit (mini-hôte).
+extern "C" vst::AEffect* roomeq_vst_legacy_main(vst::HostCallback host);
+extern "C" vst::AEffect* roomeq_vst_legacy_main(vst::HostCallback host)
+{
+    return VSTPluginMain(host);
+}
+#else
+extern "C" vst::AEffect* roomeq_vst_legacy_main(vst::HostCallback host)
+    __asm__("main");
+extern "C" vst::AEffect* roomeq_vst_legacy_main(vst::HostCallback host)
+{
+    return VSTPluginMain(host);
+}
+#endif
+#endif

@@ -11,3 +11,9 @@ scripts/telemetrie.json
 # greffon AU : dossiers de build locaux
 natif/roomeq-au/build-macos/
 natif/roomeq-au/build-core/
+
+# greffon VST : sorties de build locales (la CI produit les livrables)
+natif/roomeq-vst/dist/
+
+# bytecode Python des outils locaux
+__pycache__/
