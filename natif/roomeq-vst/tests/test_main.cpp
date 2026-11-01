@@ -697,7 +697,165 @@ static void TestAutoLoad()
 #endif
 }
 
-// ------------------------------------------------------------------ principal
+// --------------------------------------- auto-chargement des presets plats (v3.4.2)
+// Second retour utilisateur réel : « le VST affiche 10 bandes mais sur la
+// courbe je ne vois pas les 10 bandes, aucune différence de son ». Cause :
+// le preset le plus récent du magasin était PLAT (10 bandes à 0 dB —
+// l'état par défaut de l'onglet Égaliseur de l'application, EqPreset.Flat(),
+// sauvegardé tel quel). Le DSP était sain : seul le CHOIX de preset était en
+// cause. L'auto-chargement doit SAUTER les presets sans effet audible.
+
+namespace {
+
+/// Les 10 bandes exactes d'EqPreset.Flat() (31,25 Hz → 16 kHz, pas octave,
+/// Q 1,1) — ce que l'onglet Égaliseur de l'application sauvegarde quand
+/// l'utilisateur enregistre l'état par défaut.
+const char* kFlatPreset10 = R"JSON({
+  "Name": "Plat",
+  "PreampDb": 0.0,
+  "Bands": [
+    { "Type": "Peaking", "Frequency": 31.25, "GainDb": 0.0, "Q": 1.1, "Enabled": true },
+    { "Type": "Peaking", "Frequency": 62.5, "GainDb": 0.0, "Q": 1.1, "Enabled": true },
+    { "Type": "Peaking", "Frequency": 125.0, "GainDb": 0.0, "Q": 1.1, "Enabled": true },
+    { "Type": "Peaking", "Frequency": 250.0, "GainDb": 0.0, "Q": 1.1, "Enabled": true },
+    { "Type": "Peaking", "Frequency": 500.0, "GainDb": 0.0, "Q": 1.1, "Enabled": true },
+    { "Type": "Peaking", "Frequency": 1000.0, "GainDb": 0.0, "Q": 1.1, "Enabled": true },
+    { "Type": "Peaking", "Frequency": 2000.0, "GainDb": 0.0, "Q": 1.1, "Enabled": true },
+    { "Type": "Peaking", "Frequency": 4000.0, "GainDb": 0.0, "Q": 1.1, "Enabled": true },
+    { "Type": "Peaking", "Frequency": 8000.0, "GainDb": 0.0, "Q": 1.1, "Enabled": true },
+    { "Type": "Peaking", "Frequency": 16000.0, "GainDb": 0.0, "Q": 1.1, "Enabled": true }
+  ]
+})JSON";
+
+std::vector<uint8_t> BytesOf(const char* text)
+{
+    return std::vector<uint8_t>(text, text + std::strlen(text));
+}
+
+} // namespace
+
+static void TestAutoLoadSkipsFlat()
+{
+    std::puts("— auto-chargement : presets plats ignorés (v3.4.2)");
+
+    const auto demo = LoadData("preset_demo.json");
+    if (g_failures > 0)
+        return;
+
+    const std::string store = "roomeq-autoload-flat";
+    MakeStoreDir(store);
+    const std::string flatPath = store + "/plat.json";
+    const std::string corrPath = store + "/correction.json";
+
+    // A — le scénario EXACT du retour utilisateur : preset plat de 10 bandes
+    // plus récent que la vraie correction → la correction (plus ancienne)
+    // doit être chargée, pas le plat
+    CHECK(WriteFileBytes(corrPath, demo));
+    CHECK(WriteFileBytes(flatPath, BytesOf(kFlatPreset10)));
+    StampFile(corrPath, -600);
+    StampFile(flatPath, 0); // le plat est le plus récent
+    SetStoreEnv(store.c_str());
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(plugin.HasPreset());
+        CHECK(plugin.CurrentPreset().name == "Salon — correction v1"); // pas le plat
+        CHECK(plugin.PresetHasEffect());
+        CHECK_NEAR(plugin.PreampParam(), -6.5, 1e-6);
+
+        // preuve sonore : sortie = référence C# du preset de correction
+        CheckParity("plat ignoré 48k stereo", plugin,
+            "impulse_demo_48k_stereo.f32", 48000, 2, 2e-6);
+    }
+
+    // B — écran affiché pour un plat CHARGÉ EXPLICITEMENT (bouton Charger… ou
+    // chunk de session) : le preset reste actif, l'éditeur doit signaler
+    // « plat » (PresetHasEffect faux) — l'état est visible, pas subi
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        std::string error;
+        const auto flat = BytesOf(kFlatPreset10);
+        CHECK(plugin.ApplyPresetBytes(flat.data(), flat.size(), true, error));
+        CHECK(plugin.HasPreset());
+        CHECK(plugin.CurrentPreset().name == "Plat");
+        CHECK(plugin.CurrentPreset().bands.size() == 10);
+        CHECK(!plugin.PresetHasEffect()); // 10 bandes à 0 dB : aucun effet
+
+        // la courbe est plate (ce que l'utilisateur voyait)
+        std::vector<double> curve = plugin.ResponseCurve();
+        CHECK(curve.size() == 97 * 2);
+        double lo = 1e9, hi = -1e9;
+        for (size_t i = 0; i < curve.size() / 2; ++i) {
+            lo = std::min(lo, curve[i * 2 + 1]);
+            hi = std::max(hi, curve[i * 2 + 1]);
+        }
+        CHECK_NEAR(hi - lo, 0.0, 1e-9);
+        CHECK_NEAR(lo, 0.0, 1e-9);
+
+        // et le son traverse à l'identique (10 peaking à 0 dB = identité)
+        const auto identity = MakeReferenceInput(48000, 2);
+        const auto got = ProcessThrough(plugin, 48000, 2);
+        const double worst = ComparePlanarToReference(got, identity, 2);
+        CHECK(worst < 1e-6);
+    }
+
+    // C — bande filtrante à 0 dB (Notch) : PAS transparente — un preset qui
+    // ne contient qu'un notch doit être auto-chargé
+    {
+        const char* notchOnly = R"JSON({
+  "Name": "Anti-gratte",
+  "PreampDb": 0.0,
+  "Bands": [ { "Type": "Notch", "Frequency": 7350, "GainDb": 0.0, "Q": 8, "Enabled": true } ]
+})JSON";
+        CHECK(WriteFileBytes(flatPath, BytesOf(notchOnly)));
+        StampFile(flatPath, 0);
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(plugin.HasPreset());
+        CHECK(plugin.CurrentPreset().name == "Anti-gratte");
+        CHECK(plugin.PresetHasEffect()); // un notch filtre même à 0 dB
+    }
+
+    // D — préampli seul (bandes plates mais préampli non nul) : audible
+    {
+        const char* preampOnly = R"JSON({
+  "Name": "Attenuation",
+  "PreampDb": -6.0,
+  "Bands": [ { "Type": "Peaking", "Frequency": 1000, "GainDb": 0.0, "Q": 1.1, "Enabled": true } ]
+})JSON";
+        CHECK(WriteFileBytes(flatPath, BytesOf(preampOnly)));
+        StampFile(flatPath, 0);
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(plugin.CurrentPreset().name == "Attenuation");
+        CHECK(plugin.PresetHasEffect());
+    }
+
+    // E — magasin avec des presets plats UNIQUEMENT : transparent + bannière
+    // « aucun preset » (rien d'audible à charger — pas de faux « 10 bandes »)
+    CHECK(std::remove(corrPath.c_str()) == 0);
+    CHECK(WriteFileBytes(flatPath, BytesOf(kFlatPreset10)));
+    StampFile(flatPath, 0);
+    {
+        RoomEqVst plugin(&DummyHost);
+        plugin.SetSampleRate(48000.0);
+        CHECK(OpenPlugin(plugin) == 1);
+        CHECK(!plugin.HasPreset()); // le plat est ignoré → transparent
+        CHECK(plugin.CurrentPreset().bands.empty());
+        CHECK(!plugin.PresetHasEffect());
+    }
+
+    CHECK(std::remove(flatPath.c_str()) == 0);
+#if !defined(_WIN32)
+    rmdir(store.c_str());
+#endif
+}
+
+
 
 int main(int argc, char** argv)
 {
@@ -715,6 +873,7 @@ int main(int argc, char** argv)
     TestStrings();
     TestCloseThroughAbi();
     TestAutoLoad();
+    TestAutoLoadSkipsFlat();
 
     std::printf("\n%d vérifications, %d échecs\n", g_checks, g_failures);
     if (g_failures > 0) {

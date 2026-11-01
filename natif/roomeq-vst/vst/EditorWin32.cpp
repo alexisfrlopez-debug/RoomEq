@@ -161,6 +161,18 @@ void DrawEditor(HDC hdc, EditorState& st)
     const int n0 = swprintf(dbLabel, 16, L"%.0f dB", 0.0);
     TextOutW(hdc, kPlotRight - 46, y0 - 16, dbLabel, n0);
 
+    // --- preset courant (courbe, points de bandes et bandeau)
+    const roomeq::preset::PresetDef preset = st.plugin->CurrentPreset();
+    int bands = 0;
+    double maxGainDb = 0.0;
+    for (const auto& b : preset.bands)
+        if (b.enabled) {
+            ++bands;
+            maxGainDb = std::max(maxGainDb, std::fabs(b.gainDb));
+        }
+    const double preampShift = static_cast<double>(st.plugin->PreampParam())
+                               - preset.preampDb;
+
     // --- courbe composite (97 points, préampli du paramètre inclus)
     std::vector<double> curve;
     try {
@@ -181,12 +193,30 @@ void DrawEditor(HDC hdc, EditorState& st)
         DeleteObject(curvePen);
     }
 
+    // --- repères de bandes (v3.4.2) : un point par bande ACTIVE, posé sur
+    // la courbe à la fréquence centrale — les bandes sont visibles même
+    // quand leur gain est nul (elles tombent alors sur la ligne 0 dB, ce
+    // qui rend un preset plat immédiatement lisible : « 10 bandes à 0 dB »
+    // au lieu d'une courbe vide)
+    if (bands > 0) {
+        HPEN dotPen = CreatePen(PS_SOLID, 1, RGB(186, 174, 255));
+        HBRUSH dotBrush = CreateSolidBrush(RGB(186, 174, 255));
+        HPEN oldPen = static_cast<HPEN>(SelectObject(hdc, dotPen));
+        HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hdc, dotBrush));
+        for (const auto& b : preset.bands) {
+            if (!b.enabled)
+                continue;
+            const int x = static_cast<int>(FreqToX(b.frequency));
+            const int y = static_cast<int>(DbToY(b.gainDb + preampShift));
+            Ellipse(hdc, x - 3, y - 3, x + 3, y + 3);
+        }
+        SelectObject(hdc, oldPen);
+        SelectObject(hdc, oldBrush);
+        DeleteObject(dotPen);
+        DeleteObject(dotBrush);
+    }
+
     // --- bandeau d'information
-    const roomeq::preset::PresetDef preset = st.plugin->CurrentPreset();
-    int bands = 0;
-    for (const auto& b : preset.bands)
-        if (b.enabled)
-            ++bands;
     wchar_t line1[96];
     swprintf(line1, 96, L"Preset : %s",
         Utf8ToWide(preset.name).c_str());
@@ -194,17 +224,16 @@ void DrawEditor(HDC hdc, EditorState& st)
     TextOutW(hdc, 12, 8, line1, lstrlenW(line1));
 
     wchar_t line2[96];
-    swprintf(line2, 96, L"%d bandes · preamp %+.1f dB",
-        bands, st.plugin->PreampParam());
+    if (st.plugin->PresetHasEffect())
+        swprintf(line2, 96, L"%d bandes · gain max %.1f dB · preamp %+.1f dB",
+            bands, maxGainDb, st.plugin->PreampParam());
+    else
+        swprintf(line2, 96, L"%d bandes à 0 dB · preamp %+.1f dB",
+            bands, st.plugin->PreampParam());
     SetTextColor(hdc, RGB(170, 170, 190));
     TextOutW(hdc, 12, 24, line2, lstrlenW(line2));
 
-    if (st.plugin->HasPreset()) {
-        SetTextColor(hdc, RGB(120, 120, 140));
-        const wchar_t* hint = L"Charger… ou deposer un fichier .json / .ffp";
-        TextOutW(hdc, kEditorWidth - 232, kEditorHeight - 17, hint,
-            lstrlenW(hint));
-    } else {
+    if (!st.plugin->HasPreset()) {
         // --- bannière « aucun preset » (v3.4.1) : le greffon est TRANSPARENT
         // sans preset — état impossible à rater (retour utilisateur réel :
         // « aucune différence de son quand le greffon est activé »).
@@ -226,6 +255,38 @@ void DrawEditor(HDC hdc, EditorState& st)
         TextOutW(hdc, cx, cy - 2, how1, lstrlenW(how1));
         TextOutW(hdc, cx, cy + 18, how2, lstrlenW(how2));
         SetTextAlign(hdc, TA_LEFT);
+    } else if (!st.plugin->PresetHasEffect()) {
+        // --- bannière « preset plat » (v3.4.2) : un preset est chargé mais
+        // toutes ses bandes sont à 0 dB — le son traverse sans correction.
+        // Retour utilisateur réel : « le VST affiche 10 bandes mais sur la
+        // courbe je ne vois pas les 10 bandes » — les points des bandes
+        // tombent sur la ligne 0 dB, l'état doit être explicite.
+        const int cx = (kPlotLeft + kPlotRight) / 2;
+        const int cy = (kPlotTop + kPlotBottom) / 2;
+        if (st.bannerFont != nullptr) {
+            SelectObject(hdc, st.bannerFont);
+            SetTextAlign(hdc, TA_CENTER);
+            SetTextColor(hdc, RGB(255, 159, 64)); // orange franc
+            const wchar_t* title = L"Preset plat — le son n'est pas corrigé";
+            TextOutW(hdc, cx, cy - 34, title, lstrlenW(title));
+            SelectObject(hdc, st.font);
+            SetTextAlign(hdc, TA_LEFT);
+        }
+        SetTextAlign(hdc, TA_CENTER);
+        SetTextColor(hdc, RGB(200, 200, 215));
+        wchar_t why[128];
+        const int nWhy = swprintf(why, 128,
+            L"« %s » : %d bandes, toutes à 0 dB (aucun effet)",
+            Utf8ToWide(preset.name).c_str(), bands);
+        TextOutW(hdc, cx, cy - 2, why, nWhy);
+        const wchar_t* how = L"Chargez un preset de correction (bouton « Charger… »)";
+        TextOutW(hdc, cx, cy + 18, how, lstrlenW(how));
+        SetTextAlign(hdc, TA_LEFT);
+    } else {
+        SetTextColor(hdc, RGB(120, 120, 140));
+        const wchar_t* hint = L"Charger… ou deposer un fichier .json / .ffp";
+        TextOutW(hdc, kEditorWidth - 232, kEditorHeight - 17, hint,
+            lstrlenW(hint));
     }
 
     DeleteObject(grid);

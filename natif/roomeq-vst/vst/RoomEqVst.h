@@ -30,7 +30,7 @@ public:
     static constexpr float kPreampDefaultDb = 0.0f;
 
     static constexpr int32_t kUniqueId = vst::CConst('R', 'm', 'e', 'q');
-    static constexpr int32_t kVersion = 3401; // 3.4.1
+    static constexpr int32_t kVersion = 3402; // 3.4.2
 
     // Canaux audio (stéréo, comme le master d'un DAW).
     static constexpr int kChannels = 2;
@@ -71,6 +71,14 @@ public:
     /// Vrai si un preset est actif (fichier, chunk restauré ou
     /// auto-chargement) — faux = greffon transparent (identité).
     bool HasPreset() const;
+
+    /// Vrai si le preset courant a un effet AUDIBLE : au moins une bande
+    /// active non transparente (gain non nul, ou type filtrant — coupe/
+    /// notch) ou un préampli non nul. Un preset « plat » (bandes à 0 dB,
+    /// préampli 0) ne corrige rien — v3.4.2 : l'auto-chargement l'ignore et
+    /// l'éditeur l'affiche explicitement (retour utilisateur : « 10 bandes
+    /// affichées, courbe plate, aucune différence de son »).
+    bool PresetHasEffect() const;
 
     float PreampParam() const
     {

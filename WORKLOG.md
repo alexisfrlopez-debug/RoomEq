@@ -845,3 +845,93 @@ Stage Summary:
 - Livrable : RoomEq-VST-3.4.1-win32.zip ; spec I-AUD-08 v2 ; 45 modules 🔒.
 - Reste : push GitHub + miroir Drive (jetons perdus) ; re-test utilisateur
   dans Live 9 (le journal tranchera en une ligne si besoin).
+
+---
+Session : 12 — 2026-11-01
+Agent : main (Z.ai)
+Task : Correctif v3.4.2 du greffon VST — second retour utilisateur Live 9 :
+« le VST affiche 10 bandes de fréquence mais sur la courbe je ne vois pas
+les 10 bandes » (suite de « aucune différence de son », corrigé en v3.4.1).
+
+Work Log:
+- Reproduit et prouvé le scénario exact avant de toucher au code : programme
+  de reproduction (magasin factice via ROOMEQ_PRESETS_DIR, preset « Plat »
+  de 10 bandes à 0 dB plus récent qu'une vraie correction) → l'auto-
+  chargement v3.4.1 prenait le PLAT : « 10 bandes » affichées, courbe
+  0.00 dB d'étendue, sortie = entrée à 1e-6 près. Avec la correction en
+  plus récent : courbe 9,34 dB d'étendue, écart audio 0,235 — le DSP était
+  SAIN (264 vérifications v3.4.1 + parité bit à bit), seul le CHOIX du
+  preset était en cause.
+- Cause racine identifiée dans l'application : EqPreset.Flat() — l'état par
+  défaut de l'onglet Égaliseur (EqViewModel) — crée exactement 10 bandes
+  peaking à 0 dB (31,25 Hz → 16 kHz, pas octave, Q 1,1) ; sauvegardé tel
+  quel (« Enregistrer » de l'onglet), il devient le fichier le plus récent
+  du magasin %APPDATA%\RoomEq\presets… que l'auto-chargement v3.4.1
+  prenait aveuglément. Aucune correction audible possible avec 10 peaking
+  à 0 dB : c'est l'identité.
+- Correctif — auto-chargement (RoomEqVst.cpp) : les presets SANS effet
+  audible sont sautés (du plus récent au plus ancien jusqu'au premier qui
+  corrige). Audible = au moins une bande active non transparente OU un
+  préampli non nul ; une bande est transparente si |gain| ≤ 0,05 dB ET son
+  type est Peaking/LowShelf/HighShelf — les types FILTRANTS (Notch,
+  LowPass, HighPass) coupent même à 0 dB de gain, donc jamais transparents
+  (piège RBJ : leurs formules n'utilisent pas A). L'analyse se fait AVANT
+  application (ApplyPresetBytes) : un candidat écarté ne touche ni le
+  paramètre de préampli ni les notifications automate/updateDisplay de
+  l'hôte. Chaque saut est consigné dans le journal.
+- Correctif — éditeur (EditorWin32.cpp) : (1) POINTS DE BANDES — chaque
+  bande active est marquée d'un disque 6 px à (fréquence centrale, gain +
+  recalage préampli) posé sur la courbe : les bandes sont désormais
+  VISIBLES, y compris à 0 dB (elles se posent sur la ligne 0 dB — réponse
+  directe au « je ne vois pas les 10 bandes ») ; (2) BANNIÈRE « Preset
+  plat — le son n'est pas corrigé » en orange centré + « Chargez un preset
+  de correction » quand un preset est actif mais sans effet (chargé
+  manuellement ou par chunk de session — l'auto-chargement l'aurait évité,
+  l'état reste honnête) ; (3) entête enrichie : « N bandes · gain max
+  X dB · preamp Y dB » quand le preset corrige, « N bandes à 0 dB » sinon.
+- Correctif — diagnostic (journal) : la ligne du premier bloc audio et
+  l'auto-chargement consignent désormais le gain maximal des bandes et un
+  drapeau « effet audible » — un preset plat se lit en une ligne sans
+  aller-retour. POSIX : l'horodatage du magasin utilise les nanosecondes
+  (st_mtim) pour ordonner deux presets sauvegardés dans la même seconde.
+- API : RoomEqVst::PresetHasEffect() (public, mutex) — consulté par
+  l'éditeur et le journal ; la logique PresetIsAudible/BandIsTransparent/
+  MaxActiveGainDb vit dans le greffon (politique de choix, pas DSP : le
+  cœur AU scellé n'est pas touché, aucune arithmétique DSP nouvelle).
+- Tests (+33 → 297) : TestAutoLoadSkipsFlat — A : le scénario EXACT du
+  retour (plat 10 bandes plus récent que la correction → la correction est
+  chargée : nom, effet, préampli recalcé, PARITÉ BIT À BIT vs référence
+  C# après auto-chargement) ; B : plat chargé explicitement → PresetHasEffect
+  faux, courbe plate (97 points à 0 dB), sortie = entrée (10 peaking 0 dB
+  = identité) ; C : preset notch seul (0 dB) → auto-chargé (filtrant) ;
+  D : préampli seul non nul → audible ; E : magasin plat UNIQUEMENT →
+  transparent (bannière « aucun preset », pas de faux « 10 bandes »).
+- Livrable : DLL reconstruite par build-vst.sh (Zig 0.14.1, SSE2 forcé,
+  -Werror — EditorWin32.cpp compile propre) → RoomEq.dll PE32 i386 509 Ko,
+  exports VSTPluginMain + main, zip RoomEq-VST-3.4.2-win32.zip (DLL +
+  LISEZMOI régénéré) copié dans download/. kVersion 3402, CMake 3.4.2,
+  src/Directory.Build.props + scripts/package_v3.sh alignés. Build local
+  32 bits compilé (x86-linux-gnu) mais non exécutable sur cette sandbox
+  (pas de chargeur ld-linux.so.2 — même limite documentée v3.4.1).
+- Nettoyage : restes vides de la session précédente supprimés
+  (natif/roomeq-vst/{correction,v1.json}), natif/roomeq-vst/build/ ajouté
+  à .gitignore (dist/ y était déjà).
+
+Stage Summary:
+- CORRECTIF v3.4.2 : le greffon n'affiche plus jamais un état trompeur —
+  l'auto-chargement saute les presets plats (« Plat », 10 bandes à 0 dB)
+  et prend le premier preset qui CORRIGE vraiment ; l'éditeur marque
+  chaque bande d'un point sur la courbe, affiche le gain maximal et
+  signale explicitement tout preset plat restant (chargé à la main ou par
+  chunk). Le journal distingue « pas de preset », « preset plat » et
+  « correction appliquée » en une ligne.
+- Validation : 297 + 38 vérifications natives/ABI (parité 0.00e+00, y
+  compris le scénario exact du retour utilisateur après correctif) ; DLL
+  win32 reconstruite et contrôlée ; aucun fichier de src/ touché hors
+  numéro de version (461 xUnit + 118 AU non régressés).
+- Livrable : RoomEq-VST-3.4.2-win32.zip dans download/ (remplace le zip
+  3.4.1 — l'utilisateur doit recopier la DLL et rescanner les greffons).
+- Reste : push GitHub + miroir Drive (jetons toujours absents de secrets/,
+  répertoire vide — voir REPRISE.md) ; re-test utilisateur dans Live 9
+  (le journal %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log tranche en une
+  ligne : « auto-chargement saute « Plat » … aucune correction »).

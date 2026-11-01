@@ -96,6 +96,64 @@ std::string Shorten(const std::string& text, size_t maxChars)
 // l'état « Preset : Transparent » en petit gris passait inaperçu. Trois
 // mesures : auto-chargement du magasin de l'application à l'ouverture,
 // bannière explicite dans l'éditeur, journal du premier bloc audio.
+//
+// v3.4.2 — second retour : « 10 bandes affichées mais courbe plate, aucune
+// différence de son ». Cause : le magasin contenait un preset PLAT (10
+// bandes à 0 dB — l'état par défaut de l'onglet Égaliseur de l'application,
+// EqPreset.Flat(), sauvegardé tel quel) plus récent que la vraie correction.
+// L'auto-chargement prenait le plus récent sans regarder son contenu. Le
+// DSP était sain (parité bit à bit vérifiée) : c'est le CHOIX de preset qui
+// était en cause. Correction : l'auto-chargement saute les presets sans
+// effet audible et l'éditeur marque les bandes sur la courbe + signale les
+// presets plats.
+
+/// Seuil d'inaudibilité (dB) : en dessous, une bande shelving/peaking à ce
+/// gain est indiscernable de l'identité à l'oreille.
+constexpr double kInaudibleDb = 0.05;
+
+/// Une bande ACTIVE est-elle transparente ? Cas piège : les types filtrants
+/// (Notch, LowPass, HighPass) coupent le signal MÊME à 0 dB de gain — ils ne
+/// sont donc jamais transparents.
+bool BandIsTransparent(const roomeq::preset::EqBandDef& band)
+{
+    using roomeq::dsp::FilterType;
+    switch (band.type) {
+    case FilterType::Notch:
+    case FilterType::LowPass:
+    case FilterType::HighPass:
+        return false;
+    case FilterType::Peaking:
+    case FilterType::LowShelf:
+    case FilterType::HighShelf:
+        return std::fabs(band.gainDb) <= kInaudibleDb;
+    }
+    return std::fabs(band.gainDb) <= kInaudibleDb; // valeur inconnue du switch
+}
+
+/// Un preset a-t-il un effet AUDIBLE ? (bande active non transparente ou
+/// préampli non nul) — un preset plat ne corrige rien : ni courbe visible,
+/// ni différence de son. Partagé par l'auto-chargement (choix du fichier),
+/// le journal du premier bloc et l'éditeur (mention explicite).
+bool PresetIsAudible(const roomeq::preset::PresetDef& preset)
+{
+    if (std::fabs(preset.preampDb) > kInaudibleDb)
+        return true;
+    for (const auto& band : preset.bands)
+        if (band.enabled && !BandIsTransparent(band))
+            return true;
+    return false;
+}
+
+/// Gain absolu maximal des bandes actives (dB) — pour l'affichage et le
+/// journal (résume l'ampleur de la correction d'un coup d'œil).
+double MaxActiveGainDb(const roomeq::preset::PresetDef& preset)
+{
+    double maxGain = 0.0;
+    for (const auto& band : preset.bands)
+        if (band.enabled)
+            maxGain = std::max(maxGain, std::fabs(band.gainDb));
+    return maxGain;
+}
 
 /// Répertoire des presets de l'application (magasin PresetStore de
 /// l'application, cf. RoomEq.Core/Io/Stores.cs : %APPDATA%\RoomEq\presets).
@@ -193,7 +251,10 @@ std::vector<std::wstring> PresetFilesByRecency(const std::wstring& dir)
                 || (st.st_mode & S_IFMT) != S_IFREG)
                 continue;
             std::wstring wide(name.begin(), name.end());
-            candidates.push_back({ static_cast<long long>(st.st_mtime),
+            // nanosecondes (POSIX.1-2008) : deux presets sauvegardés dans
+            // la même seconde restent correctement ordonnés (v3.4.2)
+            candidates.push_back({ static_cast<long long>(st.st_mtime) * 1000000000LL
+                    + st.st_mtim.tv_nsec,
                 dir + L'/' + wide });
         }
         closedir(d);
@@ -497,29 +558,56 @@ void RoomEqVst::TryAutoLoadFromApp()
         return;
     }
 
-    // du plus récent au plus ancien : un fichier refusé (corrompu,
-    // tronqué par une sauvegarde interrompue…) ne bloque pas les autres
+    // du plus récent au plus ancien : un fichier refusé (corrompu, tronqué
+    // par une sauvegarde interrompue…) ou SANS EFFET AUDIBLE (v3.4.2) ne
+    // bloque pas les suivants. Un preset plat — bandes à 0 dB, l'état par
+    // défaut de l'onglet Égaliseur de l'application — ne corrige rien : le
+    // charger donnerait « 10 bandes affichées, courbe plate, aucune
+    // différence de son », exactement le retour utilisateur v3.4.1.
     for (const auto& path : PresetFilesByRecency(dir)) {
         std::vector<uint8_t> bytes;
         if (!ReadWholeFile(path, bytes))
             continue;
+
+        // analyse AVANT application : un candidat écarté ne touche ni le
+        // paramètre de préampli ni les notifications de l'hôte
+        roomeq::preset::PresetDef candidate;
         std::string error;
+        const auto format = roomeq::preset::SniffFormat(bytes.data(), bytes.size());
+        const bool parsed = format == "ffp"
+            ? roomeq::preset::FromFfp(bytes.data(), bytes.size(), candidate, error)
+            : roomeq::preset::FromJson(
+                  std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()),
+                  candidate, error);
+        if (!parsed) {
+            Log("auto-chargement refuse : %s", error.c_str());
+            continue;
+        }
+        if (!PresetIsAudible(candidate)) {
+            Log("auto-chargement saute « %s » : preset plat (%zu bandes a "
+                "0 dB, preamp %+.1f) — aucune correction",
+                candidate.name.c_str(), candidate.bands.size(),
+                candidate.preampDb);
+            continue;
+        }
+
         if (!ApplyPresetBytes(bytes.data(), bytes.size(), true, error)) {
             Log("auto-chargement refuse : %s", error.c_str());
             continue;
         }
 
-        const roomeq::preset::PresetDef preset = CurrentPreset();
         size_t active = 0;
-        for (const auto& b : preset.bands)
+        for (const auto& b : candidate.bands)
             if (b.enabled)
                 ++active;
-        Log("auto-chargement : « %s » (%zu bandes actives, preamp %+.1f dB)",
-            preset.name.c_str(), active, preset.preampDb);
+        Log("auto-chargement : « %s » (%zu bandes actives, gain max %.1f dB, "
+            "preamp %+.1f dB)",
+            candidate.name.c_str(), active, MaxActiveGainDb(candidate),
+            candidate.preampDb);
         return;
     }
 
-    Log("auto-chargement : aucun preset valide dans le magasin");
+    Log("auto-chargement : aucun preset avec effet audible dans le magasin");
 }
 
 // ------------------------------------------------------------------ preset
@@ -589,6 +677,12 @@ bool RoomEqVst::HasPreset() const
 {
     std::lock_guard<std::mutex> lock(stateMutex_);
     return !presetBytes_.empty();
+}
+
+bool RoomEqVst::PresetHasEffect() const
+{
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    return PresetIsAudible(*preset_);
 }
 
 std::string RoomEqVst::ProgramName() const
@@ -676,16 +770,18 @@ void RoomEqVst::ProcessChannels(float** inputs, float** outputs,
 
     // diagnostic : UNE ligne au premier bloc rend compte de l'état réel du
     // rendu (retour utilisateur « aucune différence de son » → le journal
-    // distingue « pas de preset » de « preset appliqué » sans aller-retour)
+    // distingue « pas de preset », « preset plat » et « correction
+    // appliquée » sans aller-retour)
     if (!loggedFirstBlock_.exchange(true, std::memory_order_relaxed)) {
         const roomeq::preset::PresetDef preset = CurrentPreset();
         size_t active = 0;
         for (const auto& b : preset.bands)
             if (b.enabled)
                 ++active;
-        Log("process : %.0f Hz, preset « %s », %zu bandes actives, "
-            "preamp %+.1f dB, bypass %d",
-            sampleRate_, preset.name.c_str(), active, preamp, bypass ? 1 : 0);
+        Log("process : %.0f Hz, preset « %s », %zu bandes actives, gain max "
+            "%.1f dB, preamp %+.1f dB, effet audible %d, bypass %d",
+            sampleRate_, preset.name.c_str(), active, MaxActiveGainDb(preset),
+            preamp, PresetHasEffect() ? 1 : 0, bypass ? 1 : 0);
     }
 
     for (int c = 0; c < kChannels; ++c) {
