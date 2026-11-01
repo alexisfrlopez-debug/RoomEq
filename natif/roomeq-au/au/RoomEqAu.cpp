@@ -177,10 +177,10 @@ public:
                 if (a > peak)
                     peak = a;
             }
-            owner_.inPeak_.store(peak, std::memory_order_relaxed);
+            owner_.RecordInputPeak(peak);
 
             // UNE ligne au premier bloc rend compte de l'état réel du rendu
-            if (!owner_.loggedFirstBlock_.exchange(true, std::memory_order_relaxed)) {
+            if (owner_.ClaimFirstBlockLog()) {
                 const auto preset = owner_.CurrentPreset();
                 size_t active = 0;
                 double maxGain = 0.0;
@@ -212,8 +212,8 @@ public:
                 if (a > peak)
                     peak = a;
             }
-            owner_.outPeak_.store(peak, std::memory_order_relaxed);
-            owner_.blocks_.fetch_add(1, std::memory_order_relaxed);
+            owner_.RecordOutputPeak(peak);
+            owner_.RecordBlockProcessed();
         }
 
         // lever le drapeau silence si la sortie n'est pas muette (queue de
@@ -520,7 +520,7 @@ OSStatus RoomEqAu::SetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope,
         if (pFreq == nullptr && pGain == nullptr && pQ == nullptr)
             return kAudioUnitErr_InvalidPropertyValue; // rien à éditer
         return editor_.EditBand(index, pFreq, pGain, pQ) >= 0
-            ? noErr
+            ? static_cast<OSStatus>(noErr)
             : kAudioUnitErr_InvalidPropertyValue;
     }
     case kRoomEqPropertyAddBand: {
@@ -533,7 +533,7 @@ OSStatus RoomEqAu::SetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope,
         if (!r.F64(freq) || !r.F64(gain))
             return kAudioUnitErr_InvalidPropertyValue;
         return editor_.AddBand(freq, gain) >= 0
-            ? noErr
+            ? static_cast<OSStatus>(noErr)
             : kAudioUnitErr_InvalidPropertyValue;
     }
     case kRoomEqPropertyBandOp: {
@@ -549,14 +549,14 @@ OSStatus RoomEqAu::SetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope,
         switch (op) {
         case 0:
             return editor_.RemoveBand(index)
-                ? noErr
+                ? static_cast<OSStatus>(noErr)
                 : kAudioUnitErr_InvalidPropertyValue;
         case 1: {
             roomeq::preset::EqBandDef band;
             if (!editor_.BandAt(index, band))
                 return kAudioUnitErr_InvalidPropertyValue;
             return editor_.SetBandEnabled(index, !band.enabled)
-                ? noErr
+                ? static_cast<OSStatus>(noErr)
                 : kAudioUnitErr_InvalidPropertyValue;
         }
         case 2:
@@ -564,7 +564,7 @@ OSStatus RoomEqAu::SetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope,
                 return kAudioUnitErr_InvalidPropertyValue;
             return editor_.SetBandType(index,
                        static_cast<roomeq::dsp::FilterType>(type))
-                ? noErr
+                ? static_cast<OSStatus>(noErr)
                 : kAudioUnitErr_InvalidPropertyValue;
         default:
             return kAudioUnitErr_InvalidPropertyValue;

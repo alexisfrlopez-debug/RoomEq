@@ -124,8 +124,8 @@ if(APPLE)
     # la vue Cocoa exige ARC (générateurs Makefile/Ninja : drapeau de compilation)
     set_source_files_properties(au/RoomEqAuView.mm PROPERTIES
         COMPILE_OPTIONS "-fobjc-arc")
+    # roomeq_au_edit entraîne roomeq_au_core (PUBLIC) — pas de double liaison
     target_link_libraries(RoomEqAU PRIVATE
-        roomeq_au_core
         roomeq_au_edit
         ausdk
         "-framework AppKit"

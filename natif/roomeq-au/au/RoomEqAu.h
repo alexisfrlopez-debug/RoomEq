@@ -106,12 +106,22 @@ public:
         return blocks_.load(std::memory_order_relaxed);
     }
 
+    // ---- enregistrement du diagnostic (appelés par le noyau du canal 0 au
+    // rendu — le noyau vit dans un namespace anonyme du .cpp, l'accès direct
+    // aux membres privés est donc impossible : petits mutateurs atomiques)
+    void RecordInputPeak(float peak) { inPeak_.store(peak, std::memory_order_relaxed); }
+    void RecordOutputPeak(float peak) { outPeak_.store(peak, std::memory_order_relaxed); }
+    void RecordBlockProcessed() { blocks_.fetch_add(1, std::memory_order_relaxed); }
+    /// Vrai une seule fois (premier bloc — ligne de journal).
+    bool ClaimFirstBlockLog()
+    {
+        return !loggedFirstBlock_.exchange(true, std::memory_order_relaxed);
+    }
+
 protected:
     std::unique_ptr<ausdk::AUKernelBase> NewKernel() override;
 
 private:
-    friend class RoomEqKernel;
-
     /// Analyse et applique les octets d'un preset ; `updateParameter` règle le
     /// paramètre Préampli sur le préampli du preset (chargement utilisateur)
     /// ou le laisse intact (restauration de session : le paramètre sauvegardé

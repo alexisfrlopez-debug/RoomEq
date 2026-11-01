@@ -140,25 +140,6 @@ bool BandIsTransparentUI(const BandInfo& band)
 
 } // namespace
 
-/// Déclarations internes (extension de classe) : sans elles, le compilateur
-/// supposerait un retour `id` pour les méthodes non déclarées — les
-/// signatures typées (double, BOOL, C++) exigent une déclaration explicite.
-@interface RoomEqAuView ()
-- (void)fillHeadphonePopups;
-- (void)refillModelPopup;
-- (double)preampParameter;
-- (void)pullStatus;
-- (void)pullBands;
-- (void)pullCurve;
-- (BOOL)sendProperty:(AudioUnitPropertyID)prop payload:(const void*)bytes
-    length:(size_t)length;
-- (void)sendEditBand:(uint32_t)index mask:(uint8_t)mask freq:(double)freq
-    gain:(double)gain q:(double)q;
-- (void)sendAddBandAt:(NSPoint)point;
-- (void)sendBandOp:(uint32_t)index op:(uint32_t)op type:(uint32_t)type;
-- (int)hitTestBandAt:(NSPoint)point;
-@end
-
 /// Vue principale du greffon (fabriquée par l'hôte via le protocole
 /// AUCocoaUIBase : uiViewForAudioUnit:withSize:).
 @interface RoomEqAuView : NSView <AUCocoaUIBase> {
@@ -199,6 +180,22 @@ bool BandIsTransparentUI(const BandInfo& band)
 - (void)openPresetPanel:(NSButton*)sender;
 - (void)brandChanged:(NSPopUpButton*)sender;
 - (void)applyHeadphone:(NSButton*)sender;
+// méthodes internes — déclarées ici (et non dans une extension) : le
+// compilateur exige des signatures typées explicites (double/BOOL/C++),
+// sinon il supposerait un retour `id`
+- (void)fillHeadphonePopups;
+- (void)refillModelPopup;
+- (double)preampParameter;
+- (void)pullStatus;
+- (void)pullBands;
+- (void)pullCurve;
+- (BOOL)sendProperty:(AudioUnitPropertyID)prop payload:(const void*)bytes
+    length:(size_t)length;
+- (void)sendEditBand:(uint32_t)index mask:(uint8_t)mask freq:(double)freq
+    gain:(double)gain q:(double)q;
+- (void)sendAddBandAt:(NSPoint)point;
+- (void)sendBandOp:(uint32_t)index op:(uint32_t)op type:(uint32_t)type;
+- (int)hitTestBandAt:(NSPoint)point;
 @end
 
 /// Rappel identique à l'ajout et au retrait (même pointeur de fonction) ;
@@ -691,10 +688,12 @@ static void PropertyChangedCallback(void* inRefCon, AudioUnit /*inUnit*/,
     [_modelPopup removeAllItems];
     for (size_t i = 0; i < bank.size(); ++i) {
         if ([brand isEqualToString:@(bank[i].brand.c_str())]) {
-            NSMenuItem* item = [_modelPopup
-                addItemWithTitle:@(bank[i].model.c_str())
-                action:NULL keyEquivalent:@""];
-            item.representedObject = [NSNumber numberWithUnsignedLong:i];
+            // NSPopUpButton : addItemWithTitle: (le sélecteur à trois
+            // arguments est celui de NSMenu) — representedObject porte
+            // l'index dans la banque
+            [_modelPopup addItemWithTitle:@(bank[i].model.c_str())];
+            _modelPopup.lastItem.representedObject
+                = [NSNumber numberWithUnsignedLong:i];
         }
     }
 }
