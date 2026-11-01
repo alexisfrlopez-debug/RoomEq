@@ -7,14 +7,65 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.9.3** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1 : création FxProperties manquante, v3.9.2 : takeover registre (owner+DACL restitués), et **v3.9.3 : CORRECTIF CRITIQUE INTEROP — la structure TOKEN_PRIVILEGES du takeover déclarait le LUID comme long C# (alignement 8) : 4 octets de padding falsifiaient le LUID et Attributes → ERROR_NOT_ALL_ASSIGNED → la prise de possession n'a JAMAIS été tentée (« toujours le problème de clé protégée »). LUID natif en 2×DWORD (16 octets, verrouillé par 4 tests de marshaling Linux) + diagnostic par maillon dans le verdict (ApoRegistryRefusalException)** — 493 tests xUnit + harnais APO 112 vérifications |
+| **Projet** | RoomEq **v3.9.4** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1 : création FxProperties manquante, v3.9.2 : takeover registre (owner+DACL restitués), v3.9.3 : correctif interop LUID (2×DWORD) + diagnostic par maillon, et **v3.9.4 : CORRECTIF DE BINDING P/INVOKE — c'est le diagnostic v3.9.3 qui a nommé le coupable au premier essai (« le point d'entrée CloseHandle est introuvable dans la DLL advapi32.dll ») : le privilège de prise de possession était BIEN activé mais le CloseHandle du finally, importé de la mauvaise DLL (advapi32 au lieu de kernel32), levait EntryPointNotFoundException qui MASQUAIT le succès → takeover abandonné avant d'écrire. Import corrigé + DLL d'origine des 6 imports natifs verrouillée par 2 tests réflexifs Linux** — 495 tests xUnit + harnais APO 112 vérifications |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 493 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 495 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
+
+## 1. État (fin session 26 — v3.9.4 : CloseHandle importé de kernel32.dll)
+
+**Session 26 (2026-11-02)** — suite du retour terrain v3.9.3 : capture
+COMPLETE du message d'erreur (tentée 3 fois, enfin passée) — « impossible
+d'activer le privilège SeTakeOwnershipPrivilege (le point d'entrée
+CloseHandle est introuvable dans la DLL advapi32.dll) » + « Requested
+registry access is not allowed ». **C'est le diagnostic par maillon livré
+en v3.9.3 qui a nommé le coupable au premier essai** — l'investissement a
+payé exactement comme prévu.
+
+- **Cause racine (FAIT ÉTABLI, pas une hypothèse)** : `CloseHandle` est un
+  export de KERNEL32.DLL — il n'existe PAS dans advapi32.dll. Importé
+  d'advapi32 à tort depuis v3.9.2, chaque appel levait
+  `EntryPointNotFoundException`. L'appel a lieu dans le `finally` de
+  `EnablePrivilege` : sémantique C# — une exception dans un finally
+  REMPLACE le résultat en cours de retour. Donc : le privilège
+  SeTakeOwnershipPrivilege était réellement activé (le correctif v3.9.3 du
+  LUID fonctionnait, `AdjustTokenPrivileges` réussissait, plus de
+  ERROR_NOT_ALL_ASSIGNED) MAIS `EnablePrivilege` répondait « impossible
+  d'activer le privilège » → `TakeOwnership` abandonnait à sa première
+  ligne → takeover jamais tenté → écriture refusée → « clé protégée ».
+  Tout le mécanisme marchait ; seul le nettoyage du jeton cassait tout.
+- **Correctif (1 ligne)** : `[DllImport("kernel32.dll")]` sur
+  `CloseHandle` (`ApoRegistrySecurity.cs`), commenté au code. Audit des 5
+  autres imports au passage : tous corrects (OpenProcessToken,
+  LookupPrivilegeValue, AdjustTokenPrivileges, RegSetKeySecurity →
+  advapi32 ; GetCurrentProcess → kernel32).
+- **Verrou de régression** : `ApoRegistrySecurityPinvokeTests` (2 tests de
+  réflexion pure, exécutables sous Linux) — DLL d'origine EXACTE des 6
+  imports natifs (aucun de plus, aucun de moins). **Prouvé** : les 2 tests
+  ÉCHOUENT sur le code v3.9.3 (re-testé en le réintégrant temporairement)
+  et passent sur v3.9.4. Même philosophie que les tests de layout v3.9.3.
+- **Verrou structurel** : package_v3.sh vérifie l'attribut kernel32.dll
+  ligne-précédente de `extern bool CloseHandle` + le fichier de tests.
+- **Tests** : 495/495 xUnit (Core 237, Audio 182 → 184 : +2 P/Invoke ;
+  App 74) ; build 0 erreur 0 avertissement. APO natif inchangé (harnais
+  112 vérifications non touché — le bug était dans le code managé).
+- **Docs** : spec I-AUD-09 v1.5 (as-built correctifs n/o) ;
+  docs/EQ-SYSTEME-APO.md (v3.9.4) ; README (historique) ; LISEZMOI 3.9.4 ;
+  REPRISE (résumé + état session 26) ; Directory.Build.props +
+  package_v3.sh VERSION 3.9.4.
+- **Livrables (D22)** : package_v3.sh (zips test/public/source, contrôles
+  verts) ; build_setup.sh → RoomEq-win-Setup.exe 3.9.4 régénéré et
+  re-téléversé sur Drive ; anciens zips 3.9.3 archivés dans
+  Livrables/Archive ; miroir Drive complet + push GitHub.
+- **Prochaine étape** : validation terrain Windows — réinstaller via
+  Setup 3.9.4, activer « Casque (JBL Tune Flex 2) » : verdict ✓ attendu
+  (le privilège s'active désormais SANS être masqué, le takeover
+  s'exécute, l'écriture passe) ; puis Désactiver et vérifier owner/DACL
+  revenus à SYSTEM dans regedit.
 
 ## 1. État (fin session 25 — v3.9.3 : takeover interop réparé, LUID natif)
 

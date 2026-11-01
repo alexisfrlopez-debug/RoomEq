@@ -47,6 +47,22 @@
   par maillon (privilège, WRITE_OWNER, RegSetKeySecurity, code Win32)
   remontant dans le verdict via `ApoRegistryRefusalException` — plus
   d'échec muet. Spec I-AUD-09 v1.4, 488 → 493 tests.
+  **v3.9.4 (session 26, 2 novembre 2026)** : correctif de binding P/Invoke
+  (quatrième retour terrain — c'est le DIAGNOSTIC v3.9.3 qui a nommé le
+  coupable : « impossible d'activer le privilège SeTakeOwnershipPrivilege
+  (le point d'entrée CloseHandle est introuvable dans la DLL
+  advapi32.dll) »). `CloseHandle` est un export de KERNEL32.DLL — il
+  n'existe PAS dans advapi32.dll — et son appel de nettoyage dans le
+  `finally` de `EnablePrivilege` levait `EntryPointNotFoundException` qui
+  REMPLAÇAIT le « return null » de succès : le privilège était réellement
+  activé (le correctif v3.9.3 du LUID fonctionnait,
+  `AdjustTokenPrivileges` réussissait) mais `EnablePrivilege` répondait
+  « impossible d'activer le privilège », le takeover était abandonné avant
+  sa première écriture et l'activation échouait en « clé protégée ».
+  Correctifs : import déplacé vers kernel32.dll + `ApoRegistrySecurityPinvokeTests`
+  (2 tests de réflexion pure, exécutables sous Linux) verrouillant la DLL
+  d'origine des 6 imports natifs — le binding ne peut plus être recassé.
+  Spec I-AUD-09 v1.5, 493 → 495 tests.
 - **Question posée** : « Je voudrais que l'application installe son propre
   driver de carte son virtuelle afin de ne plus dépendre de VB-Cable, mais je
   bute sur le problème du driver signé Microsoft qui demande une solution

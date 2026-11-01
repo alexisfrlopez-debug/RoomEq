@@ -1,4 +1,4 @@
-RoomEq 3.9.3 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.9.4 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,19 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    493 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    495 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
     build 0 erreur 0 avertissement.
+  • CORRECTIF 3.9.4 — ACTIVATION DE L'EQ SYSTÈME : LE SUCCÈS ÉTAIT MASQUÉ
+    PAR UN NETTOYAGE : le correctif 3.9.3 a fonctionné — le privilège Windows
+    de prise de possession était bien activé — mais l'appel de nettoyage qui
+    suivait cherchait la fonction CloseHandle dans la MAUVAISE bibliothèque
+    Windows (advapi32.dll au lieu de kernel32.dll) : l'erreur qui en
+    résultait (« le point d'entrée CloseHandle est introuvable dans la DLL
+    advapi32.dll ») remplacait le résultat RÉUSSI et faisait abandonner
+    l'activation avant même d'avoir essayé d'écrire. La fonction est
+    désormais chargée depuis sa bibliothèque d'origine, et la bibliothèque
+    de CHAQUE appel natif de la mécanique d'activation est vérifiée par des
+    tests automatiques — ce bug ne peut plus revenir.
   • CORRECTIF 3.9.3 — ACTIVATION DE L'EQ SYSTÈME : LA PRISE DE POSSESSION
     N'AVAIT JAMAIS EU LIEU : la structure de données qui active le privilège
     Windows de prise de possession était mal alignée (un entier 64 bits là où

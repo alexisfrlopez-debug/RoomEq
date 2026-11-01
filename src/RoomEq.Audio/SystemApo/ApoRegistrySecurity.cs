@@ -69,11 +69,19 @@ internal struct ApoTokenPrivileges
 /// Le LUID est désormais deux DWORD de 4 octets, alignement 4, exactement
 /// comme le natif winnt.h — verrouillé par test de marshaling
 /// (ApoRegistrySecurityLayoutTests).
+/// v3.9.4 — CORRECTIF DE BINDING P/INVOKE : <c>CloseHandle</c> était importé
+/// d'advapi32.dll alors que ce point d'entrée n'existe que dans
+/// kernel32.dll. Le nettoyage du jeton (finally de EnablePrivilege) levait
+/// EntryPointNotFoundException qui MASQUAIT le succès : le privilège
+/// SeTakeOwnershipPrivilege était réellement activé (le LUID v3.9.3 était
+/// correct) mais EnablePrivilege rapportait un échec, donc le takeover
+/// était abandonné avant sa première écriture. La DLL d'origine de chaque
+/// import est désormais verrouillée par test (ApoRegistrySecurityPinvokeTests).
 /// </remarks>
 [SupportedOSPlatform("windows")]
 internal static class ApoRegistrySecurity
 {
-    // ------------------------------------------------------- P/Invoke advapi32
+    // ------------------------------------------ P/Invoke (advapi32, kernel32)
 
     private const uint TOKEN_ADJUST_PRIVILEGES = 0x20;
     private const uint TOKEN_QUERY = 0x8;
@@ -86,7 +94,21 @@ internal static class ApoRegistrySecurity
     [DllImport("advapi32.dll", SetLastError = true)]
     private static extern bool OpenProcessToken(IntPtr process, uint desiredAccess, out IntPtr token);
 
-    [DllImport("advapi32.dll", SetLastError = true)]
+    /// <summary>
+    /// CloseHandle est exporté par KERNEL32.DLL — il n'existe PAS dans
+    /// advapi32.dll (correctif v3.9.4). Importé d'advapi32 à tort depuis la
+    /// v3.9.2, chaque appel levait EntryPointNotFoundException : « le point
+    /// d'entrée CloseHandle est introuvable dans la DLL advapi32.dll ». Or ce
+    /// nettoyage a lieu dans le finally de EnablePrivilege : l'exception
+    /// REMPLAÇAIT le « return null » de succès — le privilège était BIEN
+    /// activé (le LUID v3.9.3 était correct, AdjustTokenPrivileges avait
+    /// réussi) mais EnablePrivilege répondait « impossible d'activer le
+    /// privilège », le takeover n'était jamais tenté et l'activation
+    /// échouait en « clé protégée » (retour terrain 3.9.3, diagnostic par
+    /// maillon v3.9.3 : c'est LUI qui a nommé le coupable). Verrouillé par
+    /// ApoRegistrySecurityPinvokeTests (réflexion pure, exécutable Linux).
+    /// </summary>
+    [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool CloseHandle(IntPtr handle);
 
     [DllImport("kernel32.dll")]

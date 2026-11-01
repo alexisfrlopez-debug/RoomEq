@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.3
+VERSION=3.9.4
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -151,6 +151,18 @@ grep -qE 'struct ApoLuid' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrySecurity.c
   && grep -qE 'ApoRegistryRefusalException' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
   && grep -qE 'ApoTokenPrivileges' "$SRC/tests/RoomEq.Audio.Tests/ApoRegistrySecurityLayoutTests.cs" \
   && echo "   ✓ v3.9.3 : LUID natif 2×DWORD (16 octets, verrouillé par test) + verdict qui nomme le maillon défaillant"
+
+# --- v3.9.4 : correctif de binding P/Invoke — CloseHandle est un export
+#     KERNEL32, inexistant dans advapi32.dll : l'EntryPointNotFoundException
+#     levée dans le finally de EnablePrivilege MASQUAIT le succès (privilège
+#     réellement activé, LUID v3.9.3 correct) → takeover jamais tenté →
+#     « clé protégée » malgré v3.9.3 (retour terrain : « le point d'entrée
+#     CloseHandle est introuvable dans la DLL advapi32.dll ») ---
+grep -B1 -E 'extern bool CloseHandle' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrySecurity.cs" \
+      | grep -q 'DllImport("kernel32.dll"' \
+  && [[ -f "$SRC/tests/RoomEq.Audio.Tests/ApoRegistrySecurityPinvokeTests.cs" ]] \
+  && grep -qE '"CloseHandle"\] = "kernel32.dll"' "$SRC/tests/RoomEq.Audio.Tests/ApoRegistrySecurityPinvokeTests.cs" \
+  && echo "   ✓ v3.9.4 : CloseHandle importé de kernel32.dll (binding verrouillé par test réflexif)"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

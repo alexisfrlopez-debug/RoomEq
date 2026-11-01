@@ -2049,3 +2049,83 @@ Stage Summary:
   verdict ✓ attendu, ~1 s de coupure (redémarrage du service audio),
   musique hors RoomEq égalisée ; puis Désactiver et vérifier dans
   regedit que owner/DACL de la clé endpoint sont revenus à SYSTEM.
+
+---
+Session : 26 — 2026-11-02
+Agent : main (Z.ai)
+Task : Retour terrain v3.9.3 avec capture ENFIN transmise du message
+d'erreur complet : « impossible d'activer le privilège
+SeTakeOwnershipPrivilege (le point d'entrée CloseHandle est introuvable
+dans la DLL advapi32.dll) » + « Requested registry access is not
+allowed » — le takeover reste bloqué en « clé protégée ». v3.9.4.
+
+Work Log:
+- **Le diagnostic par maillon (v3.9.3) a fait son travail au premier
+  essai** : après trois tentatives de transmission du message d'erreur
+  (pièces jointes perdues deux fois), la capture passe — et NOMME le
+  maillon : l'activation du privilège échoue sur un
+  EntryPointNotFoundException de CloseHandle dans advapi32.dll. Plus
+  d'hypothèse à débugger à l'aveugle : le coupable est désigné par la
+  machine du terrain elle-même.
+- **Cause racine (FAIT ÉTABLI)** : `CloseHandle` est un export de
+  KERNEL32.DLL — il n'existe PAS dans advapi32.dll. Le portage v3.9.2
+  l'avait importé d'advapi32 (au milieu des autres imports de jeton),
+  et CHAQUE appel levait `EntryPointNotFoundException`. L'appel a lieu
+  dans le `finally` de `EnablePrivilege` : en C#, une exception levée
+  dans un finally REMPLACE le résultat en cours de retour. Conséquence
+  en chaîne : le privilège SeTakeOwnershipPrivilege était réellement
+  activé (le correctif v3.9.3 du LUID fonctionnait — plus de
+  ERROR_NOT_ALL_ASSIGNED, `AdjustTokenPrivileges` réussissait), mais
+  `EnablePrivilege` répondait « impossible d'activer le privilège » →
+  `TakeOwnership` abandonnait à sa première ligne → takeover jamais
+  tenté → écriture refusée → « clé protégée ». TOUT le mécanisme
+  marchait ; seul le nettoyage du jeton cassait tout — le bug le plus
+  discret possible : une fonction de ménage qui échoue silencieusement
+  en faisant échouer le travail déjà accompli.
+- **Correctif (1 ligne)** : `[DllImport("kernel32.dll")]` sur
+  `CloseHandle` (`ApoRegistrySecurity.cs`), documenté au code. Audit
+  des 5 autres imports au passage — tous corrects :
+  OpenProcessToken/LookupPrivilegeValue/AdjustTokenPrivileges/
+  RegSetKeySecurity → advapi32 ; GetCurrentProcess → kernel32.
+  Aucun autre P/Invoke du dépôt n'est concerné (CoreAudioApi macOS
+  utilise ses propres constantes).
+- **Verrou de régression (philosophie v3.9.3 réappliquée)** :
+  `ApoRegistrySecurityPinvokeTests` — 2 tests de réflexion PURE (donc
+  exécutables sous Linux, là où le module est sinon inerte) qui lisent
+  les `DllImportAttribute` réels : (1) CloseHandle doit venir de
+  kernel32.dll ; (2) les 6 imports natifs exactement, chacun de sa
+  DLL d'origine — ni un de plus (binding non audité), ni un de moins
+  (maillon retiré). **Prouvé par test croisé** : les 2 tests ÉCHOUENT
+  sur le code v3.9.3 (brièvement réintégré) et passent sur v3.9.4.
+- **Verrou structurel** : package_v3.sh gagne le bloc v3.9.4 —
+  l'attribut kernel32.dll doit précéder immédiatement
+  `extern bool CloseHandle`, et le fichier de tests doit exister et
+  verrouiller kernel32.dll.
+- **Tests** : 495/495 xUnit (Core 237, Audio 182 → 184 : +2 P/Invoke ;
+  App 74) ; build 0 erreur 0 avertissement. APO natif inchangé (le bug
+  était dans le code managé — harnais 112 vérifications non concerné).
+- **Docs** : spec I-AUD-09 v1.5 (as-built correctifs n/o : import
+  corrigé + verrou de binding) ; docs/EQ-SYSTEME-APO.md (v3.9.4) ;
+  README (historique) ; LISEZMOI 3.9.4 (correctif expliqué en français
+  clair, 495 tests) ; REPRISE.md (résumé express + état session 26) ;
+  Directory.Build.props + package_v3.sh VERSION 3.9.4.
+- **Livrables (D22)** : package_v3.sh (zips test/public/source,
+  contrôles verts dont le nouveau verrou v3.9.4) ; build_setup.sh →
+  RoomEq-win-Setup.exe 3.9.4 régénéré et re-téléversé sur Drive
+  (l'ancien 3.9.3 remplacé au premier niveau des Livrables) ; anciens
+  zips 3.9.3 archivés dans Livrables/Archive ; miroir Drive complet +
+  push GitHub.
+
+Stage Summary:
+- v3.9.4 : le message d'erreur tant attendu a enfin traversé, et il
+  désignait le coupable lui-même — le privilège était activé depuis
+  v3.9.3, mais la fermeture du jeton, importée de la mauvaise DLL,
+  jetait le succès à la poubelle avant que quiconque puisse l'utiliser.
+  Une ligne corrigée, six bindings verrouillés par des tests qui
+  échouent sur l'ancien code : la mécanique de prise de possession
+  peut enfin s'exécuter de bout en bout.
+- Prochaine étape : validation terrain Windows — réinstaller via
+  Setup.exe 3.9.4, activer l'EQ sur « Casque (JBL Tune Flex 2) » :
+  verdict ✓ attendu, ~1 s de coupure, musique hors RoomEq égalisée ;
+  puis Désactiver et vérifier dans regedit que owner/DACL de la clé
+  endpoint sont revenus à SYSTEM.

@@ -1,11 +1,30 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.4 (as-built v3.9.3, 2
-  novembre 2026 — correctif critique d'alignement interop du takeover) ·
-  **Code** : `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/`
-  (N-APO-01)
+- **Module** : M-AUD-09 · **Version de spec** : 1.5 (as-built v3.9.4, 2
+  novembre 2026 — correctif de binding P/Invoke : CloseHandle importé de
+  kernel32.dll) · **Code** : `src/RoomEq.Audio/SystemApo/` + **natif**
+  `natif/roomeq-apo/` (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.5** : retour terrain v3.9.3 — le DIAGNOSTIQUE par maillon
+  (livré en v3.9.3) a nommé le coupable au premier essai : « impossible
+  d'activer le privilège SeTakeOwnershipPrivilege (le point d'entrée
+  CloseHandle est introuvable dans la DLL advapi32.dll) ». FAIT ÉTABLI :
+  `CloseHandle` est un export de KERNEL32.DLL, il n'existe PAS dans
+  advapi32.dll — importé d'advapi32 à tort depuis v3.9.2, son appel dans le
+  `finally` de `EnablePrivilege` levait `EntryPointNotFoundException` qui
+  REMPLAÇAIT le « return null » de succès (sémantique C# : une exception
+  dans un finally écrase le résultat en cours de retour). Le privilège
+  était donc réellement activé — le correctif v3.9.3 du LUID fonctionnait,
+  `AdjustTokenPrivileges` réussissait — mais `EnablePrivilege` rapportait
+  un échec, `TakeOwnership` abandonnait à sa première ligne et l'activation
+  échouait en « clé protégée » alors que TOUT le mécanisme marchait.
+  Correctifs : (n) `CloseHandle` importé de kernel32.dll ; (o)
+  `ApoRegistrySecurityPinvokeTests` (2 tests de réflexion pure, exécutables
+  sous Linux) verrouillent la DLL d'origine EXACTE des 6 imports natifs du
+  takeover (OpenProcessToken/CloseHandle/GetCurrentProcess/
+  LookupPrivilegeValue/AdjustTokenPrivileges/RegSetKeySecurity) — un
+  binding cassé ne peut plus passer inaperçu jusqu'au terrain.
 - **As-built v1.4** : retour terrain v3.9.2 — « TOUJOURS le problème de clé
   protégée » : le takeover était correct SAUF sa structure interop.
   `TOKEN_PRIVILEGES` déclarait le LUID comme `long` C# (alignement 8 octets)

@@ -67,7 +67,17 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   le problème de clé protégée »). LUID natif en deux DWORD (16 octets,
   verrouillé par 4 tests de marshaling sous Linux) + diagnostic par
   maillon remontant dans le verdict via ApoRegistryRefusalException —
-  plus d'échec muet (spec I-AUD-09 v1.4, 488 → 493 tests)
+  plus d'échec muet (spec I-AUD-09 v1.4, 488 → 493 tests) ; **v3.9.4** :
+  correctif de binding P/Invoke — le diagnostic v3.9.3 a nommé le coupable
+  (« le point d'entrée CloseHandle est introuvable dans la DLL
+  advapi32.dll ») : le privilège de prise de possession était BIEN activé
+  (le LUID v3.9.3 était correct) mais le nettoyage du jeton, importé de la
+  mauvaise DLL (advapi32 au lieu de kernel32), levait
+  EntryPointNotFoundException dans le finally et MASQUAIT le succès —
+  l'activation abandonnait avant d'écrire. CloseHandle importé de
+  kernel32.dll, DLL d'origine de chaque import natif verrouillée par 2
+  tests réflexifs exécutables sous Linux (spec I-AUD-09 v1.5,
+  493 → 495 tests)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
