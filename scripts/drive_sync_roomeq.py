@@ -32,6 +32,16 @@ ARCHIVE_FOLDER = "Archive"
 EXCLUDE_DIRS = {".git", "bin", "obj", ".vs", "tmp-diag", "roomeq-git-ref",
                 "roomeq-legacy", "publish", "dist", "build", "__pycache__"}
 
+
+def is_excluded_dir(name):
+    """Dossier exclu du miroir : noms connus, cachés, ET tout répertoire de
+    build (préfixe « build » — build, build-vst, build-vst-test, build-macos,
+    build-core…) : les artefacts ne polluent jamais le miroir (retour session
+    17 : 91 fichiers de build-vst-test téléversés par erreur).
+    """
+    return name in EXCLUDE_DIRS or name.startswith(".") \
+        or name.startswith("build")
+
 # Famille produit + version depuis un nom de livrable :
 #   RoomEq-VST-3.5.1-win32.zip   → ("RoomEq-VST-", 3.5.1)
 #   RoomEq-3.4.0-win-x64-test.zip → ("RoomEq-",     3.4.0)
@@ -185,7 +195,7 @@ def mirror(local_dir, folder_id, token, rel=""):
         local_path = os.path.join(local_dir, entry)
         rel_path = f"{rel}/{entry}" if rel else entry
         if os.path.isdir(local_path):
-            if entry in EXCLUDE_DIRS or entry.startswith("."):
+            if is_excluded_dir(entry):
                 continue
             sub_id = ensure_folder(folder_id, entry, token)
             sub = mirror(local_path, sub_id, token, rel_path)

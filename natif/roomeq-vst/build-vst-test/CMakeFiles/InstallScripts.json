@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/z/my-project/workspace/RoomEq/natif/roomeq-vst/build-vst-test/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
