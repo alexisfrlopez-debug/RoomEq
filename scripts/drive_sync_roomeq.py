@@ -274,8 +274,9 @@ def archive_old_versions(liv_id, token):
             latest[family] = (key, name)
     to_archive = sorted(name for family, key, name in versioned
                         if key < latest[family][0])
+    kept = sorted(name for family, key, name in versioned
+                  if key == latest[family][0])
     if not to_archive:
-        kept = sorted(name for _, name in latest.values())
         print("Archivage D22 : rien à archiver (une version par produit) — "
               + ", ".join(kept))
         return
@@ -296,7 +297,6 @@ def archive_old_versions(liv_id, token):
                           "fields": "id"},
                   method="PATCH", data=json.dumps({}).encode())
         print(f"  → {name} : archivé")
-    kept = sorted(name for _, name in latest.values())
     unversioned = sorted(n for n, f in children.items()
                          if f["mimeType"] != "application/vnd.google-apps.folder"
                          and not version_key(n))
