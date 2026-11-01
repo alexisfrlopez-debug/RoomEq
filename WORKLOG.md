@@ -1226,6 +1226,12 @@ Work Log:
   fautif compressé). CARTE.md M-AUD-08 + en-tête mis à jour (v3.5.2).
 - Aucun changement DSP, de rendu ou de thread — correctif purement
   déclaratif (cinq rangs de structure).
+- Incident de synchro corrigé dans la foulée : le répertoire de build
+  CMake local (build-vst-test, 91 artefacts) n'était pas exclu — commité
+  puis téléversé par erreur ; retiré du suivi git, corbeillé du Drive,
+  .gitignore élargi (natif/roomeq-vst/build*/) et le miroir exclut
+  désormais tout dossier en « build* » (is_excluded_dir) — la classe
+  d'incident ne peut plus se reproduire.
 
 Stage Summary:
 - v3.5.2 : LE correctif du « jamais aucune différence de son » — ce
