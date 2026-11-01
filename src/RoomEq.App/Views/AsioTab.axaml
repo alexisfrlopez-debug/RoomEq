@@ -9,7 +9,7 @@
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <TextBlock Text="Gestion des pilotes ASIO" Classes="h2" VerticalAlignment="Center"/>
                 <controls:HelpButton HelpTitle="Pilotes ASIO"
-                                     HelpText="Liste les pilotes ASIO installés, leur taux supporté, et ouvre leur panneau de contrôle (taille de mémoire tampon, latence…).&#10;&#10;Un pilote ASIO peut être choisi comme sortie master de la console (onglet Mixage) pour une latence minimale.&#10;RoomEq n'installe pas de pilote : installez celui du fabricant ou ASIO4ALL."/>
+                                     HelpText="Liste les pilotes ASIO installés, leur taux supporté, et ouvre leur panneau de contrôle (taille de mémoire tampon, latence…).&#10;&#10;Un pilote ASIO peut être choisi comme sortie d'écoute (barre du haut) pour une latence minimale — en lecture exclusive : l'EQ système ne s'y applique pas (l'ASIO contourne les effets Windows) ; pour égaliser un DAW, utilisez le greffon RoomEq (VST/AU) dans le DAW lui-même.&#10;RoomEq n'installe pas de pilote : installez celui du fabricant ou ASIO4ALL."/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Spacing="8">

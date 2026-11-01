@@ -33,7 +33,7 @@
                                Foreground="#FF9F1C" VerticalAlignment="Center" Margin="0,0,6,0"/>
                     <controls:HelpButton Grid.Row="0"
                                          HelpTitle="RoomEq"
-                                         HelpText="RoomEq traite le son de votre ordinateur avec un égaliseur acoustique.&#10;&#10;• Barre du haut : sortie de lecture, transport, volume, bypass et signaux de test.&#10;• Onglets : Égaliseur (courbe), Mixage (EQ système + console), Analyseur (spectre), Calibration pièce (mesure auto), Micro (profils), ASIO.&#10;• Les boutons « ? » orange de chaque section ouvrent une aide détaillée.&#10;• Ctrl+Alt+↑ / ↓ : volume de la carte physique ; Ctrl+Alt+M : sourdine."/>
+                                         HelpText="RoomEq traite le son de votre ordinateur avec un égaliseur acoustique.&#10;&#10;• Barre du haut : sortie d'écoute, transport, volume, bypass et signaux de test.&#10;• Onglets : Égaliseur (courbe), Mixage (EQ système — activer vos sorties), Analyseur (spectre), Calibration pièce (mesure auto), Micro (profils), ASIO.&#10;• Les boutons « ? » orange de chaque section ouvrent une aide détaillée.&#10;• Ctrl+Alt+↑ / ↓ : volume de la carte physique ; Ctrl+Alt+M : sourdine."/>
 
                     <ComboBox Width="260" ItemsSource="{Binding Outputs}"
                               SelectedItem="{Binding SelectedOutput}">
@@ -44,8 +44,8 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <Button Content="Rafraîchir" Command="{Binding RefreshOutputsCommand}" FontSize="11"/>
-                    <controls:HelpButton HelpTitle="Sortie de lecture"
-                                         HelpText="Périphérique utilisé par le lecteur interne et les signaux de test.&#10;&#10;Quand la console de l'onglet Mixage est démarrée, c'est la SORTIE MASTER de la console qui fait foi — celle-ci reste la sortie du lecteur interne.&#10;&#10;« Rafraîchir » relit la liste des périphériques (branchement à chaud)."/>
+                    <controls:HelpButton HelpTitle="Sortie d'écoute"
+                                         HelpText="Périphérique utilisé pour l'écoute : lecteur interne, signaux de test — et c'est sur cette sortie que l'onglet Mixage propose d'activer l'EQ système (tout le son de Windows la traversera alors).&#10;&#10;Quand l'EQ système est actif sur cette sortie, l'égaliseur local du lecteur se contourne automatiquement — la courbe est déjà appliquée par le moteur audio Windows (aucune double correction).&#10;&#10;« Rafraîchir » relit la liste des périphériques (branchement à chaud)."/>
 
                     <Separator Width="1" Height="26" Background="#2A2F3A" Margin="6,0"/>
 
@@ -62,7 +62,7 @@
                     <Slider Minimum="0" Maximum="1.5" Value="{Binding Volume, Mode=TwoWay}" Width="120" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding Volume, StringFormat={}{0:0%}}" VerticalAlignment="Center" Width="44" FontSize="11"/>
                     <controls:HelpButton HelpTitle="Volume et transport"
-                                         HelpText="« Lecture / Arrêt » contrôlent le lecteur interne (fichier ouvert ou signal de test).&#10;&#10;Le curseur Volume agit sur DEUX chemins :&#10;• le lecteur interne : gain après l'égaliseur — 100 % = 0 dB, 150 % = +3,5 dB ;&#10;• le volume Windows de la carte physique (sortie master de l'onglet Mixage) : de 0 à 100 %, le curseur règle directement la carte — c'est ce qui rend le curseur audible sur le son du système (traité par l'EQ système), dont le chemin ne passe pas par ce lecteur.&#10;&#10;SYNCHRONISATION : ce curseur, le curseur « Volume carte physique » de l'onglet Mixage et les raccourcis Ctrl+Alt+↑ / ↓ règlent le MÊME volume — déplacer l'un met immédiatement les autres à la même position, quel que soit l'ordre. Un réglage fait hors de l'application (mixeur Windows, touches du casque) est aussi suivi.&#10;&#10;Au-delà de 100 %, la carte reste au maximum et seul le gain du lecteur monte (le curseur du Mixage reste alors à 100 %). Ctrl+Alt+↑ / ↓ / M règlent toujours la carte physique seule."/>
+                                         HelpText="« Lecture / Arrêt » contrôlent le lecteur interne (fichier ouvert ou signal de test).&#10;&#10;Le curseur Volume agit sur DEUX chemins :&#10;• le lecteur interne : gain après l'égaliseur — 100 % = 0 dB, 150 % = +3,5 dB ;&#10;• le volume WINDOWS de la carte physique d'écoute : de 0 à 100 %, le curseur règle directement la carte — c'est ce qui rend le curseur audible sur le son du système (traité par l'EQ système), dont le chemin ne passe pas par ce lecteur.&#10;&#10;SYNCHRONISATION : ce curseur, les commandes « Volume carte physique » de l'onglet Mixage et les raccourcis Ctrl+Alt+↑ / ↓ règlent le MÊME volume — déplacer l'un met immédiatement les autres à la même position, quel que soit l'ordre. Un réglage fait hors de l'application (mixeur Windows, touches du casque) est aussi suivi.&#10;&#10;Au-delà de 100 %, la carte reste au maximum et seul le gain du lecteur monte. Ctrl+Alt+↑ / ↓ / M règlent toujours la carte physique seule."/>
 
                     <ToggleButton IsChecked="{Binding Bypass}" Content="Bypass EQ" VerticalAlignment="Center"/>
                     <controls:HelpButton HelpTitle="Bypass EQ"

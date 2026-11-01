@@ -5,16 +5,14 @@ using RoomEq.Audio.Routing;
 namespace RoomEq.App.ViewModels;
 
 /// <summary>
-/// MixerViewModel — volume WINDOWS de la carte physique routée (celui de la
+/// MixerViewModel — volume WINDOWS de la carte physique d'écoute (celle de la
 /// carte virtuelle n'a aucun effet), synchronisation des deux curseurs et
-/// des raccourcis clavier, fader master — spec I-APP-03 (décomposition v3).
+/// des raccourcis clavier — spec I-APP-03 v3 (décomposition v3).
+/// D26 : le fader master interne disparaît avec la console — reste le pilotage
+/// du volume SYSTÈME de la sortie d'écoute (barre du haut), seul volume audible.
 /// </summary>
 public partial class MixerViewModel
 {
-    [ObservableProperty] private double masterFader = 1.0;
-    [ObservableProperty] private bool masterMute;
-    [ObservableProperty] private string masterFaderText = "0,0 dB";
-
     // volume WINDOWS du périphérique physique qui rend le son — piloté aussi au
     // clavier (Ctrl+Alt+↑ / ↓ / M)
     [ObservableProperty] private double routedVolume = -1;
@@ -48,9 +46,9 @@ public partial class MixerViewModel
     }
 
     /// <summary>
-    /// Le curseur « Volume carte physique » du Mixage a bougé (binding TwoWay) :
-    /// la valeur devient la consigne de la carte, PUIS la barre du haut est recalée
-    /// — les deux curseurs restent identiques quel que soit celui que l'on déplace.
+    /// Le curseur « Volume » de la barre supérieure a bougé : la valeur devient
+    /// la consigne de la carte physique, PUIS les affichages sont recalés —
+    /// les deux curseurs restent identiques quel que soit celui que l'on déplace.
     /// </summary>
     partial void OnRoutedVolumeChanged(double value)
     {
@@ -96,9 +94,10 @@ public partial class MixerViewModel
 
     /// <summary>
     /// Applique le curseur « Volume » de la barre supérieure au périphérique
-    /// physique routé : 0–100 % règle le volume Windows de la carte (le son routé
-    /// ne passe PAS par le lecteur interne, d'où ce pont) ; au-delà de 100 % le
-    /// volume Windows reste au maximum et seul le gain du lecteur interne monte.
+    /// physique d'écoute : de 0 à 100 % règle le volume Windows de la carte (le
+    /// son du système — traité par l'EQ système — ne passe PAS par le lecteur
+    /// interne, d'où ce pont) ; au-delà de 100 % le volume Windows reste au
+    /// maximum et seul le gain du lecteur interne monte.
     /// Sans effet si la sortie n'expose pas de volume Windows (ASIO).
     /// </summary>
     public void ApplyTopBarVolume(double value)
@@ -149,12 +148,4 @@ public partial class MixerViewModel
         RefreshRoutedVolumeDisplay();
         SyncTopBarFromEndpoint();
     }
-
-    partial void OnMasterFaderChanged(double value)
-    {
-        Mixer.MasterFader = value;
-        MasterFaderText = value <= 0.001 ? "−∞ dB" : (20 * Math.Log10(value)).ToString("+0.0;-0.0") + " dB";
-    }
-
-    partial void OnMasterMuteChanged(bool value) => Mixer.MasterMute = value;
 }

@@ -89,6 +89,13 @@ public sealed class RoomMeasurementEngine : IDisposable
     /// </summary>
     public Action<bool>? SystemEqBypass { get; set; }
 
+    /// <summary>
+    /// Une mesure est-elle en cours ? (D26) — pendant ce temps, l'interface ne
+    /// doit PAS réécrire le bypass EQ du lecteur (la mesure force « pièce
+    /// seule » : EQ local et EQ système à plat, restaurés à la fin).
+    /// </summary>
+    public bool IsMeasuring { get; private set; }
+
     /// <summary>Résultat d'une mesure multi-signaux complète.</summary>
     public sealed class MultiSignalResult
     {
@@ -115,6 +122,7 @@ public sealed class RoomMeasurementEngine : IDisposable
         string presetName, CancellationToken ct)
     {
         bool previousBypass = _playback.Eq.Bypass;
+        IsMeasuring = true;
         _playback.Eq.Bypass = true; // on mesure la pièce, pas l'égaliseur
         InvokeSystemEqBypass(true);
 
@@ -145,6 +153,7 @@ public sealed class RoomMeasurementEngine : IDisposable
             _playback.Stop();
             _capture.Stop();
             _playback.Eq.Bypass = previousBypass;
+            IsMeasuring = false;
             InvokeSystemEqBypass(false);
         }
 
@@ -199,6 +208,7 @@ public sealed class RoomMeasurementEngine : IDisposable
             CaptureChannelIndex == ChannelMixer.MixFirstTwo ? "mixage" : (CaptureChannelIndex + 1).ToString()));
 
         bool previousBypass = _playback.Eq.Bypass;
+        IsMeasuring = true;
         _playback.Eq.Bypass = true;
         InvokeSystemEqBypass(true);
 
@@ -307,6 +317,7 @@ public sealed class RoomMeasurementEngine : IDisposable
         finally
         {
             _playback.Eq.Bypass = previousBypass;
+            IsMeasuring = false;
             InvokeSystemEqBypass(false);
         }
 

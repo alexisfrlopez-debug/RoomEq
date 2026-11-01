@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RoomEq.Audio.SystemApo;
@@ -30,8 +31,13 @@ public sealed class ApoEndpointViewModel
 /// activation/désactivation par sortie (une invite administrateur, effet
 /// immédiat et réversible), réparation après mise à jour de pilote, courbe
 /// poussée en continu depuis l'onglet Égaliseur, bypass automatique pendant
-/// les mesures. C'est le remplacement user-friendly de la carte virtuelle :
-/// « j'installe l'appli, j'active ma sortie, tout le son passe dans l'EQ ».
+/// les mesures. C'est LE mécanisme de RoomEq sous Windows : « j'installe
+/// l'appli, j'active ma sortie, tout le son passe dans l'EQ ».
+/// D26 : le VERDICT de chaque action (succès comme échec — élévation refusée,
+/// sortie sans slot d'effets, périphérique débranché…) reste affiché DANS le
+/// panneau jusqu'à l'action suivante — il n'est plus relégué dans la barre
+/// d'état du bas puis écrasé par le rafraîchissement, ce qui rendait les
+/// échecs d'activation invisibles (« le bouton ne s'active jamais »).
 /// </summary>
 public partial class MixerViewModel
 {
@@ -43,6 +49,18 @@ public partial class MixerViewModel
 
     [ObservableProperty] private string systemApoStatusText = "";
     [ObservableProperty] private bool isSystemApoBusy;
+
+    /// <summary>Verdict de la dernière action : reste affiché dans le panneau
+    /// (D26) — c'est lui qui explique un bouton qui « ne s'active pas ».</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSystemApoVerdict))]
+    private string systemApoVerdictText = "";
+
+    /// <summary>Un verdict est-il affiché ?</summary>
+    public bool HasSystemApoVerdict => SystemApoVerdictText.Length > 0;
+
+    /// <summary>Le verdict est-il un échec (couleur d'alerte) ?</summary>
+    [ObservableProperty] private bool systemApoVerdictIsError;
 
     /// <summary>Le panneau est-il utilisable sur cette machine ?</summary>
     public bool SystemApoSupported => SystemApo.IsReady;
@@ -68,6 +86,7 @@ public partial class MixerViewModel
                 IsDefault = e.IsDefault,
             });
         OnPropertyChanged(nameof(AnySystemApoEnabled));
+        OnPropertyChanged(nameof(SystemApoSupported));
 
         var load = SystemApo.LastApoLoadUtc;
         SystemApoStatusText = !WindowsApoSystem.IsPlatformSupported
@@ -80,9 +99,6 @@ public partial class MixerViewModel
                         ? "EQ système actif — la courbe de l'onglet Égaliseur s'applique à tout ce qui sort par les sorties marquées ●"
                           + (load is { } t ? $" (APO chargé : {t:HH:mm:ss} UTC)" : "")
                         : "Activez une ou plusieurs sorties : tout leur son traversera l'égaliseur (invite administrateur, réversible).";
-
-        // D25 : l'état APO détermine si le bus master contourne son propre EQ
-        RefreshApoOnMaster();
     }
 
     [RelayCommand]
@@ -96,7 +112,7 @@ public partial class MixerViewModel
         if (endpoint == null || IsSystemApoBusy) return;
         await RunSystemApoAsync(
             () => SystemApo.EnableAsync(endpoint.Key),
-            "Activation de « " + endpoint.Name + " »…");
+            "Activation de « " + endpoint.Name + " »");
     }
 
     [RelayCommand]
@@ -105,7 +121,7 @@ public partial class MixerViewModel
         if (endpoint == null || IsSystemApoBusy) return;
         await RunSystemApoAsync(
             () => SystemApo.DisableAsync(endpoint.Key),
-            "Désactivation de « " + endpoint.Name + " »…");
+            "Désactivation de « " + endpoint.Name + " »");
     }
 
     [RelayCommand]
@@ -114,7 +130,7 @@ public partial class MixerViewModel
         if (IsSystemApoBusy) return;
         await RunSystemApoAsync(
             () => SystemApo.RepairAsync(),
-            "Réparation des sorties activées…");
+            "Réparation des sorties activées");
     }
 
     [RelayCommand]
@@ -123,22 +139,52 @@ public partial class MixerViewModel
         if (IsSystemApoBusy) return;
         await RunSystemApoAsync(
             () => SystemApo.UninstallAsync(),
-            "Suppression de l'EQ système…");
+            "Suppression de l'EQ système");
     }
 
-    private async Task RunSystemApoAsync(Func<Task<ApoInstallResult>> action, string busyText)
+    private async Task RunSystemApoAsync(Func<Task<ApoInstallResult>> action, string actionLabel)
     {
         IsSystemApoBusy = true;
-        SystemApoStatusText = busyText + " (acceptez l'invite administrateur)";
+        SystemApoStatusText = actionLabel + "… (acceptez l'invite administrateur)";
         try
         {
             var result = await action().ConfigureAwait(true);
+            // D26 : le verdict — y compris les échecs — reste DANS le panneau :
+            // « élévation refusée », « n'expose pas de slot d'effets », etc.
+            // doivent être lisibles là où l'utilisateur a cliqué.
+            SystemApoVerdictText = (result.Success ? "✓ " : "✗ ")
+                + actionLabel + " — " + result.Message;
+            SystemApoVerdictIsError = !result.Success;
             StatusText = result.Message;
             RefreshSystemApoCore();
+            ScheduleLateSystemApoRefresh();
         }
         finally
         {
             IsSystemApoBusy = false;
         }
+    }
+
+    /// <summary>
+    /// Second rafraîchissement différé (D26) : l'activation redémarre le
+    /// service audio, et l'énumération immédiate des sorties peut tomber sur
+    /// un service encore en train de reconstruire ses endpoints (liste vide ou
+    /// incomplète — le bouton paraît alors « non activé » alors que tout a
+    /// réussi). 1,5 s plus tard, la liste est complète.
+    /// </summary>
+    private void ScheduleLateSystemApoRefresh()
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                await Task.Delay(1500).ConfigureAwait(true);
+                RefreshSystemApoCore();
+            }
+            catch
+            {
+                // un rafraîchissement différé ne doit jamais lever
+            }
+        }, DispatcherPriority.Background);
     }
 }

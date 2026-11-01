@@ -39,16 +39,17 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   correctifs : fin des gels d'interface au rafraîchissement des
   périphériques — capture en une passe en arrière-plan — et latence du
   routage console réduite 50 → 30 ms contre la désynchronisation
-  son/image en vidéo) ; **v3.8.0** : **console allégée** (D25 — les tranches
-  « entrée/sortie » liées aux périphériques Windows sont retirées :
-  l'EQ système APO les rendait redondantes et sources de double correction ;
-  la console ne garde que ses sources internes [lecteur, générateur, pont
-  DAW ASIO], le panneau EQ système passe en tête de l'onglet Mixage, le bus
-  master contourne son EQ quand l'APO couvre la sortie [anti
-  double-correction], migration automatique des défauts Windows laissés par
-  l'ancien routage + suppression du pilote hérité ; macOS inchangé)
+  son/image en vidéo) ; **v3.8.0** : console allégée (D25 — tranches
+  « entrée/sortie » retirées, EQ système en tête de l'onglet Mixage) ;
+  **v3.9.0** : **console retirée, verdict APO visible, instance unique**
+  (D26 — l'onglet Mixage devient le poste de pilotage de l'EQ système ;
+  le verdict de chaque activation [succès comme échec] s'affiche en
+  couleur dans le panneau et n'est jamais effacé par le rafraîchissement ;
+  la sortie d'écoute suit la barre du haut ; anti double-correction
+  étendue au lecteur interne ; l'application refuse de s'ouvrir plusieurs
+  fois après l'installation)
 - **Reprise** : lire `REPRISE.md` en premier
-- **Décisions** : `docs/DECISIONS.md` (D1-D25) · **Carte** : `CARTE.md`
+- **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`
 - **Greffon AudioUnit** (Ableton Live, macOS) : `natif/roomeq-au/README.md`
 - **EQ système APO** (Windows, sans pilote) : `natif/roomeq-apo/README.md` +

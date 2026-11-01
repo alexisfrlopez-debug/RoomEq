@@ -1669,3 +1669,95 @@ Stage Summary:
   v3.7 avec pilote + routage actif (sortie par défaut restaurée au
   premier lancement), EQ système + console DAW sans double correction,
   suppression du pilote hérité.
+
+---
+Session : 22 — 2026-11-02
+Agent : main (Z.ai)
+Task : D26 — trois retours terrain de l'installateur v3.8.0 : (1) « j'ai
+un bug dans l'installation : quand l'installation est fini, l'appli s'ouvre
+plusieurs fois » ; (2) « dans l'onglet mixage : je veux supprimer la partie
+"console", elle n'a plus aucun intéret maintenant qu'on a l'équaliseur sans
+pilote » ; (3) « je n'arrive pas à activer l'équaliseur sans pilote sur une
+sortie : je clique, la page se rafraichi et le bouton cliqué n'est toujours
+pas activé ». v3.9.0.
+
+Work Log:
+- **Bug 1 — multi-lancement** : l'application n'avait AUCUN verrou
+  d'instance unique ; l'installateur Velopack lance l'appli à la fin de
+  l'installation, et tout double déclenchement (Setup exécuté deux fois,
+  raccourci ouvert pendant un démarrage lent) créait une instance en plus
+  (fenêtres en double, mixer.json en écritures concurrentes, conflits
+  WASAPI). Correctif : `SingleInstanceGuard` (mutex nommé
+  `Local\RoomEq.App.SingleInstance`, par session utilisateur — l'installation
+  est elle-même par utilisateur) acquis dans `Program.Main` APRÈS la branche
+  `--apo-setup` (le processus d'élévation doit toujours pouvoir tourner à
+  côté) ; instance surnuméraire = sortie immédiate et silencieuse. Dégradation
+  douce : mutex indisponible (sécurité restrictive) → démarrage autorisé.
+- **Bug 2 — console retirée** : suppression de `ChannelViewModel`,
+  `TrackEqViewModel`, `MixerTrackPolicy`, `MixerViewModel.Routing`,
+  `Controls/VuMeter`, du code-behind MixerTab (plus que
+  InitializeComponent) et de toutes les surfaces console du ViewModel
+  (Channels, AvailableSources, TrackEq, bus master, ApoOnMaster,
+  AutoStart, pont ASIO au démarrage, routage macOS « RoomEq Virtual » —
+  la voie DAW est le greffon VST/AU, l'onglet ASIO garde l'inspection des
+  pilotes tiers). Nouvel onglet Mixage = panneau « EQ système » + panneau
+  « Écoute » (⟳, réglages son, volume carte physique −/+/M avec OSD,
+  preset auto par sortie + sélecteur) + pilote hérité D25 (conditionnel).
+  **Sortie d'écoute = barre du haut** (source de vérité unique) :
+  `FollowTopBarOutput` recible volume/preset/mémorisation,
+  `PreferredInitialOutput` restaure la sortie de la session précédente ;
+  `MixerStore` injectable pour les tests. Textes d'aide mis à jour partout
+  (MainWindow, EqTab, AsioTab).
+- **Bug 2bis — anti double-correction du lecteur interne (latent)** : le
+  lecteur de la barre du haut appliquait l'EQ principal LOCALEMENT alors
+  que l'APO applique la même courbe sur la sortie → correction doublée
+  pour les fichiers lus et les signaux de test sur une sortie activée
+  (seul le bus master de la console était protégé, D25). Correctif :
+  `RefreshEqApplication` (MainViewModel) — l'APO reçoit la courbe avec le
+  bypass UTILISATEUR (pas le contournement local), et l'EQ local du lecteur
+  se contourne quand `WindowsApoSystem.CoversEndpoint(sortie d'écoute)`
+  (nouvelle méthode : accepte « wasapi|{mmdevice} » ou la clé registre
+  nue) ; recalcul au changement de sortie, à chaque état APO, à chaud et
+  sur changement de courbe (anti-rebond 80 ms conservé).
+  `RoomMeasurementEngine.IsMeasuring` (nouveau) interdit au shell
+  d'écraser le bypass pendant une mesure (le moteur force « pièce seule »
+  et restaure lui-même).
+- **Bug 3 — activation invisible** : le verdict d'une activation (échec
+  inclus : UAC refusée, sortie sans slot FxProperties, périphérique
+  débranché…) n'apparaissait que dans la barre d'état muette du bas, puis
+  `RefreshSystemApoCore` remettait le texte générique du panneau —
+  l'utilisateur voyait « la page se rafraîchit et le bouton reste
+  inactif » sans AUCUNE explication. Correctifs : (a) `SystemApoVerdictText`
+  + `SystemApoVerdictIsError` (✓/✗ en couleur) affichés DANS le panneau,
+  jamais effacés par le rafraîchissement (testé) ; (b) second
+  rafraîchissement différé +1,5 s après chaque action — l'activation
+  redémarre le service audio et l'énumération immédiate peut rendre une
+  liste vide/incomplète (le bouton paraissait non activé alors que tout
+  avait réussi) ; (c) échecs désormais journalisés en version test
+  (`WindowsApoSystem`, avant : seuls les succès l'étaient) ;
+  (d) `SystemApoSupported` renotifié au rafraîchissement.
+- **Tests** : 479/479 (Core 237, Audio 168 inchangés — M-AUD-03 intacte,
+  App 74) : −32 tests de console supprimés avec leur objet
+  (`MixerTrackPolicyTests`, `BandTrackChannelTests`), +6 `MixerSystemTabTests`
+  (D26) : suivi de sortie d'écoute (événement + idempotence), sortie
+  mémorisée restituée une fois, persistance réduite (aucune tranche),
+  chargement d'un mixer.json hérité sans exception, verdict qui survit au
+  rafraîchissement, inertie `CoversEndpoint` hors Windows, garde
+  d'instance unique (acquisition/refus/libération).
+- **Docs** : D26 (DECISIONS), I-APP-03 v3 réécrite (poste de pilotage),
+  CARTE (M-APP-03 v3, M-APP-01 + SingleInstanceGuard, VuMeter retiré),
+  REPRISE (résumé + état session 22 + historique décisions), README,
+  LISEZMOI (v3.9.0), package_v3.sh (VERSION 3.9.0 + vérifications D26,
+  pont ASIO vérifié côté couche audio uniquement). Build 0 erreur
+  0 avertissement. Livrables 3.9.0 (zips + Setup.exe).
+
+Stage Summary:
+- D26 LIVRÉE : l'onglet Mixage ne montre plus que ce qui agit sur le son
+  Windows — l'EQ système et son pilotage (verdict visible, volume de la
+  carte d'écoute, preset par sortie) ; l'installation n'ouvre plus
+  l'application en double ; un échec d'activation affiche désormais sa
+  raison là où l'utilisateur a cliqué.
+- Prochaine étape : validation terrain Windows — réinstaller via Setup.exe
+  (une seule fenêtre), activer l'EQ système (verdict ✓ et bouton qui
+  bascule ; refuser l'UAC → verdict ✗ rouge explicite), lire un fichier
+  sur une sortie APO active (aucune double correction).

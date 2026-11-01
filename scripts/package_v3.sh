@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.8.0
+VERSION=3.9.0
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -83,8 +83,7 @@ grep -qE 'class RoomEqVirtualProvider' "$SRC/src/RoomEq.Audio/Routing/VirtualAud
   && echo "   ✓ DriverSetupManager (pnputil local — pilote scellé v2.2.2)"
 grep -qE 'AsioBridgeHost' "$SRC/src/RoomEq.Audio/Asio/AsioBridgeHost.cs" \
   && grep -qE 'TrackSourceKind.AsioBridge' "$SRC/src/RoomEq.Audio/Routing/ConsoleChannel.cs" \
-  && grep -qE 'AsioStatusText' "$SRC/src/RoomEq.App/ViewModels/MixerViewModel.cs" \
-  && echo "   ✓ Pont ASIO : hôte + piste DAW + statut"
+  && echo "   ✓ Pont ASIO (couche audio M-AUD-03/04, D26 : plus démarré par l'UI)"
 grep -qE 'ROOMEQ_TEST' "$SRC/src/RoomEq.Core/Io/AppFlavor.cs" \
   && grep -qE 'AppFlavorKind.Public;' "$SRC/src/RoomEq.Core/Io/AppFlavor.cs" \
   && echo "   ✓ AppFlavor inversé : public silencieux par défaut"
@@ -115,6 +114,14 @@ PY
   && grep -qE 'FxEndpointEffectClsid' "$SRC/src/RoomEq.Audio/SystemApo/ApoConstants.cs" \
   && grep -qE 'SystemApoEnableCommand' "$SRC/src/RoomEq.App/Views/MixerTab.axaml" \
   && echo "   ✓ EQ système APO (D24) : registrar + DLL + panneau UI + spec I-AUD-09"
+
+# --- v3.9.0 : console retirée, verdict APO visible, instance unique (D26) ---
+[[ -f "$SRC/src/RoomEq.App/SingleInstanceGuard.cs" \
+   && -f "$SRC/src/RoomEq.App/ViewModels/MixerViewModel.SystemApo.cs" ]] \
+  && grep -qE 'SingleInstanceGuard.Acquire' "$SRC/src/RoomEq.App/Program.cs" \
+  && grep -qE 'SystemApoVerdictText' "$SRC/src/RoomEq.App/Views/MixerTab.axaml" \
+  && ! grep -qE 'ChannelViewModel|ConsoleMixer' "$SRC/src/RoomEq.App/ViewModels/MixerViewModel.cs" \
+  && echo "   ✓ D26 : instance unique + verdict APO visible + console retirée de l'UI"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

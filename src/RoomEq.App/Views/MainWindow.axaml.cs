@@ -38,9 +38,6 @@ public partial class MainWindow : Window
 
         // catalogue des signaux de test supplémentaires (téléchargement)
         vm.SignalCatalogRequested += () => SignalCatalogDialog.Show(this, vm.RefreshSignalChoices);
-
-        // routage automatique au lancement si configuré
-        Dispatcher.UIThread.Post(() => vm.Mixer.AutoStartIfConfigured());
     }
 
     private void ShowVolumeOsd(string text)

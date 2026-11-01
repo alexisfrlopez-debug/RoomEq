@@ -7,14 +7,60 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.8.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), **v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09)** ; et **v3.8.0 : CONSOLE ALLÉGÉE (D25) — les tranches « entrée/sortie » (captures/boucles Windows) et le routage par carte virtuelle sont retirés : l'onglet Mixage met l'EQ système en tête, la console ne garde que ses sources internes (lecteur, générateur, pont DAW ASIO), le bus master contourne son EQ quand l'APO couvre la sortie (anti double-correction), migration automatique des défauts Windows de l'ancien routage + suppression du pilote hérité ; macOS inchangé** — 502 tests xUnit + harnais APO 112 vérifications |
+| **Projet** | RoomEq **v3.9.0** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25, tranches « entrée/sortie » retirées) ; et **v3.9.0 : CONSOLE RETIRÉE, VERDICT APO VISIBLE, INSTANCE UNIQUE (D26) — l'onglet Mixage devient le poste de pilotage de l'EQ système (sorties, verdict ✓/✗ en couleur jamais effacé, volume de la carte d'écoute, preset par sortie, pilote hérité) ; la sortie d'écoute suit la barre du haut ; anti double-correction étendue au lecteur interne (`CoversEndpoint`) ; l'application refuse de s'ouvrir plusieurs fois (mutex)** — 479 tests xUnit + harnais APO 112 vérifications |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 502 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 479 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
+
+## 1. État (fin session 22 — v3.9.0 : console retirée, verdict APO visible, instance unique)
+
+**Session 22 (2026-11-02)** — trois retours terrain de l'installateur
+v3.8.0 : (1) « quand l'installation est finie, l'appli s'ouvre plusieurs
+fois » ; (2) « dans l'onglet mixage : je veux supprimer la partie
+"console", elle n'a plus aucun intérêt maintenant qu'on a l'égaliseur sans
+pilote » ; (3) « je n'arrive pas à activer l'égaliseur sans pilote sur une
+sortie : je clique, la page se rafraîchit et le bouton cliqué n'est
+toujours pas activé ».
+
+- **D26 ACTÉE — instance unique** : `SingleInstanceGuard` (mutex nommé
+  `Local\RoomEq.App.SingleInstance`) acquis dans `Program.Main` APRÈS la
+  branche `--apo-setup` (l'élévation doit toujours pouvoir tourner à côté) ;
+  toute instance surnuméraire se ferme silencieusement — fini les fenêtres
+  en double et les `mixer.json` concurrents après le Setup.
+- **D26 ACTÉE — console retirée** : supprimés `ChannelViewModel`,
+  `TrackEqViewModel`, `MixerTrackPolicy`, `MixerViewModel.Routing`,
+  `VuMeter`, tranches/bus master/éditeur d'EQ de piste/pont ASIO au
+  démarrage/routage macOS « RoomEq Virtual ». L'onglet Mixage = panneau
+  « EQ système » + panneau « Écoute » (volume carte physique, preset par
+  sortie, ⟳, réglages son) + pilote hérité D25. **Sortie d'écoute = barre
+  du haut** (`FollowTopBarOutput` / `PreferredInitialOutput`) ; couche
+  audio M-AUD-03 intacte (168 tests, défense en profondeur) ; la voie DAW
+  est le greffon VST (Windows) / AU (macOS).
+- **D26 ACTÉE — verdict APO visible (bug « bouton ne s'active pas »)** :
+  le verdict de chaque action (`SystemApoVerdictText`, ✓/✗ en couleur)
+  s'affiche DANS le panneau et n'est jamais effacé par
+  `RefreshSystemApoCore` — auparavant l'échec (UAC refusée, sortie sans
+  slot FxProperties…) n'apparaissait que dans la barre d'état muette puis
+  disparaissait. Second rafraîchissement différé (+1,5 s) après chaque
+  action (le service audio vient de redémarrer : l'énumération immédiate
+  peut être vide) ; échecs désormais journalisés (version test) via
+  `WindowsApoSystem`.
+- **Anti double-correction du lecteur interne** : `RefreshEqApplication`
+  (MainViewModel) — l'APO reçoit la courbe avec le bypass UTILISATEUR ;
+  l'EQ local du lecteur se contourne si `CoversEndpoint(sortie)` ;
+  `RoomMeasurementEngine.IsMeasuring` interdit d'écraser le bypass pendant
+  une mesure.
+- **Tests** : 479/479 xUnit (Core 237, Audio 168, App 74 : −32 tests de
+  console supprimés avec leur objet, +6 `MixerSystemTabTests` D26) ;
+  natifs inchangés.
+- **Prochaine étape** : validation terrain Windows (réinstallation via
+  Setup = une seule fenêtre ; activation EQ système = verdict ✓ et bouton
+  qui bascule ; refus UAC = verdict ✗ rouge explicite ; lecture d'un
+  fichier sur sortie APO active = pas de double correction).
 
 ## 1. État (fin session 21 — v3.8.0 : console allégée D25, tranches entrée/sortie retirées)
 
@@ -576,6 +622,12 @@ Audio + 75 App — legacy : 228) · build **0 erreur 0 avertissement**.
   console = sources internes uniquement ; anti double-correction
   (`ApoOnMaster` → bypass master) ; migration des défauts + suppression du
   pilote hérité ; macOS inchangé (détail D25).
+- **D26** console retirée + verdict APO visible + instance unique : onglet
+  Mixage = poste de pilotage de l'EQ système (sortie d'écoute = barre du
+  haut) ; verdict ✓/✗ de chaque activation affiché dans le panneau, jamais
+  effacé par le rafraîchissement ; anti double-correction étendue au
+  lecteur (`CoversEndpoint`) ; mutex d'instance unique dans `Program.Main`
+  (après la branche `--apo-setup`) (détail D26).
 
 ## 4. Pièges et découvertes de la session 1
 

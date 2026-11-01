@@ -36,10 +36,11 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Menu des signaux de test de la barre supérieure.</summary>
     public TestSignalMenu Signals { get; }
 
-    /// <summary>Politique du preset adapté à la sortie master.</summary>
+    /// <summary>Politique du preset adapté à la sortie d'écoute.</summary>
     public OutputPresetCoordinator OutputPresets { get; }
 
     private readonly Avalonia.Threading.DispatcherTimer _telemetryTimer;
+    private readonly Avalonia.Threading.DispatcherTimer _eqApoSyncDebounce; // anti-rebond courbe → EQ système
     private bool _syncingVolumeFromMixer; // recadrage du curseur depuis le Mixage : ne pas réécrire la carte
 
     /// <summary>Surveillance des branchements audio à chaud (inerte hors Windows).</summary>
@@ -67,7 +68,7 @@ public partial class MainViewModel : ObservableObject
         Analyzer = new AnalyzerViewModel(Engine, AnalyzerCapture);
         Calibration = new CalibrationViewModel(Engine, Measurement, Mic);
         Asio = new AsioViewModel(() => Engine.Stop());
-        Mixer = new MixerViewModel(Engine, SyncVolumeFromRouted, SystemEq);
+        Mixer = new MixerViewModel(SyncVolumeFromRouted, SystemEq);
         Signals = new TestSignalMenu(Engine, setStatus: s => StatusText = s);
         OutputPresets = new OutputPresetCoordinator(Eq, Mixer);
 
@@ -107,12 +108,15 @@ public partial class MainViewModel : ObservableObject
         });
 
         RefreshOutputs();
-        SelectedOutput = Outputs.FirstOrDefault();
+        // D26 : la sortie mémorisée par la session précédente (mixer.json) est
+        // restaurée si elle existe encore — sinon la première disponible ; la
+        // barre du haut est la source de vérité unique (plus de sélecteur MASTER).
+        SelectedOutput = Mixer.PreferredInitialOutput(Outputs) ?? Outputs.FirstOrDefault();
         if (SelectedOutput != null) Engine.SetOutput(SelectedOutput.Id);
         Engine.EnsureDefaultOutput();
         Signals.Refresh();
 
-        // politique « preset par périphérique » : la sortie master peut changer
+        // politique « preset par périphérique » : la sortie d'écoute peut changer
         // (restauration de session, choix utilisateur) et chaque preset appliqué
         // manuellement est mémorisé pour la sortie en cours
         Mixer.MasterOutputChanged += dev => Dispatcher.UIThread.Post(() => OutputPresets.Evaluate(dev));
@@ -120,6 +124,27 @@ public partial class MainViewModel : ObservableObject
         Eq.HeadphonePresetApplied += model => Dispatcher.UIThread.Post(() => OutputPresets.LinkFactory(model));
         Eq.LinkPresetRequested += name => Dispatcher.UIThread.Post(() => OutputPresets.LinkNamed(name));
         Dispatcher.UIThread.Post(() => OutputPresets.Evaluate(Mixer.SelectedOutput));
+
+        // D26 — anti double correction et poussoir de courbe : l'EQ système
+        // reçoit la courbe de l'onglet Égaliseur en continu (anti-rebond : un
+        // glissement de poignée émet en continu, un rebuild complet par pixel
+        // serait du gaspillage) ; et quand l'APO couvre la sortie du lecteur,
+        // l'EQ LOCAL du lecteur se contourne — la courbe y est déjà appliquée
+        // par le moteur audio Windows (sinon elle serait doublée).
+        _eqApoSyncDebounce = new Avalonia.Threading.DispatcherTimer(
+            TimeSpan.FromMilliseconds(80), Avalonia.Threading.DispatcherPriority.Background,
+            (_, _) =>
+            {
+                _eqApoSyncDebounce?.Stop();
+                RefreshEqApplication();
+            });
+        Engine.Eq.Changed += () => Dispatcher.UIThread.Post(() =>
+        {
+            _eqApoSyncDebounce?.Stop();
+            _eqApoSyncDebounce?.Start();
+        });
+        SystemEq.Changed += () => Dispatcher.UIThread.Post(RefreshEqApplication);
+        RefreshEqApplication();
 
         // branchements à chaud : casque Bluetooth, carte USB… les listes suivent
         // toutes seules (les boutons ⟳ / « Rafraîchir » restent disponibles)
@@ -145,7 +170,6 @@ public partial class MainViewModel : ObservableObject
             _telemetryTimer.Stop();
             _deviceWatcher.Dispose();
             Mixer.SaveConfig();
-            Mixer.Mixer.Stop();
             Mixer.Shutdown();
             SystemEq.Dispose();
             Engine.Stop();
@@ -190,12 +214,14 @@ public partial class MainViewModel : ObservableObject
         if (value == null) return;
         Engine.SetOutput(value.Id);
         StatusText = $"Sortie : {value.DisplayName}";
+        Mixer.FollowTopBarOutput(value); // D26 : volume physique + preset suivent
+        RefreshEqApplication();         // …et l'EQ système peut couvrir cette sortie
     }
 
     /// <summary>
     /// Un périphérique audio vient d'être branché / retiré / ou devient le périphérique
     /// par défaut : rafraîchit toutes les listes (barre du haut, Mixage, Analyseur,
-    /// Calibration) puis réévalue le preset de la sortie master — le nouveau casque
+    /// Calibration) puis réévalue le preset de la sortie d'écoute — le nouveau casque
     /// branché est reconnu et sa correction appliquée sans redémarrer RoomEq.
     /// </summary>
     private void OnHotDevicesChanged()
@@ -204,22 +230,52 @@ public partial class MainViewModel : ObservableObject
         {
             RefreshOutputs();
             Mixer.RefreshDevices();
-            Mixer.RefreshSystemApoCore(); // endpoints ajoutés/retirés à chaud
             try { Analyzer.RefreshAudioDevices(); } catch { /* énumération indisponible */ }
             try { Calibration.RefreshAudioDevices(); } catch { /* énumération indisponible */ }
             OutputPresets.Evaluate(Mixer.SelectedOutput);
+            RefreshEqApplication(); // l'état APO des sorties peut avoir changé
             StatusText = "Périphériques audio mis à jour (branchement à chaud détecté).";
         });
+    }
+
+    // ================================================================ EQ & sortie d'écoute
+
+    /// <summary>
+    /// Applique la politique d'égalisation D26 — UN SEUL endroit décide qui
+    /// applique la courbe :
+    /// • l'EQ SYSTÈME (APO) reçoit toujours la courbe de l'onglet Égaliseur
+    ///   (avec le bypass UTILISATEUR — pas le contournement local) : c'est lui
+    ///   qui traite tout le son de Windows ;
+    /// • l'EQ LOCAL du lecteur interne se contourne quand l'APO couvre sa
+    ///   sortie (sinon la correction serait doublée pour les fichiers lus et
+    ///   les signaux de test) — sauf pendant une mesure, qui force « pièce
+    ///   seule » et restaure l'état elle-même.
+    /// </summary>
+    private void RefreshEqApplication()
+    {
+        // D26 : l'EQ système couvre la sortie du lecteur → l'EQ local se
+        // contourne (la courbe y est déjà appliquée par le moteur Windows)
+        bool apoOnPlayback = SystemEq.CoversEndpoint(SelectedOutput?.Id);
+        try
+        {
+            SystemEq.PushCurve(Engine.Eq.Preset, Bypass);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticsLog.Error("EQ système : envoi de la courbe impossible", ex);
+        }
+        if (!Measurement.IsMeasuring)
+            Engine.Eq.Bypass = Bypass || apoOnPlayback;
     }
 
     partial void OnVolumeChanged(double value)
     {
         // 1) lecteur interne (fichiers, signaux de test) : gain après l'EQ ;
-        // 2) carte physique (sortie master de l'onglet Mixage) : le son du
-        //    système — traité par l'EQ système (APO) — ne passe PAS par le
-        //    lecteur interne ; le curseur pilote donc aussi le volume Windows
-        //    de cette carte (même cible que Ctrl+Alt+↑ / ↓). Sans lui, le
-        //    curseur paraîtrait « sans effet » sur le son écouté.
+        // 2) carte physique d'écoute : le son du système — traité par l'EQ
+        //    système (APO) — ne passe PAS par le lecteur interne ; le curseur
+        //    pilote donc aussi le volume Windows de cette carte (même cible
+        //    que Ctrl+Alt+↑ / ↓). Sans lui, le curseur paraîtrait « sans
+        //    effet » sur le son écouté.
         Engine.Volume = value;
 
         // recadrage venant du Mixage / des raccourcis clavier / de Windows : la
@@ -252,7 +308,7 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnBypassChanged(bool value)
     {
-        Engine.Eq.Bypass = value;
+        RefreshEqApplication();
         StatusText = value ? "Égaliseur contourné (bypass)." : "Égaliseur actif.";
     }
 

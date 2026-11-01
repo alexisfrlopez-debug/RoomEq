@@ -121,6 +121,32 @@ public sealed class WindowsApoSystem : IDisposable
     /// <summary>L'APO s'est-il manifesté récemment ? (journal écrit par audiodg)</summary>
     public DateTime? LastApoLoadUtc => Config.ApoLogLastWriteUtc;
 
+    /// <summary>
+    /// L'EQ système est-il actif sur CETTE sortie ? (D26) — sert à l'anti-double-
+    /// correction du lecteur interne : quand la courbe est déjà appliquée par le
+    /// moteur audio Windows, l'EQ local du lecteur doit se contourner.
+    /// Accepte l'identifiant complet du lecteur (« wasapi|{0.0.0.00000000}.{GUID} »)
+    /// ou la clé registre nue (« {GUID} »). Jamais d'exception, false dans le doute.
+    /// </summary>
+    public bool CoversEndpoint(string? outputId)
+    {
+        if (!IsPlatformSupported || string.IsNullOrEmpty(outputId))
+            return false;
+        string id = outputId.StartsWith("wasapi|", StringComparison.Ordinal)
+            ? outputId["wasapi|".Length..]
+            : outputId;
+        string key = ApoConstants.EndpointKeyFromMmdeviceId(id);
+        try
+        {
+            return EnumerateEndpoints().Any(e =>
+                e.Enabled && string.Equals(e.Key, key, StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return false; // registre indisponible : ne pas contourner l'EQ local
+        }
+    }
+
     // -------------------------------------------------------- opérations élevées
 
     /// <summary>Active l'EQ système sur une sortie (une invite UAC).</summary>
@@ -132,6 +158,12 @@ public sealed class WindowsApoSystem : IDisposable
             AnyEnabled = true;
             RepushCurve();
             DiagnosticsLog.Info("EQ système activé (" + endpointKey + ") : " + result.Message);
+        }
+        else
+        {
+            // D26 : les échecs sont journalisés aussi — sans eux, un bouton qui
+            // « ne s'active pas » est indiagnosticable à distance
+            DiagnosticsLog.Error("EQ système : activation échouée (" + endpointKey + ") : " + result.Message);
         }
         Changed?.Invoke();
         return result;
@@ -145,6 +177,10 @@ public sealed class WindowsApoSystem : IDisposable
         {
             EnumerateEndpoints(); // re-synchronise le cache _anyEnabled
             DiagnosticsLog.Info("EQ système désactivé (" + endpointKey + ") : " + result.Message);
+        }
+        else
+        {
+            DiagnosticsLog.Error("EQ système : désactivation échouée (" + endpointKey + ") : " + result.Message);
         }
         Changed?.Invoke();
         return result;

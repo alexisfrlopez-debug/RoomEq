@@ -10,7 +10,9 @@ internal static class Program
         // Mode d'installation APO (spec I-AUD-09) : RoomEq.exe --apo-setup …
         // est relancé par l'application ELLE-MÊME en administrateur (invite
         // UAC unique) pour inscrire l'égaliseur système sur une sortie —
-        // ce mode est sans fenêtre et ne touche jamais à Avalonia.
+        // ce mode est sans fenêtre et ne touche jamais à Avalonia. Il passe
+        // AVANT le garde d'instance unique : l'élévation doit toujours
+        // pouvoir s'exécuter à côté de l'application ouverte.
         if (args.Length > 0 && args[0] == "--apo-setup")
         {
             return RoomEq.Audio.SystemApo.ApoSetupCommands.Run(
@@ -18,6 +20,15 @@ internal static class Program
                 args.Skip(2).ToArray(),
                 AppContext.BaseDirectory);
         }
+
+        // Instance unique (D26) : l'installateur lance l'application à la fin
+        // de l'installation ; toute instance surnuméraire (Setup exécuté deux
+        // fois, raccourci ouvert pendant un démarrage lent) se ferme
+        // immédiatement et silencieusement — plus jamais de fenêtres en
+        // double ni de mixer.json corrompu par écritures concurrentes.
+        using var instance = SingleInstanceGuard.Acquire("RoomEq.App.SingleInstance");
+        if (instance == null)
+            return 0;
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         return 0;
