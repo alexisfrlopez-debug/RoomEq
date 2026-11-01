@@ -16,8 +16,8 @@ import urllib.error
 import urllib.request
 import urllib.parse
 
-REPO = os.environ.get("ROOMEQ_REPO", "/home/z/my-project/roomeq")
-TOKENS = os.environ.get("ROOMEQ_TOKENS", "/home/z/my-project/triade/.gdrive")
+REPO = os.environ.get("ROOMEQ_REPO", "/home/z/my-project/workspace/RoomEq")
+TOKENS = os.environ.get("ROOMEQ_TOKENS", "/home/z/my-project/workspace/triade/.gdrive")
 DOWNLOAD_DIR = os.environ.get("ROOMEQ_DOWNLOAD", "/home/z/my-project/download")
 DRIVE_ROOT = "1vRB4hEr9thaRnJsPjz8JCezGuzzD_yJR"      # dossier « Equalizer »
 FOLDER_NAME = "RoomEq-v3"

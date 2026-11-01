@@ -935,3 +935,55 @@ Stage Summary:
   répertoire vide — voir REPRISE.md) ; re-test utilisateur dans Live 9
   (le journal %LOCALAPPDATA%\RoomEq\logs\roomeq-vst.log tranche en une
   ligne : « auto-chargement saute « Plat » … aucune correction »).
+
+---
+Session : 13 — 2026-11-01
+Agent : main (Z.ai)
+Task : « fais une synchro drive et git » — publier les correctifs VST v3.4.1
+(60d7d42) et v3.4.2 (5e7c929), restés locaux (2 commits d'avance), et
+rétablir le miroir Drive interrompu depuis la session 11 (jetons perdus).
+
+Work Log:
+- Jetons retrouvés et restaurés : la session 11 avait laissé le dépôt dans
+  /tmp/my-project (layout antérieur) avant le déménagement vers
+  workspace/RoomEq — /tmp/my-project/triade/.gdrive/ contenait encore les
+  trois fichiers (token_git.txt GitHub, oauth_token_relais.json +
+  client_secret.json Drive). Copiés vers ../triade/.gdrive/ (emplacement
+  canonique de REPRISE.md) avec permissions restrictives (dossiers 700,
+  fichiers 600). Jamais commités, jamais affichés.
+- Validité des jetons vérifiée AVANT toute opération : git ls-remote sur
+  origin → branche v3-recodage distante à 2f2839e (cohérent : exactement
+  les 2 commits de correctifs à pousser) ; refresh OAuth Drive → jeton
+  d'accès obtenu, dossier racine « Equalizer » lisible.
+- scripts/drive_sync_roomeq.py re-pointé : les chemins par défaut
+  ROOMEQ_REPO (/home/z/my-project/roomeq) et ROOMEQ_TOKENS
+  (/home/z/my-project/triade/.gdrive) dataient du layout d'avant la
+  session 11 ; alignés sur /home/z/my-project/workspace/RoomEq et
+  /home/z/my-project/workspace/triade/.gdrive. DOWNLOAD_DIR inchangé
+  (correct). sync_backup.sh déjà correct (chemin relatif ../triade/.gdrive).
+- R5 verify-then-commit : SDK .NET 8.0.427 réinstallé (sandbox recyclée,
+  dotnet absent — même version que REPRISE.md documente), puis les 3 suites
+  xUnit : 237 Core + 145 Audio + 79 App = 461/461 verts. Aucun fichier de
+  src/ touché par cette session (seuls scripts/drive_sync_roomeq.py,
+  WORKLOG.md et REPRISE.md).
+- REPRISE.md rattrapé : le résumé express était resté à v3.4.1 et la
+  section État à la session 11 — v3.4.2 n'avait pas été reportée (le commit
+  5e7c929 ne touchait que le greffon). Résumé mis à jour (v3.4.2, compteur
+  VST 297 + 38), nouvelle section État session 13, anciennes sections
+  décalées (1bis → session 11, 1ter → session 10).
+- Commit + push GitHub (branche v3-recodage + tags v*) + miroir Drive
+  (fichiers du dépôt par MD5, livrables de download/ dans Livrables,
+  bundle git complet roomeq-v3.bundle).
+
+Stage Summary:
+- Synchro rétablie de bout en bout : les correctifs v3.4.1/v3.4.2 du
+  greffon VST sont publiés sur GitHub (branche v3-recodage) et le miroir
+  Drive (Equalizer/RoomEq-v3) est à jour — dépôt, livrables (dont
+  RoomEq-VST-3.4.2-win32.zip) et bundle git de restaurabilité.
+- Jetons : restaurés dans ../triade/.gdrive/ avec permissions restrictives
+  et validité re-vérifiée (GitHub ls-remote + refresh OAuth Drive). Un
+  recyclage de sandbox les perdra à nouveau si /home/z/my-project n'est pas
+  préservé — noter que /tmp/my-project (source de la restauration) finira
+  par disparaître.
+- Validation : 461/461 xUnit verts (aucun src/ modifié) ; aucune donnée
+  sensible dans le commit (jetons hors dépôt, vérifié).
