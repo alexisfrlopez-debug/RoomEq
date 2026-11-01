@@ -102,7 +102,8 @@ def update_existing(file_id, path, token):
         r.read()
 
 
-def resumable_upload(path, token, name=None, file_id=None, parents=None):
+def resumable_upload(path, token, name=None, file_id=None, parents=None,
+                      content_type="application/zip"):
     """Téléversement resumable par morceaux de 8 Mo (gros fichiers).
 
     Création (name+parents) ou mise à jour (file_id) ; gère les réponses
@@ -121,7 +122,7 @@ def resumable_upload(path, token, name=None, file_id=None, parents=None):
     req = urllib.request.Request(init_url, method=method, data=init_data,
                                  headers={"Authorization": f"Bearer {token}",
                                           "Content-Type": "application/json; charset=UTF-8",
-                                          "X-Upload-Content-Type": "application/zip",
+                                          "X-Upload-Content-Type": content_type,
                                           "X-Upload-Content-Length": str(total)})
     with urllib.request.urlopen(req, timeout=120) as r:
         session_uri = r.headers["Location"]
@@ -176,29 +177,43 @@ def mirror(local_dir, folder_id, token, rel=""):
 
 
 def sync_deliverables(folder_id, token):
-    """Téléverse les livrables RoomEq-*.zip de download/ dans « Livrables »."""
+    """Téléverse les livrables de download/ dans « Livrables ».
+
+    D20 : zips RoomEq-* + installateurs 1 clic (RoomEq-win-Setup.exe,
+    RoomEq-AU-*.pkg) + LISEZMOI du greffon (RoomEq-AU-LISEZMOI.md).
+    """
     if not os.path.isdir(DOWNLOAD_DIR):
         print("Livrables : dossier download/ absent — rien à faire")
         return
-    zips = sorted(f for f in os.listdir(DOWNLOAD_DIR)
-                  if f.startswith("RoomEq-") and f.endswith(".zip"))
-    if not zips:
-        print("Livrables : aucun zip RoomEq-* dans download/ — rien à faire")
+    content_types = {
+        ".zip": "application/zip",
+        ".exe": "application/vnd.microsoft.portable-executable",
+        ".pkg": "application/x-newton-compatible-pkg",
+        ".md": "text/markdown",
+    }
+    files = sorted(f for f in os.listdir(DOWNLOAD_DIR)
+                   if f.startswith("RoomEq-")
+                   and f.endswith(tuple(content_types)))
+    if not files:
+        print("Livrables : aucun fichier RoomEq-* dans download/ — rien à faire")
         return
     liv_id = ensure_folder(folder_id, DELIVERABLES_FOLDER, token)
     children = list_children(liv_id, token)
-    print(f"Livrables → {FOLDER_NAME}/{DELIVERABLES_FOLDER} ({len(zips)} zips) :")
-    for z in zips:
+    print(f"Livrables → {FOLDER_NAME}/{DELIVERABLES_FOLDER} ({len(files)} fichiers) :")
+    for z in files:
         p = os.path.join(DOWNLOAD_DIR, z)
         size_mb = os.path.getsize(p) / (1024 * 1024)
         with open(p, "rb") as f:
             md5 = hashlib.md5(f.read()).hexdigest()
         remote = children.get(z)
+        ctype = content_types[z[z.rfind("."):]]
         if remote is None:
-            resumable_upload(p, token, name=z, parents=[liv_id])
+            resumable_upload(p, token, name=z, parents=[liv_id],
+                             content_type=ctype)
             print(f"  + {z} ({size_mb:.1f} Mo) : téléversé")
         elif remote.get("md5Checksum") != md5:
-            resumable_upload(p, token, file_id=remote["id"])
+            resumable_upload(p, token, file_id=remote["id"],
+                             content_type=ctype)
             print(f"  ± {z} ({size_mb:.1f} Mo) : mis à jour")
         else:
             print(f"  = {z} ({size_mb:.1f} Mo) : inchangé")
