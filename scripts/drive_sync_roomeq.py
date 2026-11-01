@@ -22,7 +22,8 @@ DOWNLOAD_DIR = os.environ.get("ROOMEQ_DOWNLOAD", "/home/z/my-project/download")
 DRIVE_ROOT = "1vRB4hEr9thaRnJsPjz8JCezGuzzD_yJR"      # dossier « Equalizer »
 FOLDER_NAME = "RoomEq-v3"
 DELIVERABLES_FOLDER = "Livrables"
-EXCLUDE_DIRS = {".git", "bin", "obj", ".vs", "tmp-diag", "roomeq-git-ref", "roomeq-legacy", "publish", "dist"}
+EXCLUDE_DIRS = {".git", "bin", "obj", ".vs", "tmp-diag", "roomeq-git-ref",
+                "roomeq-legacy", "publish", "dist", "build", "__pycache__"}
 
 
 def get_access_token():

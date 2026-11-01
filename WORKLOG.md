@@ -971,6 +971,13 @@ Work Log:
   5e7c929 ne touchait que le greffon). Résumé mis à jour (v3.4.2, compteur
   VST 297 + 38), nouvelle section État session 13, anciennes sections
   décalées (1bis → session 11, 1ter → session 10).
+- Hygiène du miroir corrigée : le premier passage avait téléversé
+  natif/roomeq-vst/build/ (87 fichiers d'artefacts CMake — .so, tests,
+  CMakeFiles…) et scripts/__pycache__/ car EXCLUDE_DIRS ne connaissait pas
+  « build » ni « __pycache__ » (seuls bin/obj/dist… y figuraient ; build/
+  est ignoré par git depuis v3.4.2). Les deux dossiers sont mis à la
+  corbeille Drive (restaurables 30 j) et EXCLUDE_DIRS étendu — le miroir
+  reflète à nouveau exactement les fichiers suivis.
 - Commit + push GitHub (branche v3-recodage + tags v*) + miroir Drive
   (fichiers du dépôt par MD5, livrables de download/ dans Livrables,
   bundle git complet roomeq-v3.bundle).
