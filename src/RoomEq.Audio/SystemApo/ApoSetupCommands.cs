@@ -41,10 +41,31 @@ public static class ApoSetupCommands
         if (!deploy.Success)
             return deploy;
 
+        // v3.9.8 — PRÉ-VOL : avant de toucher au registre, la DLL doit passer
+        // l'AUTO-TEST COM complet (chargement, CoCreateInstance via
+        // l'inscription réelle, quatre interfaces, enregistrement,
+        // LockForProcess, APOProcess sur un signal témoin, UnlockForProcess).
+        // Retour terrain v3.9.7 : « l'activation coupe la sortie » — un échec
+        // ici est désormais bloquant AVANT toute écriture : la sortie ne peut
+        // PLUS être mise en danger par une DLL que notre propre processus
+        // n'arrive pas à instancier, et le verdict nomme l'étape exacte.
+        string dll = Path.Combine(ApoConstants.DeployedBinDir, ApoConstants.DeployedDllName);
+        var selfTest = ApoDllSelfTest.Run(dll);
+        if (!selfTest.Passed)
+            return ApoInstallResult.Fail(ApoFailureDiagnostics.SelfTestBlocked(selfTest, dll));
+
         var registrar = Registrar();
         var result = registrar.Enable(endpointKey);
         if (!result.Success)
             return result;
+
+        // v3.9.8 — inventaire des positions AVANT tout rollback : l'état
+        // FxProperties au moment de l'activation fait partie du diagnostic
+        // (variantes « multi » = Windows ignore les CLSID simples ; CLSID
+        // constructeur en SFX/MFX = chaîne non vide à contourner).
+        var inventory = CaptureSlotInventory(endpointKey);
+        string slotChosen = ApoSlotPolicy.SlotName(
+            registrar.EnabledSlot(endpointKey) ?? ApoFxSlot.Efx) ?? "EFX";
 
         RestartAudioService();
 
@@ -52,32 +73,33 @@ public static class ApoSetupCommands
         // service, on VÉRIFIE que la sortie répond toujours au rendu WASAPI.
         // Un endpoint dont le moteur audio n'a pas pu charger l'APO ne
         // construit PAS son graphe : plus de son du tout (« Failed to play
-        // test tone », mixeur vide — retour terrain v3.9.6 : « dès que l'EQ
-        // est activé sur une sortie, je n'ai plus de son sur cette sortie »).
-        // Sortie morte → RESTAURATION AUTOMATIQUE immédiate de l'origine +
-        // nouveau redémarrage : l'utilisateur garde toujours du son, et le
-        // verdict explique au lieu de laisser une sortie muette.
-        var health = VerifyEndpointHealth(endpointKey);
-        if (health.Health == ApoActivationHealth.DeadEndpoint)
+        // test tone », mixeur vide — retour terrain v3.9.6/v3.9.7). Sortie
+        // morte → RESTAURATION AUTOMATIQUE immédiate de l'origine + nouveau
+        // redémarrage : l'utilisateur garde toujours du son, et le verdict
+        // EMBARQUE LE DIAGNOSTIC DIFFÉRENTIEL COMPLET (v3.9.8).
+        var (health, probeError, logShowsLoad) = VerifyEndpointHealth(endpointKey);
+        if (health == ApoActivationHealth.DeadEndpoint)
         {
+            string diag = ApoFailureDiagnostics.ComposeDeadEndpoint(new ApoDeadEndpointContext(
+                Engine: ReadEnginePrerequisites(),
+                LogShowsLoad: logShowsLoad,
+                LogTail: ReadLogTailLines(3),
+                ProbeError: probeError,
+                SelfTest: selfTest,
+                Inventory: inventory,
+                SlotChosen: slotChosen,
+                OsVersion: Environment.OSVersion.VersionString));
             Registrar().Disable(endpointKey);          // restaure l'origine
             RestartAudioService();                    // le graphe d'origine revient
-            return ApoInstallResult.Fail(
-                "LE SON A ÉTÉ PRÉSERVÉ : le moteur audio de Windows n'a pas " +
-                "réussi à charger l'égaliseur sur cette sortie (sortie devenue muette " +
-                "→ restaurée automatiquement à son état d'origine, service audio " +
-                "redémarré). Causes possibles : DLL refusée par le moteur malgré le " +
-                "réglage de signature, permissions du dossier %ProgramData%\\RoomEq\\apo\\bin, " +
-                "politique de sécurité tierce. Transmettez ce message complet " +
-                "(il contient le diagnostic) — un redémarrage de Windows peut aussi " +
-                "débloquer le chargement (le réglage est lu à la création du moteur).");
+            return ApoInstallResult.Fail(diag);
         }
 
         return ApoInstallResult.Ok(result.Message +
             " Le service audio a été redémarré : le son s'interrompt environ une seconde." +
             " Le moteur audio accepte désormais les DLL non signées (réglage réversible d'Equalizer APO) : " +
             "les rares applications exigeant un chemin audio protégé peuvent refuser de jouer. " +
-            (health.Health == ApoActivationHealth.Healthy
+            " Auto-test DLL : " + selfTest.Summary() + "." +
+            (health == ApoActivationHealth.Healthy
                 ? " Vérifié : la sortie répond et l'APO est chargé (journal à l'heure)."
                 : " Vérifié : la sortie répond au rendu (journal de l'APO muet — permissions « %ProgramData% » ; sans conséquence sur le son)."));
     }
@@ -99,6 +121,14 @@ public static class ApoSetupCommands
         var (deploy, fixedPrerequisites) = Deploy(appBase); // ré-installe aussi les DLL/CLSID manquants
         if (!deploy.Success)
             return deploy;
+
+        // v3.9.8 : même pré-vol que l'activation — réparer ne doit jamais
+        // exposer une sortie à une DLL que notre propre processus
+        // n'instancie pas.
+        string dll = Path.Combine(ApoConstants.DeployedBinDir, ApoConstants.DeployedDllName);
+        var selfTest = ApoDllSelfTest.Run(dll);
+        if (!selfTest.Passed)
+            return ApoInstallResult.Fail(ApoFailureDiagnostics.SelfTestBlocked(selfTest, dll));
 
         int repaired = Registrar().RepairEnabled();
         if (repaired > 0 || fixedPrerequisites)
@@ -127,7 +157,9 @@ public static class ApoSetupCommands
                 return ApoInstallResult.Fail(
                     "LE SON A ÉTÉ PRÉSERVÉ : " + rolledBack + " sortie(s) restaurée(s) " +
                     "automatiquement (le moteur audio n'a pas réussi à charger l'égaliseur " +
-                    "dessus). Transmettez ce message — il contient le diagnostic ; un " +
+                    "dessus). Auto-test DLL : " + selfTest.Summary() + " · Prérequis moteur : " +
+                    ApoFailureDiagnostics.DescribeEngine(ReadEnginePrerequisites()) +
+                    ". Transmettez ce message — il contient le diagnostic ; un " +
                     "redémarrage de Windows peut aussi débloquer le chargement.");
             }
             return ApoInstallResult.Ok(string.Join(" · ", parts) + ".");
@@ -155,24 +187,26 @@ public static class ApoSetupCommands
     /// sortie, puis croise la sonde WASAPI (silencieuse) et la trace de
     /// chargement de l'APO (apo.log, y compris le journal de repli du profil
     /// service). Jamais d'exception ; verdict piloté par ApoActivationPolicy.
+    /// v3.9.8 : remonte AUSSI l'erreur exacte de la dernière tentative de
+    /// sonde et l'état « journal » — éléments du diagnostic différentiel.
     /// </summary>
-    private static (ApoActivationHealth Health, bool LogShowsLoad) VerifyEndpointHealth(
+    private static (ApoActivationHealth Health, string? ProbeError, bool LogShowsLoad) VerifyEndpointHealth(
         string endpointKey)
     {
         const int maxAttempts = 4;
-        var probe = ApoEndpointProbe.Probe(endpointKey);
-        for (int attempt = 1; attempt <= maxAttempts && probe == ApoProbeResult.DeadGraph; attempt++)
+        var probe = ApoEndpointProbe.ProbeDetailed(endpointKey);
+        for (int attempt = 1; attempt <= maxAttempts && probe.Result == ApoProbeResult.DeadGraph; attempt++)
         {
             Thread.Sleep(attempt == 1 ? 800 : 1500);
-            probe = ApoEndpointProbe.Probe(endpointKey);
-            if (probe != ApoProbeResult.DeadGraph)
+            probe = ApoEndpointProbe.ProbeDetailed(endpointKey);
+            if (probe.Result != ApoProbeResult.DeadGraph)
                 break;
             bool witness = ApoEndpointProbe.AnyOtherAlive(endpointKey);
             if (!ApoActivationPolicy.ShouldRetryProbe(attempt, maxAttempts, witness))
                 break; // témoin vivant et elle morte : verdict immédiat
         }
         bool loaded = LogShowsLoad();
-        return (ApoActivationPolicy.Evaluate(probe, loaded), loaded);
+        return (ApoActivationPolicy.Evaluate(probe.Result, loaded), probe.LastError, loaded);
     }
 
     /// <summary>
@@ -209,6 +243,79 @@ public static class ApoSetupCommands
         yield return Path.Combine(
             Environment.GetEnvironmentVariable("SystemRoot") ?? "C:\\Windows",
             "ServiceProfiles", "LocalService", "AppData", "Local", "Temp", "RoomEqApo.log");
+    }
+
+    // ------------------------------------------- diagnostics v3.9.8 (élevé)
+
+    /// <summary>
+    /// Prérequis machine du chargement APO, lus APRÈS l'échec (miroir du
+    /// panneau) : chaque maillon faux est nommé dans le verdict.
+    /// </summary>
+    private static ApoEnginePrerequisites ReadEnginePrerequisites()
+    {
+        try
+        {
+            return new ApoEnginePrerequisites(
+                ApoEnginePolicy.IsDllLoadAllowed(WindowsApoEndpointStore.GetProtectedAudioDg()),
+                WindowsApoEndpointStore.IsEngineRegistered(),
+                WindowsApoEndpointStore.ComRegistered(
+                    Path.Combine(ApoConstants.DeployedBinDir, ApoConstants.DeployedDllName)));
+        }
+        catch
+        {
+            return new ApoEnginePrerequisites(false, false, false); // registre illisible : tout signaler
+        }
+    }
+
+    /// <summary>
+    /// Inventaire des positions FxProperties de l'endpoint (SFX/MFX/EFX et
+    /// variantes « multi ») — capturé AVANT tout rollback pour le diagnostic.
+    /// Jamais d'exception, inventaire vide sinon.
+    /// </summary>
+    private static ApoSlotInventory? CaptureSlotInventory(string endpointKey)
+    {
+        try
+        {
+            var store = new WindowsApoEndpointStore();
+            return new ApoSlotInventory(
+                store.GetString(endpointKey, ApoConstants.FxStreamEffectClsid),
+                store.GetString(endpointKey, ApoConstants.FxModeEffectClsid),
+                store.GetString(endpointKey, ApoConstants.FxEndpointEffectClsid),
+                store.GetStrings(endpointKey, ApoConstants.FxMultiStreamEffectClsid) != null,
+                store.GetStrings(endpointKey, ApoConstants.FxMultiModeEffectClsid) != null,
+                store.GetStrings(endpointKey, ApoConstants.FxMultiEndpointEffectClsid) != null);
+        }
+        catch
+        {
+            return null; // registre indisponible : pas d'inventaire, pas d'exception
+        }
+    }
+
+    /// <summary>
+    /// Dernières lignes du journal de l'APO (principal ou repli), pour le
+    /// diagnostic — liste vide si aucun n'est lisible.
+    /// </summary>
+    private static IReadOnlyList<string> ReadLogTailLines(int maxLines)
+    {
+        foreach (string path in LogCandidatePaths())
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    continue;
+                var lines = File.ReadAllLines(path)
+                    .Where(l => l.Trim().Length > 0)
+                    .TakeLast(maxLines)
+                    .ToList();
+                if (lines.Count > 0)
+                    return lines;
+            }
+            catch
+            {
+                // journal occupé : essayer le suivant
+            }
+        }
+        return Array.Empty<string>();
     }
 
     // ---------------------------------------------------------------- désinstallation
@@ -441,11 +548,72 @@ public static class ApoSetupCommands
     private static void RestartAudioService()
     {
         // net.exe accepte /y pour les services dépendants ; les codes de
-        // retour sont ignorés (meilleur effort — certaines politiques
-        // interdisent l'arrêt, l'utilisateur sera prévenu par le son lui-même)
+        // retour sont ignorés (certaines politiques interdisent l'arrêt).
         Run("net", "stop audiosrv /y", waitForExit: true);
         Run("net", "start audiosrv", waitForExit: true);
+        // v3.9.8 — le verdict de la sonde n'a de valeur que si le moteur a
+        // VRAIMENT relu les FxProperties : on attend l'état RUNNING (sc query
+        // — code d'état numérique 4, indépendant de la langue) au lieu d'un
+        // simple Sleep, puis on laisse audiodg se relancer.
+        for (int i = 0; i < 20 && !AudioServiceRunning(); i++)
+            Thread.Sleep(500);
         Thread.Sleep(400); // laisse audiodg se relancer et relire FxProperties
+    }
+
+    /// <summary>Le service audio est-il RUNNING ? (sc query, code numérique
+    /// — la formulation du texte d'état est LOCALISÉE, pas le code).</summary>
+    private static bool AudioServiceRunning()
+    {
+        try
+        {
+            string? output = RunCapture("sc.exe", "query audiosrv");
+            if (output == null)
+                return false;
+            foreach (string line in output.Split('\n'))
+            {
+                int colon = line.IndexOf(':');
+                if (colon <= 0)
+                    continue;
+                string value = line[(colon + 1)..].Trim();
+                if (value.StartsWith("4 ") || value == "4")
+                    return true; // SERVICE_RUNNING
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Exécute et capture la sortie standard (null si échec).</summary>
+    private static string? RunCapture(string fileName, string arguments, int timeoutMs = 10000)
+    {
+        try
+        {
+            using var p = Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+            });
+            if (p == null)
+                return null;
+            string output = p.StandardOutput.ReadToEnd();
+            if (!p.WaitForExit(timeoutMs))
+            {
+                try { p.Kill(); } catch { /* déjà parti */ }
+                return null;
+            }
+            return output;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static void Run(string fileName, string arguments, bool waitForExit = true)

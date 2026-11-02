@@ -27,22 +27,41 @@ public enum ApoProbeResult
 /// documenté par le terrain. La sonde rend ~120 ms de SILENCE (aucune
 /// interruption audible).
 ///
+/// v3.9.8 : le verdict embarque aussi l'ERREUR EXACTE (HRESULT + message)
+/// de la dernière tentative — avaler l'exception rendait le diagnostic
+/// aveugle.
+///
 /// Windows uniquement ; inerte (DeviceAbsent) ailleurs, jamais d'exception.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class ApoEndpointProbe
 {
+    /// <summary>Verdict de sonde + erreur exacte de la dernière tentative.</summary>
+    public sealed record Outcome(ApoProbeResult Result, string? LastError)
+    {
+        public static Outcome Absent() => new(ApoProbeResult.DeviceAbsent, null);
+    }
+
     /// <summary>Sonde la sortie désignée par sa clé registre (« {GUID} »).</summary>
     public static ApoProbeResult Probe(string endpointKey)
+        => ProbeDetailed(endpointKey).Result;
+
+    /// <summary>
+    /// Sonde détaillée (v3.9.8) : verdict + erreur exacte de la dernière
+    /// tentative (HRESULT décodé + message), pour le diagnostic du verdict
+    /// d'activation.
+    /// </summary>
+    public static Outcome ProbeDetailed(string endpointKey)
     {
         if (!OperatingSystem.IsWindows() || string.IsNullOrEmpty(endpointKey))
-            return ApoProbeResult.DeviceAbsent;
+            return Outcome.Absent();
         MMDevice? dev = FindDevice(endpointKey);
         if (dev == null)
-            return ApoProbeResult.DeviceAbsent; // débranché : pas un verdict
+            return Outcome.Absent(); // débranché : pas un verdict
         using (dev)
         {
-            return ProbeDevice(dev) ? ApoProbeResult.Alive : ApoProbeResult.DeadGraph;
+            var (alive, error) = ProbeDeviceDetailed(dev);
+            return new Outcome(alive ? ApoProbeResult.Alive : ApoProbeResult.DeadGraph, error);
         }
     }
 
@@ -85,6 +104,14 @@ public static class ApoEndpointProbe
 
     /// <summary>Sonde un périphérique déjà résolu (rend ~120 ms de silence).</summary>
     private static bool ProbeDevice(MMDevice dev)
+        => ProbeDeviceDetailed(dev).Alive;
+
+    /// <summary>
+    /// Sonde un périphérique déjà résolu, en conservant l'erreur exacte
+    /// (v3.9.8) : HRESULT décodé + message de l'exception — le détail qui
+    /// différencie « graphe non construit » de « service absent ».
+    /// </summary>
+    private static (bool Alive, string? Error) ProbeDeviceDetailed(MMDevice dev)
     {
         try
         {
@@ -100,11 +127,15 @@ public static class ApoEndpointProbe
             probe.Play();
             Thread.Sleep(120); // laisse le moteur initialiser le graphe réel
             probe.Stop();
-            return true;
+            return (true, null);
         }
-        catch
+        catch (Exception ex)
         {
-            return false; // AUDCLNT_E_* : le graphe de cette sortie ne se construit pas
+            // AUDCLNT_E_* : le graphe de cette sortie ne se construit pas —
+            // l'erreur exacte remonte au diagnostic (v3.9.8 : plus jamais avalée)
+            string error = ApoHresult.DescribeFull(ex.HResult) + " (" + ex.GetType().Name +
+                           ": " + ex.Message.Trim() + ")";
+            return (false, error);
         }
     }
 

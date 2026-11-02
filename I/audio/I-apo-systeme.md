@@ -1,12 +1,64 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.8 (as-built v3.9.7, 2
-  novembre 2026 — LE SON PASSE AVANT L'ÉGALISEUR : sonde WASAPI post-
-  activation + restauration automatique, ACL bin lisible par tous, écoute
-  suivant la sortie par défaut de Windows) · **Code** :
-  `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/` (N-APO-01)
+- **Module** : M-AUD-09 · **Version de spec** : 1.9 (as-built v3.9.8, 2
+  novembre 2026 — position ADAPTÉE AU PÉRIPHÉRIQUE (MFX pour les
+  Bluetooth « combinés » de Windows 11), AUTO-TEST COM PRÉ-VOL de la DLL
+  avant toute écriture registre, verdict d'échec DIFFÉRENTIEL complet) ·
+  **Code** : `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/`
+  (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.9** : retour terrain v3.9.7 — capture ENFIN transmise
+  (« Échec de l'activation de 'Casque JBL Tune Flex 2' — LE SON A ÉTÉ
+  PRÉSERVÉ : le moteur audio n'a pas réussi à charger l'égaliseur ») :
+  la sonde et le rollback ont fonctionné comme prévu, mais le verdict ne
+  contenait AUCUN élément différentiel et le journal de l'APO restait
+  vide (la DLL n'est toujours jamais instanciée par audiodg). FAIT
+  ÉTABLI (source d'Equalizer APO LUE INTÉGRALEMENT, `DeviceAPOInfo.cpp`) :
+  « bluetooth devices may be combined in Windows 11, EFX will not work
+  then » — un endpoint qui porte la propriété « périphérique combiné »
+  (`{b3f8fa53-0004-438e-9003-51a46e139bfc},41` dans sa sous-clé
+  \Properties — cas des Bluetooth sous Windows 11, dont le casque du
+  retour terrain) ne doit PAS recevoir d'effet en position EFX : la
+  référence installe en SFX/MFX. Croisements : ticket Equalizer APO #77
+  (PIDs complets SFX ,5 / MFX ,6 / EFX ,7 / multi ,13-15 ; « If Multiple
+  APO CLSID exist, Windows will ignore Single APO CLSID ») et notes
+  É. Dechamps (« If any of SFX, MFX or EFX are present, then LFX and GFX
+  are ignored »). Correctifs v3.9.8 : (af) **position adaptée au
+  périphérique** — `ApoSlotPolicy` (PUR) choisit EFX par défaut, **MFX
+  (,6) pour les périphériques combinés** (détection :
+  `IApoEndpointStore.GetDeviceProperty`, nouveau membre, lecture de
+  \Properties) ; la sauvegarde mémorise le slot (`SlotUsed`, null = EFX
+  pour les sauvegardes ≤ v3.9.7), capture l'origine MFX (CLSID + modes
+  ,6), nettoie notre CLSID de l'AUTRE position (migration propre
+  v3.9.7→v3.9.8), traite un CLSID déjà à nous comme ABSENT (comportement
+  Equalizer APO sur ses propres GUID), répare dans la position
+  mémorisée ; (ag) **auto-test COM pré-vol** (`ApoDllSelfTest` + rapport
+  `ApoSelfTest` + décodage `ApoHresult`) — dans le processus élevé,
+  AVANT toute écriture registre, la DLL déroule le parcours exact
+  d'audiodg : LoadLibraryExW (code Win32 exact 5/126/193/1114/14001
+  décodé), DllGetClassObject, CoCreateInstance VIA l'inscription COM
+  réelle (avec différentiel fabrique directe : « inscription en cause »
+  vs « DLL en cause »), QueryInterface des QUATRE interfaces (IIDs
+  verrouillées par tests réflexion = miroir apo_abi.h),
+  GetRegistrationProperties (CLSID + drapeaux relus), Initialize,
+  LockForProcess au format de mixage 48 kHz/2 voies/float32
+  (IAudioMediaType synthétique en CCW managé), APOProcess sur 256 trames
+  d'un signal témoin (l'énergie doit traverser — courbe vide =
+  transparence), UnlockForProcess ; un échec BLOQUE l'activation («
+  ACTIVATION BLOQUÉE AVANT TOUTE MODIFICATION » + étape exacte + HRESULT)
+  : la sortie ne peut plus être exposée à une DLL non instanciable ; (ah)
+  **verdict différentiel complet** (`ApoFailureDiagnostics`, PUR) — le
+  message « LE SON A ÉTÉ PRÉSERVÉ » embarque : auto-test (OK = DLL
+  saine → cause côté moteur), prérequis moteur (signature / inscription
+  moteur / inscription COM), trace de chargement + dernières lignes du
+  journal (principal ou repli), ERREUR EXACTE de la sonde WASAPI
+  (l'exception n'est plus avalée — HRESULT AUDCLNT_E_* décodé), position
+  choisie, inventaire des positions (multi* signalés « Windows ignore
+  alors les CLSID simples »), version de Windows ; même pré-vol et
+  éléments en réparation ; le redémarrage du service audio attend
+  désormais VRAIMENT l'état RUNNING (sc query, code numérique
+  indépendant de la langue) avant de sonder.
 - **As-built v1.8** : retour terrain v3.9.6 — « dès que l'EQ est activé sur
   une sortie, je n'ai plus de son sur cette sortie jusqu'à ce que je
   désactive l'EQ ». FAIT ÉTABLI (terrain documenté, cas Dolby/Win10) : un

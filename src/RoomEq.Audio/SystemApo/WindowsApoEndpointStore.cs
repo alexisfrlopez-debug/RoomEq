@@ -261,6 +261,30 @@ public sealed class WindowsApoEndpointStore : IApoEndpointStore
             k.SetValue(valueName, values.ToArray(), RegistryValueKind.MultiString);
     }
 
+    // ------------------------------------- propriétés d'endpoint (v3.9.8)
+
+    /// <summary>
+    /// Valeur REG_SZ de la sous-clé <c>\Properties</c> de l'endpoint : sert à
+    /// détecter les périphériques COMBINÉS (Bluetooth Windows 11 — valeur
+    /// <c>{b3f8fa53-…},41</c>) pour choisir la position FxProperties.
+    /// Lecture seule, jamais d'exception, null si absente.
+    /// </summary>
+    public string? GetDeviceProperty(string endpointKey, string valueName)
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+        try
+        {
+            using var hklm = OpenHklm();
+            using var k = hklm.OpenSubKey(EndpointPath(endpointKey) + @"\Properties");
+            return k?.GetValue(valueName) as string;
+        }
+        catch
+        {
+            return null; // clé absente ou accès refusé : considérée absente
+        }
+    }
+
     // ------------------------------------------- structure de la sous-clé (v3.9.1)
 
     public bool FxPropertiesExists(string endpointKey)

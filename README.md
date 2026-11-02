@@ -108,7 +108,29 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   défaut : « barre de volume sans effet »), interface déclarée au moteur
   alignée sur SysVAD/Equalizer APO (APOInterface0 =
   IAudioProcessingObject) et journal de l'APO avec repli dans le profil
-  du service (spec I-AUD-09 v1.8, 531 → 550 tests)
+  du service (spec I-AUD-09 v1.8, 531 → 550 tests) ; **v3.9.8** : le
+  retour terrain v3.9.7 ENFIN transmis complet (« activation du casque
+  JBL échouée — le son a été préservé ») a montré un rollback efficace
+  mais un verdict AVEUGLE (journal APO vide : la DLL jamais instanciée,
+  aucune cause désignable). La source d'Equalizer APO lue intégralement
+  contient le fait décisif : « bluetooth devices may be combined in
+  Windows 11, EFX will not work then » — notre position EFX (,7) est
+  exactement celle que la référence évite sur les périphériques combinés
+  (Bluetooth Windows 11, dont le casque du retour terrain). TROIS
+  correctifs : position ADAPTÉE AU PÉRIPHÉRIQUE (MFX ,6 pour les
+  combinés, EFX sinon, slot mémorisé dans la sauvegarde, origine MFX
+  capturée, notre CLSID périmé traité comme absent, réparation au slot —
+  comportement Equalizer APO), AUTO-TEST COM PRÉ-VOL de la DLL dans le
+  processus élevé AVANT toute écriture registre (chargement,
+  CoCreateInstance via l'inscription réelle, 4 interfaces, enregistrement,
+  LockForProcess, APOProcess sur un signal témoin, UnlockForProcess — un
+  échec BLOQUE l'activation sans risque pour le son et nomme l'étape +
+  son HRESULT), et verdict DIFFÉRENTIEL complet en cas d'échec moteur
+  (auto-test, prérequis, trace de chargement, erreur exacte de la sonde
+  WASAPI — l'exception n'est plus avalée —, inventaire des positions avec
+  alerte multi*, version Windows) ; redémarrage du service audio
+  attendant vraiment RUNNING (sc query, code numérique indépendant de la
+  langue) (spec I-AUD-09 v1.9, 550 → 598 tests)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`

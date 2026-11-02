@@ -2524,3 +2524,124 @@ Stage Summary:
   débloquer le chargement). Vérifier aussi la barre de volume en
   changeant la sortie par défaut de Windows pendant que l'appli est
   ouverte.
+
+---
+Session : 30 — 2026-11-02
+Agent : main (Z.ai)
+Task : Retour terrain v3.9.7 ENFIN transmis complet (capture du panneau EQ
+système : « Échec de l'activation de 'Casque JBL Tune Flex 2' — LE SON A ÉTÉ
+PRÉSERVÉ : le moteur audio de Windows n'a pas réussi à charger l'égaliseur
+(sortie devenue muette → restaurée automatiquement à son état d'origine,
+service audio redémarré) ») : le rollback v3.9.7 a fonctionné comme prévu,
+mais le verdict ne contenait AUCUN élément différentiel et le journal de
+l'APO restait vide — la DLL n'est toujours jamais instanciée par audiodg.
+Diagnostic + correctif v3.9.8.
+
+Work Log:
+- **Le message d'erreur est enfin parvenu** (3e tentative de l'utilisateur) :
+  il confirme le mécanisme v3.9.7 (sonde → rollback → verdict) ET son
+  insuffisance : « il contient le diagnostic » promettait le message, mais
+  rien n'y départiquait les causes (pas de HRESULT, pas d'état moteur, pas
+  de trace de chargement, pas d'exception de sonde).
+- **Cause PROBABLE identifiée dans la source de référence elle-même** :
+  DeviceAPOInfo.cpp d'Equalizer APO (miroir GitHub, lu intégralement en
+  session) contient le commentaire exact « bluetooth devices may be
+  combined in Windows 11, EFX will not work then » — quand l'endpoint
+  porte la propriété « périphérique combiné » ({b3f8fa53-0004-438e-9003-
+  51a46e139bfc},41 dans \Properties — cas des Bluetooth sous Windows 11),
+  la référence n'installe PAS en EFX mais en SFX/MFX. Le casque JBL de
+  l'utilisateur est Bluetooth sous Windows 11 : notre position EFX (,7)
+  est exactement la position que la référence évite sur ce matériel.
+  Lecture croisée complémentaire : ticket Equalizer APO #77 (PID complets
+  SFX ,5 / MFX ,6 / EFX ,7 / multi ,13-15 ; « If Multiple APO CLSID
+  exist, Windows will ignore Single APO CLSID ») et notes É. Dechamps
+  (« If any of SFX, MFX or EFX are present, then LFX and GFX are
+  ignored ») — les verrous littéraux des PID sont désormais testés.
+- **Correctif v3.9.8 — TROIS volets** :
+  1. **Position adaptée au périphérique** (ApoSlotPolicy, PUR + 15 tests) :
+     EFX par défaut, **MFX (,6) pour les périphériques combinés** (la
+     sous-clé \Properties est lue via IApoEndpointStore.GetDeviceProperty —
+     nouveau membre, implémenté Windows + faux registre). Le registrar
+     mémorise la position dans la sauvegarde (SlotUsed, rétrocompatible :
+     null = EFX ≤ v3.9.7), capture l'origine MFX (CLSID + modes ,6), nettoie
+     notre CLSID de l'AUTRE position (migration propre v3.9.7 → v3.9.8),
+     traite un CLSID déjà à nous comme ABSENT (comportement Equalizer APO
+     sur ses propres GUID), répare dans la position mémorisée. IsEnabled
+     couvre les deux positions. +8 tests registrar (MFX écrit pas EFX,
+     origine préservée, restitution exacte, EFX inchangé sinon, CLSID
+     périmé nettoyé jamais restauré, réparation au slot, JSON légal sans
+     SlotUsed → EFX).
+  2. **Auto-test COM PRÉ-VOL** (ApoDllSelfTest + ApoSelfTest + ApoHresult,
+     interop fine + purs) : DANS le processus élevé, AVANT toute écriture
+     registre, la DLL déroule le parcours exact d'audiodg — LoadLibraryExW
+     (code Win32 exact : 5/126/193/1114/14001 décodés), GetProcAddress,
+     CoCreateInstance VIA L'INSCRIPTION COM RÉELLE (avec différentiel
+     fabrique directe : distingue « inscription fausse » de « DLL en
+     cause »), QueryInterface des QUATRE interfaces (IIDs verrouillées),
+     GetRegistrationProperties (CLSID + drapeaux relus), Initialize,
+     LockForProcess au format de mixage 48 kHz/2 voies/float32 (format
+     synthétique IAudioMediaType en CCW managé), APOProcess sur 256
+     trames d'un signal témoin (l'énergie doit traverser — courbe vide =
+     transparence), UnlockForProcess. Un échec BLOQUE l'activation avec
+     « ACTIVATION BLOQUÉE AVANT TOUTE MODIFICATION » + l'étape exacte +
+     son HRESULT décodé : la sortie ne peut plus être exposée à une DLL
+     non instanciable. Layout verrouillé par 9 tests réflexion (DLLs
+     natives, SetLastError, PreserveSig — l'HRESULT doit revenir TEL QUEL
+     pour être diagnostiqué, InterfaceIsIUnknown, tailles marshalées
+     36/40/24 = ABI apo_abi.h, Pack=4).
+  3. **Verdict DIFFÉRENTIEL complet** (ApoFailureDiagnostics, PUR + 12
+     tests) : le message « LE SON A ÉTÉ PRÉSERVÉ » embarque désormais
+     auto-test (OK = DLL saine → cause côté moteur), prérequis moteur
+     (signature/inscription COM/inscription moteur), trace de chargement
+     (journal principal ou repli) + dernières lignes, ERREUR EXACTE de la
+     sonde WASAPI (l'exception n'est plus avalée : HRESULT AUDCLNT_E_*
+     décodé + message), position choisie, inventaire des positions
+     (multi* signalés « Windows ignore alors les CLSID simples »), version
+     de Windows. Idem en réparation (auto-test + prérequis).
+- **Redémarrage du service audio durci** : le verdict de la sonde n'a de
+  valeur que si le moteur a VRAIMENT relu les FxProperties — attente de
+  l'état RUNNING par sc query (code numérique 4, indépendant de la
+  langue ; le texte d'état est localisé, pas le code) jusqu'à 10 s, en
+  plus du redémarrage net stop/net start existant.
+- **Vérifications ABIs re-passées** : les IID/vtables de l'auto-test sont
+  le miroir exact d'apo_abi.h (déjà vérifié contre le SDK 10.0.10240) ;
+  DLL x64+arm64 recompilées (Zig 0.14.1, 112 vérifications au harnais,
+  exports COM et imports CRT système inchangés).
+- **Tests** : 598/598 xUnit (Core 237, Audio 233 → 281 : +15 ApoSlotPolicy,
+  +8 registrar MFX, +12 ApoFailureDiagnostics, +9 ApoDllSelfTestLayout,
+  −6 doublons Describe fusionnés en Theory ; App 80). Build 0 erreur
+  0 avertissement. Harnais APO natif 112/112.
+- **Verrous structurels** : Directory.Build.props + package_v3.sh
+  VERSION 3.9.8 + contrôle v3.9.8 (5 nouveaux fichiers SystemApo + 3
+  fichiers de tests, CombinedDeviceProperty + GUID b3f8fa53 littéral,
+  SlotUsed, GetDeviceProperty, ApoSlotPolicy.Choose, ApoDllSelfTest.Run,
+  SelfTestBlocked, ComposeDeadEndpoint, ProbeDetailed, CoCreateInstance,
+  AudioServiceRunning, MFX dans ApoSlotPolicy).
+- **Docs** : LISEZMOI 3.9.8 (les trois ajouts expliqués à l'utilisateur) ;
+  README (historique) ; WORKLOG session 30 ; spec I-AUD-09 v1.9 (as-built
+  af : position adaptée, auto-test, verdict différentiel) ; CARTE.md
+  (M-AUD-09 v1.9, 17 fichiers) ; REPRISE.md (résumé express + état
+  session 30) ; docs/EQ-SYSTEME-APO.md (fait établi : périphériques
+  combinés → MFX, source DeviceAPOInfo.cpp).
+- **Livrables (D22)** : package_v3.sh (zips test/public/source 3.9.8,
+  contrôles verts dont le verrou v3.9.8) ; build_setup.sh →
+  RoomEq-win-Setup.exe 3.9.8 régénéré et téléversé sur Drive ; anciens
+  zips 3.9.7 archivés dans Livrables/Archive ; miroir Drive complet +
+  push GitHub.
+
+Stage Summary:
+- v3.9.8 : le retour terrain enfin complet a montré que le rollback
+  v3.9.7 protégeait le son mais laissait l'utilisateur (et nous) AVEUGLE
+  sur la cause. Trois réponses : la position d'effet s'adapte au
+  périphérique (MFX pour les Bluetooth « combinés » de Windows 11 — le
+  constat « EFX will not work then » est dans la source d'Equalizer APO
+  elle-même, et le JBL de l'utilisateur est exactement ce cas) ; la DLL
+  passe un auto-test COM complet AVANT toute écriture registre (un échec
+  bloque l'activation sans risque pour le son et nomme l'étape + le code) ;
+  et le verdict d'échec embarque le diagnostic différentiel entier.
+- Prochaine étape : validation terrain Windows — Setup 3.9.8, réactiver
+  l'EQ sur le casque JBL : attendu « activé (position MFX — périphérique
+  combiné) » puis son modifié par la courbe ; si le moteur refuse
+  encore, le message transmis nommera le maillon exact (auto-test,
+  prérequis, trace, erreur sonde, positions, Windows) — plus d'aller-
+  retour d'investigation à l'aveugle.

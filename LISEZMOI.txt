@@ -1,4 +1,4 @@
-RoomEq 3.9.7 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.9.8 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,29 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    550 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    598 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
     build 0 erreur 0 avertissement.
+  • CORRECTIF 3.9.8 — POSITION ADAPTÉE AU PÉRIPHÉRIQUE + AUTO-TEST +
+    DIAGNOSTIC : retour terrain 3.9.7 « activation du casque JBL échouée,
+    le son a été préservé, le moteur n'a pas pu charger l'égaliseur » avec
+    journal de l'APO toujours vide — la DLL n'était jamais instanciée et le
+    message ne permettait pas de savoir pourquoi. Trois ajouts :
+    (1) POSITION ADAPTÉE : les casques et enceintes Bluetooth de Windows 11
+    sont des périphériques « combinés » pour lesquels la position d'effet
+    que nous utilisions ne fonctionne PAS — constat d'Equalizer APO (10+ ans
+    de terrain) : « bluetooth devices may be combined in Windows 11, EFX
+    will not work then ». RoomEq s'inscrit désormais dans la position MFX
+    sur ces sorties, EFX sur les autres (l'origine de chaque position reste
+    sauvegardée et restaurée à l'identique) ; (2) AUTO-TEST AVANT TOUT :
+    avant de toucher au moindre réglage, l'activation fait passer à la DLL
+    de l'égaliseur le même parcours que le moteur audio (chargement,
+    instanciation, interfaces, verrouillage, traitement d'un son témoin) —
+    si la DLL échoue chez vous, l'activation est bloquée SANS AUCUN RISQUE
+    pour le son et le message nomme l'étape exacte et son code d'erreur ;
+    (3) DIAGNOSTIC COMPLET : en cas d'échec de chargement par le moteur, le
+    message embarque désormais tous les éléments (auto-test, prérequis,
+    trace de chargement, erreur exacte de la sonde, positions occupées,
+    version de Windows) — transmettez-le tel quel, il désigne le maillon.
   • CORRECTIF 3.9.7 — LE SON PASSE AVANT L'ÉGALISEUR : retour terrain 3.9.6
     « dès que l'EQ est activé sur une sortie, je n'ai plus de son sur cette
     sortie ». Un égaliseur système que le moteur audio de Windows n'arrive

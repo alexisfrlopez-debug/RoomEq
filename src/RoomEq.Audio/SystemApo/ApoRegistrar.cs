@@ -47,6 +47,14 @@ public interface IApoEndpointStore
     void SetStrings(string endpointKey, string valueName, IReadOnlyList<string>? values);
 
     /// <summary>
+    /// Valeur REG_SZ de la sous-clé <c>\Properties</c> de l'endpoint (null si
+    /// absente — jamais d'exception). v3.9.8 : sert à détecter les
+    /// périphériques COMBINÉS (Bluetooth Windows 11) pour le choix de
+    /// position FxProperties (<see cref="ApoSlotPolicy"/>).
+    /// </summary>
+    string? GetDeviceProperty(string endpointKey, string valueName);
+
+    /// <summary>
     /// La sous-clé FxProperties de cet endpoint existe-t-elle ? Un pilote sans
     /// effets déclarés ne la crée pas ; l'activation la créera (le moteur
     /// audio lit cette clé quel que soit son auteur — mécanisme standalone
@@ -107,13 +115,23 @@ public sealed record ApoSecuritySnapshot(ApoKeySecurity? Endpoint, ApoKeySecurit
 /// <param name="Security">Sécurité (owner + DACL) capturée avant la prise
 /// de possession (v3.9.2) — null si aucune modification nécessaire, ou pour
 /// toute sauvegarde antérieure au champ. La désactivation la restitue.</param>
+/// <param name="SlotUsed">Position utilisée par l'activation (v3.9.8) :
+/// « MFX » pour un périphérique combiné (Bluetooth Windows 11), « EFX » sinon.
+/// Null = sauvegarde v3.7–v3.9.7 → EFX (compatibilité).</param>
+/// <param name="OriginalModeEffectClsid">CLSID MFX d'origine (slot « ,6 »),
+/// capturé v3.9.8 — null si absent ou déjà à nous.</param>
+/// <param name="OriginalMfxProcessingModes">Modes MFX d'origine (slot
+/// « ,6 » de {d3993a3f…}) — null si absents.</param>
 public sealed record ApoEndpointBackup(
     string? OriginalEndpointEffectClsid,
     int? OriginalDisableSysFx,
     bool FxPropertiesExisted = true,
     ApoSecuritySnapshot? Security = null,
     bool EfxProcessingModesCaptured = false,
-    string[]? OriginalEfxProcessingModes = null);
+    string[]? OriginalEfxProcessingModes = null,
+    string? SlotUsed = null,
+    string? OriginalModeEffectClsid = null,
+    string[]? OriginalMfxProcessingModes = null);
 
 /// <summary>Magasin de sauvegardes (JSON sur disque, ou mémoire pour les tests).</summary>
 public interface IApoBackupStore
@@ -214,10 +232,24 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
             || n.Contains("loopbeaudio");
     }
 
-    /// <summary>Notre CLSID est-il inscrit en EFX de cet endpoint ?</summary>
+    /// <summary>Notre CLSID est-il inscrit en EFX ou MFX de cet endpoint ?</summary>
     public bool IsEnabled(string endpointKey)
-        => string.Equals(store.GetString(endpointKey, ApoConstants.FxEndpointEffectClsid),
-                         ApoConstants.Clsid, StringComparison.OrdinalIgnoreCase);
+        => EnabledSlot(endpointKey) != null;
+
+    /// <summary>
+    /// Position portant notre CLSID (v3.9.8 : EFX ou MFX selon le
+    /// périphérique), null si aucune.
+    /// </summary>
+    public ApoFxSlot? EnabledSlot(string endpointKey)
+    {
+        if (string.Equals(store.GetString(endpointKey, ApoConstants.FxEndpointEffectClsid),
+                          ApoConstants.Clsid, StringComparison.OrdinalIgnoreCase))
+            return ApoFxSlot.Efx;
+        if (string.Equals(store.GetString(endpointKey, ApoConstants.FxModeEffectClsid),
+                          ApoConstants.Clsid, StringComparison.OrdinalIgnoreCase))
+            return ApoFxSlot.Mfx;
+        return null;
+    }
 
     /// <summary>L'endpoint a-t-il une sauvegarde d'origine connue ?</summary>
     public bool HasBackup(string endpointKey) => backups.Load(endpointKey) != null;
@@ -245,6 +277,17 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
 
         try
         {
+            // v3.9.8 — position ADAPTÉE AU PÉRIPHÉRIQUE : les sorties combinées
+            // (Bluetooth Windows 11 notamment) n'acceptent pas la position
+            // EFX (« bluetooth devices may be combined in Windows 11, EFX
+            // will not work then » — Equalizer APO, DeviceAPOInfo.cpp) : MFX
+            // alors, EFX sinon. Source : la sous-clé \Properties de l'endpoint.
+            bool combined = store.GetDeviceProperty(
+                endpointKey, ApoConstants.CombinedDeviceProperty) != null;
+            ApoFxSlot slot = ApoSlotPolicy.Choose(combined);
+            string clsidValueName = ApoSlotPolicy.ClsidValueName(slot);
+            string modesValueName = ApoSlotPolicy.ModesValueName(slot);
+
             // sauvegarde AVANT écriture (invariant 2) — même si déjà actif sans
             // sauvegarde (installation antérieure perdu) : l'origine devient
             // l'état courant, la désactivation nettoiera proprement.
@@ -265,25 +308,45 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
             // EfxProcessingModesCaptured distingue « absente à l'origine »
             // (restaurer par suppression) des sauvegardes d'avant-champ
             // (ne rien toucher — compatibilité v3.7–v3.9.5).
+            // v3.9.8 : un CLSID déjà À NOUS compte comme ABSENT (une
+            // activation précédente a perdu sa sauvegarde — comportement
+            // Equalizer APO sur ses propres GUID) ; le slot MFX est capturé
+            // aussi (périphérique combiné).
             var originalModes = store.GetStrings(endpointKey, ApoConstants.FxEfxProcessingModes);
             backups.Save(endpointKey, new ApoEndpointBackup(
-                OriginalEndpointEffectClsid: store.GetString(endpointKey, ApoConstants.FxEndpointEffectClsid),
+                OriginalEndpointEffectClsid: ApoSlotPolicy.NotOurs(
+                    store.GetString(endpointKey, ApoConstants.FxEndpointEffectClsid)),
                 OriginalDisableSysFx: store.GetInt(endpointKey, ApoConstants.FxDisableSysFx),
                 FxPropertiesExisted: fxExisted,
                 Security: security,
                 EfxProcessingModesCaptured: true,
-                OriginalEfxProcessingModes: originalModes?.ToArray()));
+                OriginalEfxProcessingModes: originalModes?.ToArray(),
+                SlotUsed: ApoSlotPolicy.SlotName(slot),
+                OriginalModeEffectClsid: ApoSlotPolicy.NotOurs(
+                    store.GetString(endpointKey, ApoConstants.FxModeEffectClsid)),
+                OriginalMfxProcessingModes: store.GetStrings(
+                    endpointKey, ApoConstants.FxMfxProcessingModes)?.ToArray()));
 
-            store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, ApoConstants.Clsid);
+            store.SetString(endpointKey, clsidValueName, ApoConstants.Clsid);
 
-            // v3.9.6 : rattacher l'EFX au mode de traitement PAR DÉFAUT si la
+            // v3.9.8 : notre CLSID ne doit rester dans AUCUNE autre position
+            // (migration propre d'une activation v3.9.7 posée en EFX vers MFX,
+            // et inversement) — sans toucher à un CLSID tiers.
+            string otherClsidName = slot == ApoFxSlot.Mfx
+                ? ApoConstants.FxEndpointEffectClsid
+                : ApoConstants.FxModeEffectClsid;
+            if (string.Equals(store.GetString(endpointKey, otherClsidName),
+                              ApoConstants.Clsid, StringComparison.OrdinalIgnoreCase))
+                store.SetString(endpointKey, otherClsidName, null);
+
+            // v3.9.6 : rattacher l'effet au mode de traitement PAR DÉFAUT si la
             // valeur est absente (pilote sans FxProperties → clé créée par
-            // nous : sans mode déclaré, l'EFX peut ne s'appliquer à AUCUN
+            // nous : sans mode déclaré, l'effet peut ne s'appliquer à AUCUN
             // flux). Si le pilote avait ses propres modes, on les garde
             // (comportement Equalizer APO : writeMultiValue seulement si
-            // absente).
-            if (store.GetStrings(endpointKey, ApoConstants.FxEfxProcessingModes) == null)
-                store.SetStrings(endpointKey, ApoConstants.FxEfxProcessingModes,
+            // absente) — v3.9.8 : idem au slot choisi (EFX ou MFX).
+            if (store.GetStrings(endpointKey, modesValueName) == null)
+                store.SetStrings(endpointKey, modesValueName,
                     new[] { ApoConstants.DefaultProcessingMode });
 
             int? disableSysFx = store.GetInt(endpointKey, ApoConstants.FxDisableSysFx);
@@ -291,7 +354,8 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
                 store.SetInt(endpointKey, ApoConstants.FxDisableSysFx, 0);
 
             return ApoInstallResult.Ok(
-                "EQ système activé sur « " + endpoint.FriendlyName + " »" +
+                "EQ système activé sur « " + endpoint.FriendlyName + " » (position " +
+                (slot == ApoFxSlot.Mfx ? "MFX — périphérique combiné" : "EFX") + ")" +
                 (disableSysFx == 1 ? " (effets audio du fabricant débloqués, d'origine sauvegardée)" : "") +
                 ".");
         }
@@ -343,21 +407,44 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
                 if (!enabled)
                     return ApoInstallResult.Ok("L'EQ système n'était pas actif sur « " + name + " ».");
                 // activé sans sauvegarde connue : retirer notre CLSID proprement
+                // (v3.9.8 : des DEUX positions possibles)
                 store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, null);
+                store.SetString(endpointKey, ApoConstants.FxModeEffectClsid, null);
                 return ApoInstallResult.Ok("EQ système retiré de « " + name + " » (aucune origine sauvegardée à restaurer).");
             }
 
-            store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, backup.OriginalEndpointEffectClsid);
-            store.SetInt(endpointKey, ApoConstants.FxDisableSysFx, backup.OriginalDisableSysFx);
+            // v3.9.8 — restitution dans la position utilisée par l'activation
+            // (null dans une sauvegarde ≤ v3.9.7 = EFX) : chaque slot rend
+            // EXACTEMENT son origine, et notre CLSID ne doit rester nulle part.
+            ApoFxSlot slot = ApoSlotPolicy.ParseSlot(backup.SlotUsed);
+            if (slot == ApoFxSlot.Mfx)
+            {
+                store.SetString(endpointKey, ApoConstants.FxModeEffectClsid, backup.OriginalModeEffectClsid);
+                store.SetStrings(endpointKey, ApoConstants.FxMfxProcessingModes,
+                    backup.OriginalMfxProcessingModes);
+                if (string.Equals(store.GetString(endpointKey, ApoConstants.FxEndpointEffectClsid),
+                                  ApoConstants.Clsid, StringComparison.OrdinalIgnoreCase))
+                    store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, null);
+            }
+            else
+            {
+                store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, backup.OriginalEndpointEffectClsid);
 
-            // v3.9.6 : restitution exacte des modes de traitement EFX —
-            // SEULEMENT si le champ a été capturé par cette version (les
-            // sauvegardes v3.7–v3.9.5 ne l'ont pas : ne rien toucher). Capturé
-            // et null à l'origine = supprimer la valeur que nous avions
-            // écrite ; capturé et non null = restituer les modes du pilote.
-            if (backup.EfxProcessingModesCaptured)
-                store.SetStrings(endpointKey, ApoConstants.FxEfxProcessingModes,
-                    backup.OriginalEfxProcessingModes);
+                // v3.9.6 : restitution exacte des modes de traitement EFX —
+                // SEULEMENT si le champ a été capturé par cette version (les
+                // sauvegardes v3.7–v3.9.5 ne l'ont pas : ne rien toucher).
+                // Capturé et null à l'origine = supprimer la valeur que nous
+                // avions écrite ; capturé et non null = restituer les modes du
+                // pilote.
+                if (backup.EfxProcessingModesCaptured)
+                    store.SetStrings(endpointKey, ApoConstants.FxEfxProcessingModes,
+                        backup.OriginalEfxProcessingModes);
+
+                if (string.Equals(store.GetString(endpointKey, ApoConstants.FxModeEffectClsid),
+                                  ApoConstants.Clsid, StringComparison.OrdinalIgnoreCase))
+                    store.SetString(endpointKey, ApoConstants.FxModeEffectClsid, null);
+            }
+            store.SetInt(endpointKey, ApoConstants.FxDisableSysFx, backup.OriginalDisableSysFx);
 
             // Restitution EXACTE (invariant 2) : une sous-clé FxProperties que
             // NOUS avons créée (pilote sans slot déclaré) et qui ne contient
@@ -404,14 +491,19 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
                 var backup = backups.Load(key);
                 if (backup == null)
                     continue;
-                store.SetString(key, ApoConstants.FxEndpointEffectClsid, ApoConstants.Clsid);
+                // v3.9.8 : répare DANS la position d'origine de l'activation
+                // (sauvegarde ≤ v3.9.7 = EFX), modes au même slot.
+                ApoFxSlot slot = ApoSlotPolicy.ParseSlot(backup.SlotUsed);
+                string clsidName = ApoSlotPolicy.ClsidValueName(slot);
+                string modesName = ApoSlotPolicy.ModesValueName(slot);
+                store.SetString(key, clsidName, ApoConstants.Clsid);
                 if (backup.OriginalDisableSysFx == 1)
                     store.SetInt(key, ApoConstants.FxDisableSysFx, 0);
                 // v3.9.6 : une mise à jour de pilote qui efface l'inscription
                 // efface AUSSI les modes de traitement — les rétablir au
                 // besoin (idempotent).
-                if (store.GetStrings(key, ApoConstants.FxEfxProcessingModes) == null)
-                    store.SetStrings(key, ApoConstants.FxEfxProcessingModes,
+                if (store.GetStrings(key, modesName) == null)
+                    store.SetStrings(key, modesName,
                         new[] { ApoConstants.DefaultProcessingMode });
                 repaired++;
             }

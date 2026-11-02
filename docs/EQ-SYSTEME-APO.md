@@ -299,6 +299,27 @@ DIFFÉRENCE PRÈS, exigée par notre invariant de réversibilité : Equalizer
 APO ne restitue JAMAIS owner/DACL d'origine — RoomEq les capture avant la
 première écriture et les restitue à la désactivation (SeRestorePrivilege).
 
+**Fait établi v3.9.8 (périphériques combinés → MFX)** : la lecture
+INTÉGRALE de `DeviceAPOInfo.cpp` (source officielle Equalizer APO) révèle
+le commentaire exact : *« bluetooth devices may be combined in Windows 11,
+EFX will not work then »* — quand l'endpoint porte la propriété
+« périphérique combiné » (`{b3f8fa53-0004-438e-9003-51a46e139bfc},41`
+dans sa sous-clé `\Properties`), la référence n'installe PAS en EFX mais
+en SFX/MFX (`INSTALL_SFX_MFX`). Notre position EFX (,7) — choisie en
+v3.9.6 sur la seule table SFX/MFX/EFX — est donc la position que la
+référence ÉVITE précisément sur le matériel du retour terrain (casque
+Bluetooth JBL sous Windows 11). v3.9.8 s'aligne : `ApoSlotPolicy` inscrit
+l'APO en MFX (,6) sur les périphériques combinés, EFX (,7) sinon. Le même
+fichier fournit deux règles de priorité supplémentaires, dorénavant
+verrouillées par tests littéraux : SFX/MFX/EFX présents → LFX/GFX ignorés
+(confirmé par les notes É. Dechamps) ; variantes « multi » (PIDs
+,13/,14/,15) présentes → CLSID simples ignorés (ticket Equalizer APO #77,
+cas Realtek UAD) — l'inventaire de diagnostic les signale. Dernier
+enseignement de la lecture croisée : en mode INSTALL_SFX_EFX la référence
+écrit SFX **et** EFX (deux APO distincts, la première n'existant que pour
+chaîner l'effet du pilote) — une seule position suffit à RoomEq, dont
+l'APO ne chaîne pas d'enfants.
+
 ### 3.3 Ce que ça devient dans RoomEq
 
 ```

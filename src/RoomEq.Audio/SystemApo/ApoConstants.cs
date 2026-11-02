@@ -35,6 +35,51 @@ public static class ApoConstants
     public const string FxDisableSysFx = "{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5";
 
     /// <summary>
+    /// PKEY_FX_StreamEffectClsid (SFX, PID 5) — position « flux », lue pour
+    /// l'inventaire de diagnostic v3.9.8 (nous ne nous y inscrivons pas :
+    /// une seule position suffit à notre APO).
+    /// </summary>
+    public const string FxStreamEffectClsid = "{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},5";
+
+    /// <summary>
+    /// PKEY_FX_ModeEffectClsid (MFX, PID 6) — position « mode », celle
+    /// qu'Equalizer APO utilise quand l'EFX ne fonctionne pas : « bluetooth
+    /// devices may be combined in Windows 11, EFX will not work then »
+    /// (DeviceAPOInfo.cpp, 10+ ans de terrain). v3.9.8 : position des
+    /// périphériques COMBINÉS.
+    /// </summary>
+    public const string FxModeEffectClsid = "{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},6";
+
+    /// <summary>
+    /// PKEY_MFX_ProcessingModes_Supported_For_Streaming (FMTID
+    /// {d3993a3f…}, PID 6) — modes couverts par l'effet en position MFX
+    /// (miroir MFX de <see cref="FxEfxProcessingModes"/>).
+    /// </summary>
+    public const string FxMfxProcessingModes = "{d3993a3f-99c2-4402-b5ec-a92a0367664b},6";
+
+    /// <summary>
+    /// Variantes « multi » (REG_MULTI_SZ, PIDs 13-15) : quand elles
+    /// existent, Windows IGNORE les CLSID simples des slots correspondants
+    /// (constat terrain Realtek UAD, ticket Equalizer APO #77) — l'inventaire
+    /// de diagnostic v3.9.8 les signale.
+    /// </summary>
+    public const string FxMultiStreamEffectClsid = "{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},13";
+
+    /// <summary>Variante multi du MFX (PID 14).</summary>
+    public const string FxMultiModeEffectClsid = "{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},14";
+
+    /// <summary>Variante multi de l'EFX (PID 15).</summary>
+    public const string FxMultiEndpointEffectClsid = "{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},15";
+
+    /// <summary>
+    /// Périphérique COMBINÉ : présence de cette valeur dans la sous-clé
+    /// \Properties de l'endpoint (cas des Bluetooth sous Windows 11) —
+    /// Equalizer APO n'y installe PAS en EFX (« EFX will not work then »)
+    /// mais en SFX/MFX. v3.9.8 : même décision (<see cref="ApoSlotPolicy"/>).
+    /// </summary>
+    public const string CombinedDeviceProperty = "{b3f8fa53-0004-438e-9003-51a46e139bfc},41";
+
+    /// <summary>
     /// PKEY_FX_…ProcessingModes (v3.9.6) : modes de traitement couverts par
     /// l'effet de position EFX — Equalizer APO écrit le MULTI_SZ
     /// « mode par défaut » à cette valeur quand elle est absente (recette

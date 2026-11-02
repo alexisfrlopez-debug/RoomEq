@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.7
+VERSION=3.9.8
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -232,6 +232,48 @@ grep -qE 'EveryoneCanReadAndExecute' "$SRC/src/RoomEq.Audio/SystemApo/ApoAclVeri
      && -f "$SRC/tests/RoomEq.App.Tests/OutputFollowPolicyTests.cs" ]] \
   && grep -qE 'FD7F2B29-24D0-4B5C-B177-592C39F9CA10' "$SRC/src/RoomEq.Audio/SystemApo/ApoEnginePolicy.cs" \
   && echo "   ✓ v3.9.7 : ACL bin bulletproof + sonde WASAPI + rollback automatique + suivi du défaut Windows + interface SysVAD + journal de repli"
+
+# --- v3.9.8 : DIAGNOSTIQUE AVANT DE SOUFFRIR — retour terrain v3.9.7 :
+#     « l'activation de Casque JBL Tune Flex 2 a échoué — le son a été
+#     préservé, le moteur audio n'a pas pu charger l'égaliseur (sortie
+#     restaurée automatiquement) » avec journal APO TOUJOURS absent : la
+#     DLL n'est jamais instanciée par audiodg et le verdict ne contenait
+#     AUCUN élément différentiel. TROIS correctifs : (1) position ADAPTÉE
+#     AU PÉRIPHÉRIQUE — « bluetooth devices may be combined in Windows 11,
+#     EFX will not work then » (Equalizer APO DeviceAPOInfo.cpp) : les
+#     sorties combinées (BT Win11) s'inscrivent désormais en MFX (,6) au
+#     lieu d'EFX (,7), avec sauvegarde étendue (slot mémorisé, origine
+#     MFX, rétrocompatibilité ≤ v3.9.7) ; (2) AUTO-TEST COM PRÉ-VOL de la
+#     DLL dans le processus élevé (LoadLibrary → CoCreateInstance via
+#     l'inscription réelle → 4 interfaces → enregistrement → LockForProcess
+#     → APOProcess signal témoin → UnlockForProcess) : un échec BLOQUE
+#     l'activation AVANT toute écriture registre — la sortie ne peut plus
+#     être mise en danger par une DLL non instanciable, et le verdict
+#     nomme l'étape exacte + son HRESULT ; (3) verdict DIFFÉRENTIEL :
+#     auto-test, prérequis moteur, trace de chargement, erreur exacte de
+#     la sonde WASAPI, inventaire des positions (multi* = CLSID simples
+#     ignorés), position choisie, version Windows ---
+[[ -f "$SRC/src/RoomEq.Audio/SystemApo/ApoSlotPolicy.cs" \
+   && -f "$SRC/src/RoomEq.Audio/SystemApo/ApoDllSelfTest.cs" \
+   && -f "$SRC/src/RoomEq.Audio/SystemApo/ApoFailureDiagnostics.cs" \
+   && -f "$SRC/src/RoomEq.Audio/SystemApo/ApoSelfTest.cs" \
+   && -f "$SRC/src/RoomEq.Audio/SystemApo/ApoHresult.cs" \
+   && -f "$SRC/tests/RoomEq.Audio.Tests/ApoSlotPolicyTests.cs" \
+   && -f "$SRC/tests/RoomEq.Audio.Tests/ApoFailureDiagnosticsTests.cs" \
+   && -f "$SRC/tests/RoomEq.Audio.Tests/ApoDllSelfTestLayoutTests.cs" ]] \
+  && grep -qF 'CombinedDeviceProperty' "$SRC/src/RoomEq.Audio/SystemApo/ApoConstants.cs" \
+  && grep -qF 'b3f8fa53-0004-438e-9003-51a46e139bfc' "$SRC/src/RoomEq.Audio/SystemApo/ApoConstants.cs" \
+  && grep -qE 'SlotUsed' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
+  && grep -qE 'GetDeviceProperty' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qE 'ApoSlotPolicy\.Choose' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
+  && grep -qE 'ApoDllSelfTest\.Run' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && grep -qE 'SelfTestBlocked' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && grep -qE 'ComposeDeadEndpoint' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && grep -qE 'ProbeDetailed' "$SRC/src/RoomEq.Audio/SystemApo/ApoEndpointProbe.cs" \
+  && grep -qE 'CoCreateInstance' "$SRC/src/RoomEq.Audio/SystemApo/ApoDllSelfTest.cs" \
+  && grep -qE 'AudioServiceRunning' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && grep -qF 'MFX' "$SRC/src/RoomEq.Audio/SystemApo/ApoSlotPolicy.cs" \
+  && echo "   ✓ v3.9.8 : position MFX périphériques combinés + auto-test COM pré-vol + verdict différentiel complet"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

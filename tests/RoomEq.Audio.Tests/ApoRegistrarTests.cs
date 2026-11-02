@@ -79,6 +79,12 @@ public class ApoRegistrarTests
                 map[name] = values.ToArray();
         }
 
+        /// <summary>v3.9.8 : sous-clé \Properties de l'endpoint (stockée
+        /// sous la clé "{guid}\Properties" — détection périphérique combiné).</summary>
+        public string? GetDeviceProperty(string key, string name)
+            => Values.TryGetValue(key + @"\Properties", out var v) && v.TryGetValue(name, out var val)
+                ? val as string : null;
+
         public bool FxPropertiesExists(string key)
         {
             Trace.Add($"exists:{key}");
@@ -502,6 +508,181 @@ public class ApoRegistrarTests
         Assert.DoesNotContain(store.Trace, t => t.StartsWith("restore:")); // …null → rien à restituer
     }
 
+    // ---------------------- v3.9.8 : position ADAPTÉE AU PÉRIPHÉRIQUE — les
+    // sorties combinées (Bluetooth Windows 11) n'acceptent pas l'EFX
+    // (« bluetooth devices may be combined in Windows 11, EFX will not work
+    // then » — Equalizer APO, DeviceAPOInfo.cpp) : RoomEq s'y inscrit en MFX
+
+    [Fact]
+    public void Enable_CombinedDevice_WritesMfx_NotEfx()
+    {
+        var (registrar, store, backups) = Make();
+        // périphérique combiné : la propriété {b3f8fa53…},41 existe
+        store.Values["{bt}\\Properties"] = new()
+        {
+            [ApoConstants.CombinedDeviceProperty] = "1",
+        };
+
+        var result = registrar.Enable("{bt}");
+
+        Assert.True(result.Success, result.Message);
+        // inscrit en MFX (,6) — PAS en EFX (,7)
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxModeEffectClsid]);
+        Assert.False(store.Values["{bt}"].ContainsKey(ApoConstants.FxEndpointEffectClsid));
+        // modes de traitement attachés AU MFX
+        var modes = store.GetStrings("{bt}", ApoConstants.FxMfxProcessingModes);
+        Assert.NotNull(modes);
+        Assert.Equal(new[] { ApoConstants.DefaultProcessingMode }, modes);
+        // la sauvegarde mémorise la position et l'origine MFX
+        var backup = backups.Load("{bt}");
+        Assert.NotNull(backup);
+        Assert.Equal("MFX", backup.SlotUsed);
+        Assert.Null(backup.OriginalModeEffectClsid); // rien avant nous
+        Assert.True(result.Message.Contains("MFX", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Enable_CombinedDevice_WithOriginalMfx_PreservesItInBackup()
+    {
+        var (registrar, store, backups) = Make();
+        store.Values["{bt}"] = new()
+        {
+            [ApoConstants.FxModeEffectClsid] = "{mfx-pilote}",
+            [ApoConstants.FxMfxProcessingModes] = new[] { "{mode-pilote}" },
+        };
+        store.Values["{bt}\\Properties"] = new()
+        {
+            [ApoConstants.CombinedDeviceProperty] = "1",
+        };
+
+        Assert.True(registrar.Enable("{bt}").Success);
+
+        var backup = backups.Load("{bt}");
+        Assert.NotNull(backup);
+        Assert.Equal("{mfx-pilote}", backup.OriginalModeEffectClsid);
+        Assert.Equal(new[] { "{mode-pilote}" }, backup.OriginalMfxProcessingModes);
+        // les modes du pilote ne sont PAS écrasés (comportement Equalizer APO)
+        Assert.Equal(new[] { "{mode-pilote}" },
+            store.GetStrings("{bt}", ApoConstants.FxMfxProcessingModes));
+    }
+
+    [Fact]
+    public void Disable_AfterMfxActivation_RestoresExactOrigin()
+    {
+        var (registrar, store, backups) = Make();
+        store.Values["{bt}"] = new()
+        {
+            [ApoConstants.FxModeEffectClsid] = "{mfx-pilote}",
+            [ApoConstants.FxMfxProcessingModes] = new[] { "{mode-pilote}" },
+        };
+        store.Values["{bt}\\Properties"] = new()
+        {
+            [ApoConstants.CombinedDeviceProperty] = "1",
+        };
+        registrar.Enable("{bt}");
+
+        Assert.True(registrar.Disable("{bt}").Success);
+
+        // origine EXACTE restaurée dans le slot MFX
+        Assert.Equal("{mfx-pilote}", store.Values["{bt}"][ApoConstants.FxModeEffectClsid]);
+        Assert.Equal(new[] { "{mode-pilote}" },
+            store.GetStrings("{bt}", ApoConstants.FxMfxProcessingModes));
+        Assert.Null(backups.Load("{bt}")); // sauvegarde consommée
+    }
+
+    [Fact]
+    public void Enable_NonCombinedDevice_StillWritesEfx()
+    {
+        var (registrar, store, _) = Make();
+
+        // SANS propriété combinée : position EFX inchangée (comportement
+        // v3.9.6/v3.9.7 — les sorties Realtek/HDMI classiques)
+        var result = registrar.Enable("{bt}");
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxEndpointEffectClsid]);
+        Assert.False(store.Values["{bt}"].ContainsKey(ApoConstants.FxModeEffectClsid));
+        Assert.Null(store.GetStrings("{bt}", ApoConstants.FxMfxProcessingModes));
+    }
+
+    [Fact]
+    public void Enable_StaleOursClsidInOtherSlot_IsRemovedNotRestored()
+    {
+        var (registrar, store, backups) = Make();
+        // reste d'une activation v3.9.7 (EFX) ayant perdu sa sauvegarde,
+        // sur une sortie DEVENUE combinée : notre CLSID en EFX ne doit ni
+        // rester, ni être « restauré » comme origine
+        store.Values["{bt}"] = new()
+        {
+            [ApoConstants.FxEndpointEffectClsid] = ApoConstants.Clsid,
+        };
+        store.Values["{bt}\\Properties"] = new()
+        {
+            [ApoConstants.CombinedDeviceProperty] = "1",
+        };
+
+        Assert.True(registrar.Enable("{bt}").Success);
+
+        // le MFX porte notre CLSID, l'EFX est NETTOYÉ
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxModeEffectClsid]);
+        Assert.False(store.Values["{bt}"].ContainsKey(ApoConstants.FxEndpointEffectClsid));
+        var backup = backups.Load("{bt}");
+        Assert.NotNull(backup);
+        Assert.Null(backup.OriginalEndpointEffectClsid); // notre CLSID ≠ origine
+
+        // et la désactivation ne « restaure » PAS notre CLSID en EFX
+        Assert.True(registrar.Disable("{bt}").Success);
+        Assert.False(store.Values["{bt}"].ContainsKey(ApoConstants.FxEndpointEffectClsid));
+        Assert.False(store.Values["{bt}"].ContainsKey(ApoConstants.FxModeEffectClsid));
+    }
+
+    [Fact]
+    public void Repair_ReinstallsIntoBackedUpSlot()
+    {
+        var (registrar, store, backups) = Make();
+        store.Values["{bt}\\Properties"] = new()
+        {
+            [ApoConstants.CombinedDeviceProperty] = "1",
+        };
+        registrar.Enable("{bt}");
+        // une mise à jour de pilote efface l'inscription ET les modes
+        store.Values["{bt}"].Clear();
+
+        int repaired = registrar.RepairEnabled();
+
+        Assert.Equal(1, repaired);
+        // réparation DANS la position MFX mémorisée par la sauvegarde
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxModeEffectClsid]);
+        Assert.Equal(new[] { ApoConstants.DefaultProcessingMode },
+            store.GetStrings("{bt}", ApoConstants.FxMfxProcessingModes));
+    }
+
+    [Fact]
+    public void BackupFileStore_LegacyJson_WithoutSlot_LoadsAsEfx()
+    {
+        // rétrocompatibilité : un backups.json v3.9.7 (sans champ SlotUsed)
+        // se désactive en RESTAURANT L'EFX, comme avant
+        var path = Path.Combine(Path.GetTempPath(),
+            "roomeq-test-backups-slot-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            File.WriteAllText(path,
+                """{"Endpoints":{"{hp}":{"OriginalEndpointEffectClsid":"{o}","OriginalDisableSysFx":null,"FxPropertiesExisted":true,"EfxProcessingModesCaptured":true}}}""");
+            var fileStore = new ApoBackupFileStore(path);
+
+            var backup = fileStore.Load("{hp}");
+
+            Assert.NotNull(backup);
+            Assert.Null(backup.SlotUsed);                          // champ absent → EFX
+            Assert.Equal(ApoFxSlot.Efx, ApoSlotPolicy.ParseSlot(backup.SlotUsed));
+            Assert.Null(backup.OriginalModeEffectClsid);           // nouveaux champs absents
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public void BackupFileStore_LegacyJson_LoadsWithoutSecurity()
     {
@@ -617,6 +798,8 @@ public class ApoRegistrarTests
         Assert.Empty(store.EnumerateRenderEndpoints());
         Assert.Null(store.GetString("{x}", ApoConstants.FxEndpointEffectClsid));
         Assert.Null(store.GetInt("{x}", ApoConstants.FxDisableSysFx));
+        Assert.Null(store.GetStrings("{x}", ApoConstants.FxEfxProcessingModes));
+        Assert.Null(store.GetDeviceProperty("{x}", ApoConstants.CombinedDeviceProperty)); // v3.9.8
         store.SetString("{x}", ApoConstants.FxEndpointEffectClsid, ApoConstants.Clsid); // no-op
         Assert.Null(store.GetString("{x}", ApoConstants.FxEndpointEffectClsid));
         Assert.False(store.FxPropertiesExists("{x}"));

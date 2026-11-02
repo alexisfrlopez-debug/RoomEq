@@ -7,17 +7,60 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.9.7** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1–v3.9.4 : correctifs activation (FxProperties → takeover registre → LUID interop → binding CloseHandle/kernel32), v3.9.5 : volume re-ciblé + chaîne de courbe observable + verrou ACL, v3.9.6 : recette complète de chargement (DisableProtectedAudioDG + inscription moteur + modes EFX), et **v3.9.7 : LE SON PASSE AVANT L'ÉGALISEUR — retour terrain « plus de son sur la sortie activée » : un APO non instanciée TUE le graphe de l'endpoint ; désormais ACL bin « Tout le monde : lecture+exécution » VÉRIFIÉE, sonde WASAPI post-activation avec ROLLBACK AUTOMATIQUE (origine restaurée + service redémarré + verdict explicite), écoute suivant la sortie PAR DÉFAUT de Windows (fini la barre de volume branchée sur une carte muette), interface déclarée alignée SysVAD/Equalizer APO, journal APO avec repli profil service** — 550 tests xUnit + harnais APO 112 vérifications |
+| **Projet** | RoomEq **v3.9.8** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1–v3.9.4 : correctifs activation (FxProperties → takeover registre → LUID interop → binding CloseHandle/kernel32), v3.9.5 : volume re-ciblé + chaîne de courbe observable + verrou ACL, v3.9.6 : recette complète de chargement (DisableProtectedAudioDG + inscription moteur + modes EFX), v3.9.7 : LE SON PASSE AVANT L'ÉGALISEUR — sonde WASAPI + rollback automatique + ACL bin vérifiée + écoute suivant le défaut Windows, et **v3.9.8 : DIAGNOSTIQUE AVANT DE SOUFFRIR — position ADAPTÉE AU PÉRIPHÉRIQUE (MFX pour les Bluetooth « combinés » de Windows 11 : « EFX will not work then », Equalizer APO DeviceAPOInfo.cpp — le casque JBL de l'utilisateur est ce cas), AUTO-TEST COM PRÉ-VOL de la DLL dans le processus élevé (échec = activation bloquée AVANT toute écriture, étape + HRESULT nommées), verdict d'échec DIFFÉRENTIEL complet (auto-test, prérequis moteur, trace de chargement, erreur exacte de la sonde, inventaire des positions, version Windows)** — 598 tests xUnit + harnais APO 112 vérifications |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **LANGUE (permanente)** | Répondre à l'utilisateur TOUJOURS en **français** (anglais accepté, chinois interdit — il ne le comprend pas) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 550 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 598 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 29 — v3.9.7 : le son passe avant l'égaliseur)
+## 1. État (fin session 30 — v3.9.8 : position adaptée + auto-test + diagnostic)
+
+**Session 30 (2026-11-02)** — retour terrain v3.9.7 ENFIN transmis complet
+(capture : « Échec de l'activation de 'Casque JBL Tune Flex 2' — LE SON A
+ÉTÉ PRÉSERVÉ : le moteur audio n'a pas réussi à charger l'égaliseur ») :
+le rollback a protégé le son comme prévu, mais le verdict ne contenait
+AUCUN élément différentiel et le journal APO restait vide.
+
+- **Cause probable dans la source de référence elle-même** :
+  DeviceAPOInfo.cpp d'Equalizer APO — « bluetooth devices may be combined
+  in Windows 11, EFX will not work then » : les périphériques combinés
+  (propriété {b3f8fa53-…},41 dans \Properties — Bluetooth Win 11, dont
+  le casque JBL de l'utilisateur) ne doivent PAS recevoir notre APO en
+  EFX (,7) mais en MFX (,6).
+- **v3.9.8 — trois volets** :
+  1. **Position adaptée** (`ApoSlotPolicy` pur + `GetDeviceProperty` sur
+     `IApoEndpointStore`) : MFX pour les combinés, EFX sinon ; la
+     sauvegarde mémorise le slot (`SlotUsed`, null = EFX ≤ v3.9.7),
+     capture l'origine MFX, nettoie notre CLSID de l'autre position,
+     traite notre CLSID périmé comme absent (comportement Equalizer APO),
+     répare au slot mémorisé.
+  2. **Auto-test COM pré-vol** (`ApoDllSelfTest` + `ApoSelfTest` +
+     `ApoHresult`) : dans le processus élevé, AVANT toute écriture —
+     LoadLibrary (code Win32 exact), DllGetClassObject, CoCreateInstance
+     via l'inscription réelle (différentiel fabrique directe), QI ×4
+     (IIDs verrouillées), GetRegistrationProperties, Initialize,
+     LockForProcess 48 kHz/2/float32 (IAudioMediaType synthétique en
+     CCW), APOProcess signal témoin (l'énergie doit traverser),
+     UnlockForProcess. Échec = « ACTIVATION BLOQUÉE AVANT TOUTE
+     MODIFICATION » + étape + HRESULT décodé — la sortie ne peut plus
+     être exposée à une DLL non instanciable.
+  3. **Verdict différentiel** (`ApoFailureDiagnostics`) : auto-test,
+     prérequis moteur, trace de chargement + queue de journal, ERREUR
+     EXACTE de la sonde (l'exception n'est plus avalée), position choisie,
+     inventaire des positions (multi* = CLSID simples ignorés), version
+     Windows. Redémarrage service durci : attente RUNNING par sc query
+     (code numérique, indépendant de la langue).
+- **Tests** : 598/598 (Core 237 + Audio 281 + App 80) ; +15 ApoSlotPolicy,
+  +8 registrar MFX, +12 diagnostics, +9 layout auto-test. DLL APO
+  recompilées (harnais 112/112).
+- **Prochaine étape** : validation terrain — Setup 3.9.8, réactiver l'EQ
+  sur le casque JBL : attendu « position MFX — périphérique combiné » et
+  un son modifié par la courbe ; si le moteur refuse encore, le message
+  transmis nommera le maillon exact.
 
 **Session 29 (2026-11-02)** — retour terrain v3.9.6 : « toujours le même
 problème, sauf qu'en plus maintenant dès que l'eq est activé sur une
