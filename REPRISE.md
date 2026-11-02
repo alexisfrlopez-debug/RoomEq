@@ -52,10 +52,12 @@ construire sur ces périphériques).
 - **Tests** : 619/619 xUnit (Core 237 + Audio 302 + App 80, +11) ; harnais
   APO 126/126 (natif inchangé — l'APO est saine, le moteur l'instanciait) ;
   DLL x64+arm64 recompilées (3.9.10).
-- **Anomalie corrigée** : les commits des sessions 31-32 n'étaient JAMAIS
-  arrivés sur GitHub (sync_backup.sh ne s'arrête pas sur un échec de push) —
-  poussés et VÉRIFIÉS (ls-remote) en session 33 ; toujours vérifier
-  `git status -sb` après sync_backup.sh.
+- **Fausse alerte « ahead N » élucidée** : sync_backup.sh pousse vers une
+  URL à jeton (pas vers le remote nommé « origin »), donc le pointeur local
+  origin/v3-recodage n'est jamais rafraîchi et `git status` affiche
+  « ahead N » même après un push RÉUSSI — vérifier un push par
+  `git ls-remote` (la branche distante était à jour), jamais par
+  `git status` ; pointeur resynchronisé en session 33.
 - **Prochaine étape** : validation terrain — Setup 3.9.10, réactiver l'EQ
   sur le casque JBL : attendu « EQ système activé … (position MFX —
   périphérique combiné) » + « Vérifié : la sortie répond et l'APO est

@@ -2926,12 +2926,16 @@ Work Log:
   contrôles verts dont le verrou v3.9.10) ; build_setup.sh →
   RoomEq-win-Setup.exe 3.9.10 régénéré (53,8 Mo) ; anciens zips 3.9.9
   archivés dans Livrables/Archive ; miroir Drive complet + push GitHub.
-- **Anomalie de process corrigée au passage** : le dépôt local était
-  « ahead 2 » — les commits 5147d25 et 50b28ba (sessions 31-32)
-  n'étaient JAMAIS parvenus sur GitHub (sync_backup.sh ne s'arrête pas
-  sur un échec de push : `set -uo pipefail` sans `-e`). Poussé et
-  VÉRIFIÉ (ls-remote) en cette session ; le push de fin de session est
-  désormais vérifié explicitement.
+- **Fausse alerte de process élucidée** : `git status` affichait « ahead 2 »
+  en début de session, laissant croire que les push des sessions 31-32
+  avaient échoué — or `git ls-remote` montre la branche distante À JOUR
+  (e70386e = HEAD local après le push de cette session, historique complet
+  présent) : sync_backup.sh pousse vers une URL à jeton (pas vers le remote
+  nommé « origin »), donc le pointeur local origin/v3-recodage n'est JAMAIS
+  mis à jour et « ahead N » est une FAUSSE ALERTE après chaque push. Réflexe
+  enregistré dans REPRISE : vérifier un push par `git ls-remote`, jamais par
+  `git status` ; pointeur local resynchronisé
+  (`git update-ref refs/remotes/origin/v3-recodage HEAD`).
 
 Stage Summary:
 - v3.9.10 : le verdict v3.9.9 a prouvé que l'agrégation COM fonctionnait
