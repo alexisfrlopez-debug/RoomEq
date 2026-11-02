@@ -2374,3 +2374,153 @@ Stage Summary:
   disparaît, remplacé par « ✓ APO : courbe publiée et appliquée par le
   moteur audio » dans le panneau, et le son CHANGE avec la courbe. Si
   un ⚠ subsiste, le transmettre tel quel — il nomme son maillon.
+
+---
+Session : 29 — 2026-11-02
+Agent : main (Z.ai)
+Task : Retour terrain v3.9.6 transmis tel quel (« toujours le même
+problème, sauf qu'en plus maintenant dès que l'eq est activé sur une
+sortie, je n'ai plus de son sur cette sortie jusqu'à ce que je désactive
+l'eq (bouton tout retirer) » + capture : courbe envoyée mais PLATE,
+journal APO toujours absent, écoute affichée sur Realtek alors que le
+défaut est le casque JBL). v3.9.7.
+
+Work Log:
+- **Sandbox recyclée avant session** : le dépôt local était retombé à
+  v3.6.0 + le commit de specs (le travail v3.7–v3.9.6 n'existait que
+  dans GitHub) — `git pull --ff-only origin v3-recodage` (b51e69f) a
+  tout restauré : D22 a sauvé la session. Zig 0.14.1 et le SDK .NET
+  réinstallés (outils de sandbox, documentés dans REPRISE.md).
+- **Diagnostic établi par recoupement** (aucun Windows sous la main :
+  chaque affirmation sourcée) :
+  1. **Le silence est le comportement DOCUMENTÉ d'un endpoint dont le
+     graphe ne se construit pas** : « the audio engine tries to
+     CoCreateInstance an APO […] fails […] and the ENTIRE stream fails
+     to build — no sound, empty Volume Mixer, Failed to play test tone.
+     A broken APO doesn't just disable an effect, it can take down the
+     whole endpoint » (analyse ThinkPad E14/Win10, dev.to, juin 2026 —
+     cas Dolby APO non inscrit). Avant v3.9.6, audiodg en mode protégé
+     refusait la DLL AVANT la construction du graphe → bypass → son
+     présent ; depuis que la recette complète fait TENTER le
+     chargement, l'échec d'instanciation tue la sortie. Cohérent avec
+     « je n'ai plus de son SUR CETTE sortie » (Realtek vit toujours).
+  2. **La structure APO_CONNECTION_PROPERTY du projet est CORRECTE**
+     (pBuffer, u32ValidFrameCount, u32BufferFlags, u32Signature) —
+     vérifiée contre le VRAI audioapotypes.h (celui livré avec Zig :
+     lib/libc/include/any-windows-any/) ET la doc Microsoft Learn.
+     Piste initiale « champs inversés » INVALIDÉE avant toute retouche.
+  3. **La recette registre v3.9.6 est conforme aux références** : code
+     source Equalizer APO cloné et lu (DeviceAPOInfo.cpp : EFX ,7 +
+     modes {d3993a3f…},7 = {C18E2F7E…} MULTI_SZ si absent, suppression
+     de Disable_SysFx ; DllMain → RegisterAPO + COM ThreadingModel
+     Both) et notes É. Dechamps (EFX = PKEY_FX_EndpointEffectClsid ,7 ✓ ;
+     audiodg sous Audiosrv ≈ LocalService SANS accès aux profils ; il
+     recommande LUI-MÊME l'octroi « NT SERVICE\Audiosrv » pour les
+     fichiers). DEUX divergences trouvées avec les références :
+     APOInterface0 = RT au lieu de IAudioProcessingObject (SysVAD ET
+     Equalizer APO déclarent la non-RT) ; et surtout l'ACL bin.
+  4. **Soupçon mécanique principal — l'octroi icacls « NT
+     SERVICE\Audiosrv » sur bin était MEILLEUR EFFORT** (Run() avalait
+     le code de retour ; le verrou v3.9.5 ne vérifiait QUE
+     Utilisateurs:Modifier sur la racine) : audiodg n'est membre NI de
+     Utilisateurs NI de personne d'autre dans cette ACL — si cette
+     entrée unique échouait silencieusement, LoadLibrary de la DLL est
+     REFUSÉ dans audiodg → graphe mort → sortie muette. Invérifiable à
+     distance, donc rendu IMPOSSIBLE PAR CONSTRUCTION (ci-dessous).
+- **Correctif v3.9.7 — « le son passe avant l'égaliseur »** :
+  - **ACL bin bulletproof** (ApoAclArgs, PUR + verrouillé par 3 tests) :
+    SYSTEM/Admins FullControl, **TOUT LE MONDE (S-1-1-0) lecture +
+    exécution** — comme Program Files : AUCUNE identité de service ne
+    peut plus se voir refuser le chargement ; l'écriture reste
+    administrateur. Racine : + **LOCAL SERVICE (S-1-5-19) Modifier**
+    par SID (langue-indépendant) en plus d'Audiosrv et Utilisateurs —
+    le journal de l'APO reste inscriptible. icacls désormais **contrôlé
+    (RunChecked : code de sortie exigé)** et **vérifié en relisant la
+    DACL** (ApoAclVerifier.EveryoneCanReadAndExecute — l'échec nommé).
+  - **Sonde WASAPI + ROLLBACK AUTOMATIQUE** (ApoEndpointProbe,
+    ApoActivationPolicy — politiques PURES verrouillées par 11 tests) :
+    après chaque activation (et réparation), l'endpoint est sondé par
+    un rendu partagé de ~120 ms de SILENCE au format de mixage (avec
+    témoin : si une autre sortie vit et pas celle-là, verdict immédiat ;
+    si tout redémarre, jusqu'à 4 tentatives espacées). Sortie MORTTE →
+    Registrar().Disable (l'origine sauvegardée est restaurée) +
+    redémarrage du service + verdict « LE SON A ÉTÉ PRÉSERVÉ : […]
+    restaurée automatiquement » — plus jamais de sortie muette laissée
+    en plan. Sortie vivante sans journal → information, pas d'alerte.
+  - **Suivi de la sortie PAR DÉFAUT de Windows** (PlaybackEngine.
+    DefaultRenderOutputId + OutputFollowPolicy PUR + 5 tests +
+    MainViewModel) : l'écoute démarre sur le défaut Windows (la mémoire
+    de session ne sert plus qu'en repli) et le SUIT à chaque
+    changement (branchement casque, réglage Windows) tant que
+    l'utilisateur n'a pas délibérément choisi une autre sortie dans
+    l'appli — c'est la cause du « la barre de volume ne suit pas le
+    volume Windows et n'agit pas sur le son entendu » : les deux
+    curseurs pilotaient Realtek pendant que le casque JBL était le
+    défaut. (La ré-acquisition v3.9.5 après redémarrage du service
+    reste : défense en profondeur.)
+  - **Interface déclarée alignée sur les références** :
+    APOInterface0 = IAudioProcessingObject
+    ({FD7F2B29-24D0-4B5C-B177-592C39F9CA10}) au registre
+    (ApoEnginePolicy) ET dans GetRegistrationProperties natif — les
+    DEUX références terrain (SysVAD ComponentizedApoSample.inx et
+    CRegAPOProperties d'Equalizer APO) déclarent la non-RT.
+  - **Journal de l'APO avec repli** (apo_config.cpp) : si
+    %ProgramData%\RoomEq\apo\apo.log n'est pas inscriptible par
+    audiodg, la DLL écrit dans
+    %SystemRoot%\ServiceProfiles\LocalService\AppData\Local\Temp\
+    RoomEqApo.log — l'emplacement DU journal d'Equalizer APO,
+    inscriptible par construction ; le processus élevé lit les deux.
+- **Vérifications de survie du chemin audio NATIF re-passées** :
+  APOProcess relit in/out proprement, pass-through sur !usable copie
+  TOUJOURS le tampon (ch!=0), early-returns uniquement hors
+  verrouillage/buffer invalide (comportement Equalizer APO), DllMain
+  minimal (DisableThreadLibraryCalls), DLL 452 Ko/412 Ko x64+arm64,
+  imports limités à ole32/kernel32/api-ms-win-crt (UCRT système).
+- **Tests** : 550/550 xUnit (Core 237, Audio 219 → 233 : +3 ApoAclArgs
+  [Everyone/Root/SID], +8 ApoActivationPolicy [6 cas croisés,
+  DeadEndpoint-seulement-DeadGraph, budget/témoin], +3 mise à jour
+  ApoEnginePolicy [IID verrouillée] ; App 75 → 80 : +5
+  OutputFollowPolicy) ; build 0 erreur 0 avertissement ; harnais APO
+  inchangé 112/112 (test d'interface mis à jour : iidAPOInterfaceList[0]
+  = IAudioProcessingObject) ; DLL x64+arm64 recompilées (Zig 0.14.1).
+- **Verrous structurels** : Directory.Build.props + package_v3.sh
+  VERSION 3.9.7 + contrôle v3.9.7 (ApoAclArgs.EveryoneSid/
+  LocalServiceSid, EveryoneCanReadAndExecute, RunChecked,
+  ApoEndpointProbe.cs, ApoActivationPolicy.cs, VerifyEndpointHealth,
+  ServiceProfiles+LocalService dans apo_config.cpp,
+  DefaultRenderOutputId, OutputFollowPolicy dans MainViewModel,
+  tests OutputFollowPolicyTests/ApoAclArgsTests, IID FD7F2B29 dans
+  ApoEnginePolicy).
+- **Docs** : LISEZMOI 3.9.7 (les trois protections expliquées à
+  l'utilisateur) ; README (historique) ; WORKLOG session 29 ; spec
+  I-AUD-09 v1.8 (as-built aa : sonde+rollback, ab : ACL bin, ac :
+  défaut Windows suivi, ad : interface déclarée, ae : journal de
+  repli) ; CARTE.md (M-AUD-09 v1.8, 12 fichiers) ; REPRISE.md (résumé
+  express + état session 29).
+- **Livrables (D22)** : package_v3.sh (zips test/public/source 3.9.7,
+  contrôles verts dont le verrou v3.9.7) ; build_setup.sh →
+  RoomEq-win-Setup.exe 3.9.7 régénéré et téléversé sur Drive ; anciens
+  zips 3.9.6 archivés dans Livrables/Archive ; miroir Drive complet +
+  push GitHub.
+
+Stage Summary:
+- v3.9.7 : le retour terrain v3.9.6 a montré le piège final de l'EQ
+  système — une APO que le moteur audio n'instancie pas ne se contourne
+  pas, elle COUPE la sortie. RoomEq applique désormais le principe « le
+  son passe avant l'égaliseur » à tous les étages : le dossier des DLL
+  est lisible par quiconque (échec d'octroi rendu impossible puis
+  vérifié), chaque activation est SONDÉE et une sortie qui ne répond
+  plus est RESTAURÉE AUTOMATIQUEMENT avec un verdict qui explique, et
+  l'écoute suit enfin la sortie par défaut de Windows (fini la barre de
+  volume branchée sur une carte muette). L'interface déclarée au moteur
+  et le journal de l'APO sont alignés sur les références terrain.
+- Prochaine étape : validation terrain Windows — Setup 3.9.7,
+  réactiver l'EQ sur le casque, lire le verdict : soit « ✓ Vérifié :
+  la sortie répond et l'APO est chargé » (le son CHANGE avec la courbe
+  de l'onglet Égaliseur — la capture v3.9.7 montrait « courbe PLATE :
+  chargez une correction », c'est la courbe envoyée), soit « LE SON A
+  ÉTÉ PRÉSERVÉ : […] » (alors transmettre le message complet : il
+  contient le diagnostic différentiel ; un redémarrage de Windows peut
+  débloquer le chargement). Vérifier aussi la barre de volume en
+  changeant la sortie par défaut de Windows pendant que l'appli est
+  ouverte.

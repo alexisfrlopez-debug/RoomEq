@@ -1,12 +1,46 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.7 (as-built v3.9.6, 2
-  novembre 2026 — les prérequis manquants du CHARGEMENT par le moteur audio :
-  DisableProtectedAudioDG + inscription AudioEngine/AudioProcessingObjects +
-  modes de traitement EFX) · **Code** :
+- **Module** : M-AUD-09 · **Version de spec** : 1.8 (as-built v3.9.7, 2
+  novembre 2026 — LE SON PASSE AVANT L'ÉGALISEUR : sonde WASAPI post-
+  activation + restauration automatique, ACL bin lisible par tous, écoute
+  suivant la sortie par défaut de Windows) · **Code** :
   `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/` (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.8** : retour terrain v3.9.6 — « dès que l'EQ est activé sur
+  une sortie, je n'ai plus de son sur cette sortie jusqu'à ce que je
+  désactive l'EQ ». FAIT ÉTABLI (terrain documenté, cas Dolby/Win10) : un
+  endpoint dont le moteur audio n'a pas pu INSTANCIER l'APO ne construit
+  PAS son graphe — la sortie est MUETTE (« Failed to play test tone »,
+  mixeur vide) ; l'APO refusée n'est pas contournée, elle TUE la sortie.
+  Avant v3.9.6, le refus de signature (mode protégé) avait lieu AVANT la
+  construction → son préservé ; depuis que la recette complète fait TENTER
+  le chargement, tout échec d'instanciation coupe le son. Correctifs :
+  (aa) **sonde WASAPI + restauration automatique** — après chaque
+  activation/réparation, l'endpoint est sondé par un rendu partagé de ~120 ms
+  de silence (témoin : une autre sortie vivante ⇒ verdict immédiat ; tout en
+  cours de redémarrage ⇒ jusqu'à 4 tentatives) ; sortie morte ⇒ Disable
+  (l'origine sauvegardée est restaurée) + redémarrage du service + verdict
+  « LE SON A ÉTÉ PRÉSERVÉ : … restaurée automatiquement » (politique PURE
+  `ApoActivationPolicy`, verrouillée par tests) ; (ab) **ACL bin lisible par
+  TOUS** — « Tout le monde : lecture + exécution » comme Program Files
+  (l'octroi précédent ne passait que par le compte NT SERVICE\Audiosrv,
+  meilleur-effort et non vérifié : son échec éventuel privait audiodg de la
+  lecture de la DLL → graphe mort ; icacls est désormais contrôlé par code
+  de retour ET la DACL relue : `ApoAclVerifier.EveryoneCanReadAndExecute`) ;
+  racine : + LOCAL SERVICE (S-1-5-19) Modifier par SID ; (ac) **l'écoute
+  suit la sortie PAR DÉFAUT de Windows** (`PlaybackEngine.
+  DefaultRenderOutputId` + `OutputFollowPolicy` pur : suivi tant que
+  l'utilisateur n'a pas délibérément divergé — fin du « curseur branché sur
+  les haut-parleurs pendant que le casque est le défaut ») ; (ad)
+  **interface déclarée = IAudioProcessingObject** au registre
+  (APOInterface0) ET dans GetRegistrationProperties natif — alignement sur
+  les DEUX références (SysVAD ComponentizedApoSample.inx, CRegAPOProperties
+  d'Equalizer APO) ; (ae) **journal de l'APO avec repli** — si
+  %ProgramData%\RoomEq\apo\apo.log n'est pas inscriptible par audiodg,
+  écriture dans %SystemRoot%\ServiceProfiles\LocalService\AppData\Local\
+  Temp\RoomEqApo.log (l'emplacement du journal d'Equalizer APO, inscriptible
+  par construction) ; le processus élevé lit les deux.
 - **As-built v1.7** : retour terrain v3.9.5 — le panneau a nommé le maillon
   (« journal APO absent : la DLL n'a jamais été chargée par le moteur audio »)
   alors que l'activation, l'inscription COM et le CLSID EFX étaient corrects.
@@ -358,5 +392,20 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
   ARM64, DLL, exports `DllGetClassObject` + `DllCanUnloadNow`, dépendances
   système uniquement (ole32, kernel32, UCRT) — contrôlés par
   `scripts/check_pe_exports.py` (binutils-objdump ne lit pas le PE ARM64).
-- Non-régression : suites xUnit 100 % vertes (488/488 : Core 237, Audio
-  177, App 74) et harnais VST/AU/APO inchangés.
+- ACL des dossiers partagés (`ApoAclArgsTests`, 3 tests — v3.9.7) : bin =
+  Tout le monde (S-1-1-0) lecture + exécution, SYSTEM/Admins FullControl,
+  ACL protégée, AUCUN droit d'écriture non-admin ; racine = Utilisateurs +
+  NT SERVICE\Audiosrv + LOCAL SERVICE (S-1-5-19) Modifier ; les SID codés
+  en dur verrouillés anti-typo.
+- Politique d'activation (`ApoActivationPolicyTests`, 8 tests — v3.9.7) :
+  croisement sonde×journal (saine / vivante-sans-journal / morte —
+  uniquement depuis DeadGraph : une sortie DÉBRANCHÉE ne déclenche jamais
+  de restauration) ; budget de re-tentes et arrêt immédiat quand un témoin
+  vit.
+- Suivi du défaut Windows (`OutputFollowPolicyTests`, 5 tests — v3.9.7,
+  App) : divergence uniquement sur choix non-défaut délibéré ; suivi du
+  nouveau défaut tant que pas divergé ; pas de suicide quand déjà conforme
+  ou défaut inconnu ; rien de sélectionné + défaut connu = le prendre.
+- Non-régression : suites xUnit 100 % vertes (550/550 : Core 237, Audio
+  233, App 80) et harnais VST/AU/APO inchangés (APO : l'interface déclarée
+  des propriétés d'enregistrement verrouillée à IAudioProcessingObject).

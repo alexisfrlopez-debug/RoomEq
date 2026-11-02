@@ -93,7 +93,22 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   (clé AudioEngine\AudioProcessingObjects\{CLSID}, valeurs nommées —
   équivalent RegisterAPO du DDK) et mode de traitement EFX par défaut
   (MULTI_SZ). Le panneau nomme désormais le prérequis manquant et
-  « Réparer » rétablit tout (spec I-AUD-09 v1.7, 511 → 531 tests)
+  « Réparer » rétablit tout (spec I-AUD-09 v1.7, 511 → 531 tests) ;
+  **v3.9.7** : « dès que l'EQ est activé sur une sortie, je n'ai plus de
+  son sur cette sortie » — un APO non instanciée par le moteur audio TUE
+  le graphe de l'endpoint (retour terrain documenté : « Failed to play
+  test tone », mixeur vide). LE SON PASSE AVANT L'ÉGALISEUR : ACL du
+  dossier bin « Tout le monde : lecture + exécution » (comme Program
+  Files, vérifiée en relisant la DACL — l'octroi Audiosrv était
+  meilleur-effort et son échec invisible), sonde WASAPI silencieuse
+  post-activation avec ROLLBACK AUTOMATIQUE si la sortie ne répond plus
+  (origine restaurée + service redémarré + verdict explicite), suivi de
+  la sortie PAR DÉFAUT de Windows par l'écoute (volume + preset —
+  l'appli restait sur les haut-parleurs pendant que le casque était le
+  défaut : « barre de volume sans effet »), interface déclarée au moteur
+  alignée sur SysVAD/Equalizer APO (APOInterface0 =
+  IAudioProcessingObject) et journal de l'APO avec repli dans le profil
+  du service (spec I-AUD-09 v1.8, 531 → 550 tests)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`

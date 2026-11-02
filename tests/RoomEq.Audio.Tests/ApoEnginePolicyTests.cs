@@ -48,10 +48,18 @@ public class ApoEnginePolicyTests
         Assert.Equal(1, values.Single(v => v.Name == "MinOutputConnections").Dword);
         Assert.Equal(1, values.Single(v => v.Name == "MaxOutputConnections").Dword);
         Assert.Equal(64, values.Single(v => v.Name == "MaxInstances").Dword);
-        // une seule interface listée : IAudioProcessingObjectRT (apo_abi.h)
+        // une seule interface listée — v3.9.7 : IAudioProcessingObject, comme
+        // les DEUX références terrain (SysVAD écrit {FD7F2B29-…} à
+        // APOInterface0 ; Equalizer APO passe __uuidof(IAudioProcessingObject)
+        // à CRegAPOProperties) ; la RT reste déclarée à l'objet par QueryInterface.
         Assert.Equal(1, values.Single(v => v.Name == "NumAPOInterfaces").Dword);
-        Assert.Equal(ApoEnginePolicy.ApoInterfaceRt,
+        Assert.Equal(ApoEnginePolicy.ApoInterface0,
             values.Single(v => v.Name == "APOInterface0").Text);
+        // IID de IAudioProcessingObject (audioenginebaseapo.h) — verrou
+        // anti-retour vers la RT : une divergence avec les références serait
+        // une régression de la recette de chargement.
+        Assert.Equal("{FD7F2B29-24D0-4B5C-B177-592C39F9CA10}",
+            ApoEnginePolicy.ApoInterface0);
     }
 
     [Fact]

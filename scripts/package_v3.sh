@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.6
+VERSION=3.9.7
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -201,6 +201,37 @@ grep -qE 'DisableProtectedAudioDgValue = "DisableProtectedAudioDG"' \
   && grep -qE 'EnginePolicyOk' "$SRC/src/RoomEq.Audio/SystemApo/ApoChainText.cs" \
   && grep -qE 'IsDllLoadAllowed' "$SRC/tests/RoomEq.Audio.Tests/ApoEnginePolicyTests.cs" \
   && echo "   ✓ v3.9.6 : DisableProtectedAudioDG + inscription AudioEngine/AudioProcessingObjects + modes EFX (recette Equalizer APO complète)"
+
+# --- v3.9.7 : LE SON PASSE AVANT L'ÉGALISEUR — retour terrain v3.9.6 :
+#     « dès que l'EQ est activé sur une sortie, je n'ai plus de son sur cette
+#     sortie » (un APO que le moteur n'instancie pas TUE le graphe de
+#     l'endpoint). Trois protections : (1) ACL bin « Tout le monde : lecture
+#     + exécution » — aucune identité de service ne peut plus se voir
+#     refuser le chargement de la DLL (l'octroi icacls était meilleur-effort
+#     et son échec invisible) ; (2) sonde WASAPI post-activation + ROLLBACK
+#     AUTOMATIQUE si la sortie ne répond plus (l'origine est restaurée, le
+#     service redémarré, le verdict l'explique) ; (3) suivi de la sortie PAR
+#     DÉFAUT de Windows pour l'écoute (volume + preset suivaient une sortie
+#     fixe pendant que l'utilisateur écoutait le défaut — « barre de volume
+#     sans effet ») ; + interface déclarée APOInterface0 =
+#     IAudioProcessingObject (références SysVAD + Equalizer APO) et journal
+#     de repli dans le profil du service ---
+grep -qE 'EveryoneCanReadAndExecute' "$SRC/src/RoomEq.Audio/SystemApo/ApoAclVerifier.cs" \
+  && grep -qE 'EveryoneSid' "$SRC/src/RoomEq.Audio/SystemApo/ApoAclArgs.cs" \
+  && grep -qE 'LocalServiceSid' "$SRC/src/RoomEq.Audio/SystemApo/ApoAclArgs.cs" \
+  && grep -qE 'RunChecked' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && [[ -f "$SRC/src/RoomEq.Audio/SystemApo/ApoEndpointProbe.cs" \
+     && -f "$SRC/src/RoomEq.Audio/SystemApo/ApoActivationPolicy.cs" \
+     && -f "$SRC/tests/RoomEq.Audio.Tests/ApoAclArgsTests.cs" ]] \
+  && grep -qE 'VerifyEndpointHealth' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && grep -qF 'ServiceProfiles' "$SRC/natif/roomeq-apo/apo/apo_config.cpp" \
+  && grep -qF 'LocalService' "$SRC/natif/roomeq-apo/apo/apo_config.cpp" \
+  && grep -qE 'DefaultRenderOutputId' "$SRC/src/RoomEq.Audio/Playback/PlaybackEngine.cs" \
+  && grep -qE 'OutputFollowPolicy' "$SRC/src/RoomEq.App/ViewModels/MainViewModel.cs" \
+  && [[ -f "$SRC/src/RoomEq.App/ViewModels/OutputFollowPolicy.cs" \
+     && -f "$SRC/tests/RoomEq.App.Tests/OutputFollowPolicyTests.cs" ]] \
+  && grep -qE 'FD7F2B29-24D0-4B5C-B177-592C39F9CA10' "$SRC/src/RoomEq.Audio/SystemApo/ApoEnginePolicy.cs" \
+  && echo "   ✓ v3.9.7 : ACL bin bulletproof + sonde WASAPI + rollback automatique + suivi du défaut Windows + interface SysVAD + journal de repli"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

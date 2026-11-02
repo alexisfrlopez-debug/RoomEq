@@ -47,10 +47,39 @@ public static class ApoSetupCommands
             return result;
 
         RestartAudioService();
+
+        // v3.9.7 — LE SON PASSE AVANT L'ÉGALISEUR : après le redémarrage du
+        // service, on VÉRIFIE que la sortie répond toujours au rendu WASAPI.
+        // Un endpoint dont le moteur audio n'a pas pu charger l'APO ne
+        // construit PAS son graphe : plus de son du tout (« Failed to play
+        // test tone », mixeur vide — retour terrain v3.9.6 : « dès que l'EQ
+        // est activé sur une sortie, je n'ai plus de son sur cette sortie »).
+        // Sortie morte → RESTAURATION AUTOMATIQUE immédiate de l'origine +
+        // nouveau redémarrage : l'utilisateur garde toujours du son, et le
+        // verdict explique au lieu de laisser une sortie muette.
+        var health = VerifyEndpointHealth(endpointKey);
+        if (health.Health == ApoActivationHealth.DeadEndpoint)
+        {
+            Registrar().Disable(endpointKey);          // restaure l'origine
+            RestartAudioService();                    // le graphe d'origine revient
+            return ApoInstallResult.Fail(
+                "LE SON A ÉTÉ PRÉSERVÉ : le moteur audio de Windows n'a pas " +
+                "réussi à charger l'égaliseur sur cette sortie (sortie devenue muette " +
+                "→ restaurée automatiquement à son état d'origine, service audio " +
+                "redémarré). Causes possibles : DLL refusée par le moteur malgré le " +
+                "réglage de signature, permissions du dossier %ProgramData%\\RoomEq\\apo\\bin, " +
+                "politique de sécurité tierce. Transmettez ce message complet " +
+                "(il contient le diagnostic) — un redémarrage de Windows peut aussi " +
+                "débloquer le chargement (le réglage est lu à la création du moteur).");
+        }
+
         return ApoInstallResult.Ok(result.Message +
             " Le service audio a été redémarré : le son s'interrompt environ une seconde." +
             " Le moteur audio accepte désormais les DLL non signées (réglage réversible d'Equalizer APO) : " +
-            "les rares applications exigeant un chemin audio protégé peuvent refuser de jouer.");
+            "les rares applications exigeant un chemin audio protégé peuvent refuser de jouer. " +
+            (health.Health == ApoActivationHealth.Healthy
+                ? " Vérifié : la sortie répond et l'APO est chargé (journal à l'heure)."
+                : " Vérifié : la sortie répond au rendu (journal de l'APO muet — permissions « %ProgramData% » ; sans conséquence sur le son)."));
     }
 
     // ---------------------------------------------------------------- désactiver
@@ -80,12 +109,109 @@ public static class ApoSetupCommands
                 parts.Add(repaired + " sortie(s) réparée(s) (mise à jour de pilote qui a effacé l'inscription)");
             if (fixedPrerequisites)
                 parts.Add("prérequis du moteur audio réparés (inscription APO, acceptation des DLL non signées)");
+
+            // v3.9.7 — même protection que l'activation : toute sortie réparée
+            // doit rester VIVANTE ; celle qui ne répond plus est restaurée.
+            int rolledBack = 0;
+            foreach (string key in RegistrarBackedKeys())
+            {
+                if (VerifyEndpointHealth(key).Health == ApoActivationHealth.DeadEndpoint)
+                {
+                    Registrar().Disable(key);
+                    rolledBack++;
+                }
+            }
+            if (rolledBack > 0)
+            {
+                RestartAudioService();
+                return ApoInstallResult.Fail(
+                    "LE SON A ÉTÉ PRÉSERVÉ : " + rolledBack + " sortie(s) restaurée(s) " +
+                    "automatiquement (le moteur audio n'a pas réussi à charger l'égaliseur " +
+                    "dessus). Transmettez ce message — il contient le diagnostic ; un " +
+                    "redémarrage de Windows peut aussi débloquer le chargement.");
+            }
             return ApoInstallResult.Ok(string.Join(" · ", parts) + ".");
         }
         return ApoInstallResult.Ok("Rien à réparer : toutes les sorties activées sont conformes.");
     }
 
-    // ------------------------------------------------------------ désinstallation
+    /// <summary>Clés des endpoints connus du magasin de sauvegardes (élevé).</summary>
+    private static IReadOnlyList<string> RegistrarBackedKeys()
+    {
+        try
+        {
+            return new ApoBackupFileStore(ApoConstants.BackupPath).Keys();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    // ---------------------------------------------------------------- santé sortie
+
+    /// <summary>
+    /// v3.9.7 — attend que le moteur audio reconstruise le graphe de la
+    /// sortie, puis croise la sonde WASAPI (silencieuse) et la trace de
+    /// chargement de l'APO (apo.log, y compris le journal de repli du profil
+    /// service). Jamais d'exception ; verdict piloté par ApoActivationPolicy.
+    /// </summary>
+    private static (ApoActivationHealth Health, bool LogShowsLoad) VerifyEndpointHealth(
+        string endpointKey)
+    {
+        const int maxAttempts = 4;
+        var probe = ApoEndpointProbe.Probe(endpointKey);
+        for (int attempt = 1; attempt <= maxAttempts && probe == ApoProbeResult.DeadGraph; attempt++)
+        {
+            Thread.Sleep(attempt == 1 ? 800 : 1500);
+            probe = ApoEndpointProbe.Probe(endpointKey);
+            if (probe != ApoProbeResult.DeadGraph)
+                break;
+            bool witness = ApoEndpointProbe.AnyOtherAlive(endpointKey);
+            if (!ApoActivationPolicy.ShouldRetryProbe(attempt, maxAttempts, witness))
+                break; // témoin vivant et elle morte : verdict immédiat
+        }
+        bool loaded = LogShowsLoad();
+        return (ApoActivationPolicy.Evaluate(probe, loaded), loaded);
+    }
+
+    /// <summary>
+    /// L'APO a-t-elle laissé une trace de chargement ? Journal principal
+    /// (%ProgramData%\RoomEq\apo\apo.log) OU journal de repli (profil du
+    /// service — écrit quand %ProgramData% refuse l'écriture à audiodg).
+    /// Lecture tolérante, jamais d'exception.
+    /// </summary>
+    private static bool LogShowsLoad()
+    {
+        foreach (string path in LogCandidatePaths())
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    continue;
+                string text = File.ReadAllText(path);
+                if (text.Contains("APO instancie", StringComparison.Ordinal)
+                    || text.Contains("LockForProcess", StringComparison.Ordinal)
+                    || text.Contains("surveillant actif", StringComparison.Ordinal))
+                    return true;
+            }
+            catch
+            {
+                // journal occupé/illisible : ce n'est pas un verdict de mort
+            }
+        }
+        return false;
+    }
+
+    private static IEnumerable<string> LogCandidatePaths()
+    {
+        yield return ApoConstants.ApoLogPath;
+        yield return Path.Combine(
+            Environment.GetEnvironmentVariable("SystemRoot") ?? "C:\\Windows",
+            "ServiceProfiles", "LocalService", "AppData", "Local", "Temp", "RoomEqApo.log");
+    }
+
+    // ---------------------------------------------------------------- désinstallation
 
     private static ApoInstallResult Uninstall(string appBase)
     {
@@ -174,7 +300,9 @@ public static class ApoSetupCommands
                 return (ApoInstallResult.Fail(
                     "DLL APO " + ApoConstants.DeployedDllName + " absente du dossier « apo » de l'application."), false);
 
-            ApplyAcls(bin);
+            var (acl, aclFixed) = ApplyAcls(bin);
+            if (!acl.Success)
+                return (acl, false);
 
             // v3.9.5 — VERROU : icacls échouait en silence (« meilleur effort ») et
             // laissait le dossier sans l'entrée Utilisateurs:Modifier — l'app ne
@@ -183,10 +311,24 @@ public static class ApoSetupCommands
             if (!ApoAclVerifier.UsersCanModify(ApoConstants.ProgramDataDir))
                 return (ApoInstallResult.Fail(
                     "Les permissions du dossier " + ApoConstants.ProgramDataDir
-                    + " n'ont pas pu être établies (icacls a échoué) : l'application ne "
+                    + " n'ont pas pu être établies (icacls a réussi mais l'entrée « Utilisateurs : Modifier » est absente) : l'application ne "
                     + "pourrait pas envoyer la courbe à l'égaliseur système. Réessayez "
                     + "l'activation ; si l'échec persiste, créez le dossier manuellement et "
                     + "accordez « Modifier » aux Utilisateurs."), false);
+
+            // v3.9.7 — VERROU bin : le chargement de la DLL par audiodg ne doit
+            // pouvoir être refusé à AUCUNE identité de service — « Tout le monde :
+            // lecture + exécution » (comme Program Files), vérifié en relisant
+            // la DACL. Une entrée manquante ici est le mécanisme EXACT du
+            // retour terrain v3.9.6 « plus de son sur cette sortie ».
+            if (!ApoAclVerifier.EveryoneCanReadAndExecute(bin))
+                return (ApoInstallResult.Fail(
+                    "Les permissions du dossier " + bin
+                    + " n'ont pas pu être établies (l'entrée « Tout le monde : lecture "
+                    + "et exécution » est absente) : le moteur audio de Windows ne "
+                    + "pourrait pas charger l'égaliseur et la sortie deviendrait muette. "
+                    + "Réessayez l'activation ; si l'échec persiste, un logiciel de "
+                    + "sécurité bloque la modification des permissions."), false);
 
             // v3.9.5 — courbe initiale : garantit qu'active.json existe, appartient
             // au dossier et est valide DÈS l'activation (l'app l'écrase par la
@@ -219,6 +361,8 @@ public static class ApoSetupCommands
             bool fixedPolicy = EnsureProtectedAudioDgAllowsUnsignedApos();
 
             var whatChanged = new List<string>();
+            if (aclFixed)
+                whatChanged.Add("permissions des dossiers partagés réappliquées");
             if (fixedEngineRegistration)
                 whatChanged.Add("inscription moteur audio restaurée");
             if (fixedPolicy)
@@ -227,7 +371,7 @@ public static class ApoSetupCommands
             return (ApoInstallResult.Ok(whatChanged.Count == 0
                 ? "Déploiement APO à jour."
                 : "Déploiement APO réparé : " + string.Join(" · ", whatChanged) + "."),
-                fixedEngineRegistration || fixedPolicy);
+                fixedEngineRegistration || fixedPolicy || aclFixed);
         }
         catch (Exception ex)
         {
@@ -260,26 +404,38 @@ public static class ApoSetupCommands
     }
 
     /// <summary>
-    /// ACL des dossiers partagés — par SID (indépendant de la langue de
-    /// Windows) via icacls.exe :
+    /// ACL des dossiers partagés (v3.9.7 — cf. <see cref="ApoAclArgs"/> pour
+    /// le pourquoi de chaque SID) : construites par <see cref="ApoAclArgs"/>
+    /// (pures, verrouillées par tests) puis APPLIQUÉES avec contrôle du code
+    /// de retour icacls et VÉRIFIÉES par lecture .NET de la DACL — un octroi
+    /// silencieusement échoué (retour terrain v3.9.6) ne peut plus passer
+    /// inaperçu : le déploiement échoue avec un message actionnable.
+    /// · bin : SYSTEM/Admins tout, TOUT LE MONDE lecture + exécution — le
+    ///   chargement par audiodg ne peut plus être refusé, l'écriture reste
+    ///   aux administrateurs ;
     /// · racine apo : SYSTEM/Admins tout, Utilisateurs + service audio
-    ///   MODIFIENT (l'application non élevée écrit active.json, audiodg
-    ///   écrit son journal) ;
-    /// · bin : SYSTEM/Admins tout, les autres LECTURE/EXÉCUTION seule — une
-    ///   DLL chargée par audiodg ne doit jamais être remplaçable par un
-    ///   utilisateur standard (élévation de privilège).
+    ///   (nom ET LocalService par SID) MODIFIENT — courbe et journal
+    ///   toujours inscriptibles.
     /// </summary>
-    private static void ApplyAcls(string bin)
+    private static (ApoInstallResult Result, bool FixedSomething) ApplyAcls(string bin)
     {
         // bin d'abord (protégé contre l'héritage), puis la racine dont les
         // ACE se propagent aux fichiers existants (active.json…) mais
         // s'arrêtent à bin.
-        Run("icacls", $"\"{bin}\" /inheritance:r " +
-            $"/grant *S-1-5-18:(OI)(CI)F /grant *S-1-5-32-544:(OI)(CI)F " +
-            $"/grant *S-1-5-32-545:(OI)(CI)RX /grant \"NT SERVICE\\Audiosrv:(OI)(CI)RX\"");
-        Run("icacls", $"\"{ApoConstants.ProgramDataDir}\" /inheritance:r " +
-            $"/grant *S-1-5-18:(OI)(CI)F /grant *S-1-5-32-544:(OI)(CI)F " +
-            $"/grant *S-1-5-32-545:(OI)(CI)M /grant \"NT SERVICE\\Audiosrv:(OI)(CI)M\"");
+        if (!RunChecked("icacls", ApoAclArgs.ForBin(bin)))
+            return (ApoInstallResult.Fail(
+                "icacls a échoué sur " + bin + " : les permissions du dossier des DLL " +
+                "n'ont pas pu être établies (le moteur audio ne pourrait pas charger " +
+                "l'égaliseur). Relancez l'activation ; si l'échec persiste, un logiciel " +
+                "de sécurité bloque la modification des permissions."), false);
+        if (!RunChecked("icacls", ApoAclArgs.ForRoot(ApoConstants.ProgramDataDir)))
+            return (ApoInstallResult.Fail(
+                "icacls a échoué sur " + ApoConstants.ProgramDataDir + " : les permissions " +
+                "du dossier de configuration n'ont pas pu être établies (l'application ne " +
+                "pourrait pas envoyer la courbe, l'APO ne pourrait pas écrire son journal). " +
+                "Relancez l'activation ; si l'échec persiste, un logiciel de sécurité " +
+                "bloque la modification des permissions."), false);
+        return (ApoInstallResult.Ok("ACL établies."), true);
     }
 
     private static void RestartAudioService()
@@ -309,6 +465,34 @@ public static class ApoSetupCommands
         catch
         {
             // meilleur effort, jamais bloquant
+        }
+    }
+
+    /// <summary>Exécute et exige un code de retour nul (v3.9.7 — plus jamais
+    /// d'octroi ACL silencieusement raté : le verdict le nomme).</summary>
+    private static bool RunChecked(string fileName, string arguments, int timeoutMs = 20000)
+    {
+        try
+        {
+            using var p = Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            });
+            if (p == null)
+                return false;
+            if (!p.WaitForExit(timeoutMs))
+            {
+                try { p.Kill(); } catch { /* déjà parti */ }
+                return false;
+            }
+            return p.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
         }
     }
 

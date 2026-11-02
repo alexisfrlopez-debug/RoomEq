@@ -1,4 +1,4 @@
-RoomEq 3.9.6 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.9.7 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,28 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    531 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    550 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
     build 0 erreur 0 avertissement.
+  • CORRECTIF 3.9.7 — LE SON PASSE AVANT L'ÉGALISEUR : retour terrain 3.9.6
+    « dès que l'EQ est activé sur une sortie, je n'ai plus de son sur cette
+    sortie ». Un égaliseur système que le moteur audio de Windows n'arrive
+    pas à charger ne se contente pas de ne rien faire : il empêche le
+    périphérique de jouer du tout. Trois protections dorénavant :
+    (1) l'ACL du dossier des DLL de l'égaliseur est « Tout le monde :
+    lecture et exécution » (comme Program Files) et VÉRIFIÉE après pose —
+    l'octroi précédent dépendait d'un compte de service précis et son
+    échec éventuel était invisible ; (2) après chaque activation, une SONDE
+    WASAPI silencieuse vérifie que la sortie répond toujours — si elle ne
+    répond plus, RoomEq la RESTAURE AUTOMATIQUEMENT à son état d'origine
+    (l'origine est sauvegardée avant toute écriture) et redémarre le
+    service audio : vous gardez le son, le message explique ; (3) l'écoute
+    de RoomEq (volume de la barre, preset de la sortie) suit désormais la
+    sortie PAR DÉFAUT de Windows — l'appli restait branchée sur les
+    haut-parleurs pendant que vous écoutiez le casque : les deux curseurs
+    pilotaient une carte muette et le volume Windows ne touchait pas la
+    barre. Au passage : l'interface déclarée au moteur audio est alignée
+    sur les références officielles (SysVAD, Equalizer APO), et le journal
+    de l'APO sait se replier dans un emplacement toujours inscriptible.
   • CORRECTIF 3.9.6 — L'EQ SYSTÈME EST MAINTENANT VRAIMENT CHARGÉ PAR
     WINDOWS : le panneau disait « DLL jamais chargée par le moteur audio »
     alors que tout semblait activé. Cause trouvée (c'est le réglage qu'utilise

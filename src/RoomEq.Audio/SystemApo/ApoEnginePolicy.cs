@@ -47,11 +47,14 @@ public sealed record ApoEngineRegValue(string Name, int? Dword, string? Text)
 public static class ApoEnginePolicy
 {
     /// <summary>
-    /// IID de IAudioProcessingObjectRT déclarée par la DLL native
-    /// (apo_abi.h : 0x9E1D6A6D-DDBC-4E95-A4C7-AD64BA37846C) — l'interface
-    /// temps réel listée par GetRegistrationProperties.
+    /// IID de IAudioProcessingObject déclarée par la DLL native (apo_abi.h :
+    /// 0xFD7F2B29-24D0-4B5C-B177-592C39F9CA10) — v3.9.7 : les DEUX références
+    /// terrain (sample SysVAD ComponentizedApoSample.inx et Equalizer APO,
+    /// CRegAPOProperties avec __uuidof(IAudioProcessingObject)) déclarent
+    /// l'interface NON temps réel ici ; la valeur registre et
+    /// GetRegistrationProperties restent miroir exact.
     /// </summary>
-    public const string ApoInterfaceRt = "{9E1D6A6D-DDBC-4E95-A4C7-AD64BA37846C}";
+    public const string ApoInterface0 = "{FD7F2B29-24D0-4B5C-B177-592C39F9CA10}";
 
     /// <summary>APO_FLAG_DEFAULT | APO_FLAG_INPLACE = 0xE | 0x1 = 15
     /// (enum APO_FLAG du SDK — identique au natif).</summary>
@@ -75,7 +78,7 @@ public static class ApoEnginePolicy
         ApoEngineRegValue.Dw("MaxOutputConnections", 1),
         ApoEngineRegValue.Dw("MaxInstances", 64),
         ApoEngineRegValue.Dw("NumAPOInterfaces", 1),
-        ApoEngineRegValue.Sz("APOInterface0", ApoInterfaceRt),
+        ApoEngineRegValue.Sz("APOInterface0", ApoInterface0),
     };
 
     /// <summary>La politique actuelle autorise-t-elle le chargement de notre

@@ -69,6 +69,41 @@ public sealed class PlaybackEngine : IDisposable
         return _enumerator;
     }
 
+    /// <summary>
+    /// Sortie de rendu PAR DÉFAUT de Windows (v3.9.7 — correctif « la barre de
+    /// volume ne suit pas le volume Windows ») : l'identifiant complet
+    /// (« wasapi|{0.0.0.00000000}.{GUID} ») de la sortie que l'utilisateur
+    /// écoute réellement, null si indisponible (hors Windows, aucun défaut).
+    /// Jamais d'exception. L'écoute RoomEq (volume physique + preset de la
+    /// sortie) SUIVRA cette valeur : régler le volume Windows du casque
+    /// pendant que l'appli pilote les haut-parleurs rendait la barre
+    /// « sans effet » — les deux étaient branchés sur des sorties différentes.
+    /// </summary>
+    public static string? DefaultRenderOutputId()
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            MMDevice? dev = null;
+            try
+            {
+                dev = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
+            }
+            catch
+            {
+                // pas de défaut « console » : le rôle multimédia sert de repli
+            }
+            dev ??= enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            return dev == null ? null : "wasapi|" + dev.ID;
+        }
+        catch
+        {
+            return null; // aucun périphérique / sous-système indisponible
+        }
+    }
+
     /// <summary>Énumère les sorties : CoreAudio (macOS) ou WASAPI actif + pilotes ASIO (Windows).</summary>
     public IReadOnlyList<OutputDeviceInfo> EnumerateOutputs()
     {

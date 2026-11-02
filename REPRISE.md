@@ -7,22 +7,90 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.9.6** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1–v3.9.4 : correctifs activation (FxProperties → takeover registre → LUID interop → binding CloseHandle/kernel32), v3.9.5 : volume re-ciblé + chaîne de courbe observable + verrou ACL, et **v3.9.6 : LA DLL APO EST ENFIN CHARGÉE PAR LE MOTEUR AUDIO — le panneau v3.9.5 avait nommé le maillon (« journal APO absent ») ; il manquait TROIS prérequis de la recette Equalizer APO : DisableProtectedAudioDG=1 (sinon audiodg REFUSE SILENCIEUSEMENT toute DLL non signée — réglage réversible, valeur d'origine sauvegardée dans audio-policy.json et restituée à la désinstallation, un Equalizer APO installé n'est jamais touché), l'inscription AudioEngine\AudioProcessingObjects\{CLSID} (équivalent RegisterAPO du DDK) et le MULTI_SZ de modes de traitement EFX par défaut ; le panneau nomme désormais le prérequis manquant et « Réparer » rétablit tout** — 531 tests xUnit + harnais APO 112 vérifications |
+| **Projet** | RoomEq **v3.9.7** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1–v3.9.4 : correctifs activation (FxProperties → takeover registre → LUID interop → binding CloseHandle/kernel32), v3.9.5 : volume re-ciblé + chaîne de courbe observable + verrou ACL, v3.9.6 : recette complète de chargement (DisableProtectedAudioDG + inscription moteur + modes EFX), et **v3.9.7 : LE SON PASSE AVANT L'ÉGALISEUR — retour terrain « plus de son sur la sortie activée » : un APO non instanciée TUE le graphe de l'endpoint ; désormais ACL bin « Tout le monde : lecture+exécution » VÉRIFIÉE, sonde WASAPI post-activation avec ROLLBACK AUTOMATIQUE (origine restaurée + service redémarré + verdict explicite), écoute suivant la sortie PAR DÉFAUT de Windows (fini la barre de volume branchée sur une carte muette), interface déclarée alignée SysVAD/Equalizer APO, journal APO avec repli profil service** — 550 tests xUnit + harnais APO 112 vérifications |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **LANGUE (permanente)** | Répondre à l'utilisateur TOUJOURS en **français** (anglais accepté, chinois interdit — il ne le comprend pas) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 531 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 550 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 28 — v3.9.6 : la DLL APO est enfin chargée par le moteur audio)
+## 1. État (fin session 29 — v3.9.7 : le son passe avant l'égaliseur)
 
-**Session 28 (2026-11-02)** — retour terrain v3.9.5 : le panneau a fait
-son travail (« message d'erreur » + capture : « journal APO absent, la DLL
-n'a jamais été chargée par le moteur audio — cliquer Réparer » alors que
-la courbe était envoyée, révision 37).
+**Session 29 (2026-11-02)** — retour terrain v3.9.6 : « toujours le même
+problème, sauf qu'en plus maintenant dès que l'eq est activé sur une
+sortie, je n'ai plus de son sur cette sortie jusqu'à ce que je désactive
+l'eq (bouton tout retirer) » + capture (courbe envoyée mais PLATE, journal
+APO toujours absent, écoute affichée sur Realtek alors que le défaut est
+le casque JBL).
+
+- **La sandbox avait été recyclée** : le dépôt local était retombé à v3.6.0
+  (le travail v3.7–v3.9.6 n'existait que sur GitHub) — `git pull --ff-only
+  origin v3-recodage` a tout restauré. **D22 a sauvé la session.** Zig
+  0.14.1 et le SDK .NET 8 réinstallés (cf. lignes « SDK » / « Vérifier »).
+- **Fait établi (terrain documenté)** : un APO que le moteur audio
+  n'installe PAS ne se contourne pas — l'endpoint ne construit PAS son
+  graphe : sortie MUETTE (« Failed to play test tone », mixeur vide).
+  Avant v3.9.6 le refus de signature avait lieu AVANT le graphe (son
+  préservé, EQ sans effet) ; depuis que la recette complète fait TENTER
+  le chargement, l'échec d'instanciation coupe le son.
+- **v3.9.7** — trois protections + alignements :
+  1. **ACL bin « Tout le monde : lecture + exécution »** (comme Program
+     Files), posée par `ApoAclArgs` (pur, 3 tests), appliquée avec code de
+     retour icacls EXIGÉ (`RunChecked`) et VÉRIFIÉE en relisant la DACL
+     (`ApoAclVerifier.EveryoneCanReadAndExecute`) — l'octroi précédent ne
+     passait que par « NT SERVICE\Audiosrv » meilleur-effort : son échec
+     éventuel privait audiodg de la DLL (mécanisme possible du silence,
+     invérifiable à distance — désormais impossible par conception).
+     Racine : + LOCAL SERVICE (S-1-5-19) Modifier.
+  2. **Sonde WASAPI + ROLLBACK AUTOMATIQUE** (`ApoEndpointProbe` +
+     `ApoActivationPolicy` purs, 8 tests) : après activation/réparation,
+     rendu partagé de ~120 ms de silence sur la sortie (témoin : une autre
+     sortie vivante ⇒ verdict immédiat ; jusqu'à 4 tentatives sinon) ;
+     sortie morte ⇒ origine restaurée + service redémarré + verdict « LE
+     SON A ÉTÉ PRÉSERVÉ : … restaurée automatiquement ». Une sortie
+     débranchée ne déclenche JAMAIS de restauration.
+  3. **Écoute suivant le DÉFAUT Windows** (`PlaybackEngine.
+     DefaultRenderOutputId` + `OutputFollowPolicy` pur, 5 tests) : la
+     barre de volume et le preset suivent la sortie que l'utilisateur
+     écoute réellement (défaut au démarrage, suivi à chaque changement
+     tant qu'il n'a pas délibérément divergé) — cause du « la barre de
+     volume ne suit pas le volume Windows et n'agit pas sur le son ».
+  + interface déclarée au moteur = IAudioProcessingObject (SysVAD ET
+    Equalizer APO — registre + natif + tests alignés) ; journal de l'APO
+    avec repli dans ServiceProfiles\LocalService\…\Temp (emplacement du
+    journal d'Equalizer APO, inscriptible par construction).
+- **Vérifié au passage** : la structure APO_CONNECTION_PROPERTY du projet
+  est CORRECTE (contre le VRAI audioapotypes.h livré avec Zig + doc
+  Microsoft) — la piste « champs inversés » a été invalidée AVANT toute
+  retouche ; le code natif APOProcess/pass-through/DllMain est sain.
+- Tests : **550/550** xUnit (Core 237, Audio 233, App 80) ; harnais APO
+  112/112 ; DLL x64+arm64 recompilées (Zig 0.14.1). Docs à jour (spec
+  I-AUD-09 v1.8, CARTE M-AUD-09, LISEZMOI, README, WORKLOG session 29).
+- **Prochaine étape : validation terrain Windows** — Setup 3.9.7,
+  réactiver l'EQ sur le casque, lire le verdict : « ✓ Vérifié : la sortie
+  répond et l'APO est chargé » (le son doit CHANGER avec la courbe de
+  l'onglet Égaliseur — la capture montrait « courbe PLATE : chargez une
+  correction », c'est bien la courbe envoyée) OU « LE SON A ÉTÉ
+  PRÉSERVÉ : … » (transmettre le message complet : diagnostic
+  différentiel inclus ; un redémarrage de Windows peut débloquer le
+  chargement — le réglage de politique est lu à la création du moteur).
+  Vérifier aussi : changer la sortie par défaut de Windows pendant que
+  l'appli est ouverte → la barre de volume suit.
+
+### Historique des sessions précédentes
+
+**Session 28 (v3.9.6)** — le panneau v3.9.5 avait nommé le maillon
+(« DLL jamais chargée ») ; la cause était un prérequis de la recette
+Equalizer APO que notre analyse d'origine croyait inutile : Windows
+VÉRIFIE la signature des APO en mode protégé et refuse les non signées
+sans le moindre message. L'activation applique désormais la recette
+complète (DisableProtectedAudioDG + inscription AudioEngine/
+AudioProcessingObjects + modes EFX), réversiblement et sans jamais
+toucher un réglage posé par un tiers — et le panneau nomme le
+prérequis manquant si un pilote ou Windows l'efface.
 
 - **Cause racine ÉTABLIE (recette complète d'Equalizer APO, doc développeur
   officielle Wiki/Developer.txt + `DeviceAPOInfo.cpp` lu en source, croisée

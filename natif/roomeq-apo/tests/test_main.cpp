@@ -503,7 +503,9 @@ int main()
             CHECK(props->u32MinInputConnections == 1 && props->u32MaxInputConnections == 1);
             CHECK(props->u32MinOutputConnections == 1 && props->u32MaxOutputConnections == 1);
             CHECK(props->u32NumAPOInterfaces == 1);
-            CHECK(props->iidAPOInterfaceList[0] == IID_IAudioProcessingObjectRT);
+            // v3.9.7 : interface déclarée = IAudioProcessingObject (références
+            // SysVAD + Equalizer APO — verrou anti-retour vers la RT)
+            CHECK(props->iidAPOInterfaceList[0] == IID_IAudioProcessingObject);
             CHECK(props->szFriendlyName[0] == L'R');
             RoomeqCoTaskMemFree(props);
         } else {

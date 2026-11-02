@@ -58,8 +58,24 @@ void Log(const std::string& line)
     struct stat st;
     bool truncate = ::stat(path.c_str(), &st) == 0 && st.st_size > 1024 * 1024;
     std::FILE* f = std::fopen(path.c_str(), truncate ? "w" : "a");
-    if (!f)
-        return;
+    if (f == nullptr) {
+#if defined(_WIN32)
+        // v3.9.7 — repli terrain : %ProgramData% peut être NON inscriptible
+        // par audiodg (ACL du dossier ou de son parent refusée au service
+        // audio) alors que la DLL est bel et bien chargée — le diagnostic
+        // « journal absent = jamais chargée » était alors un contresens.
+        // Le profil du service (LocalService) est TOUJOURS inscriptible par
+        // audiodg : c'est l'emplacement du journal d'Equalizer APO lui-même
+        // (C:\Windows\ServiceProfiles\LocalService\AppData\Local\Temp).
+        const char* root = std::getenv("SystemRoot");
+        const std::string fallback =
+            std::string(root != nullptr && root[0] != '\0' ? root : "C:\\Windows")
+            + "\\ServiceProfiles\\LocalService\\AppData\\Local\\Temp\\RoomEqApo.log";
+        f = std::fopen(fallback.c_str(), "a");
+#endif
+        if (f == nullptr)
+            return; // aucun emplacement inscriptible : le son passe avant le journal
+    }
     std::fprintf(f, "%s\n", line.c_str());
     std::fclose(f);
 }

@@ -61,4 +61,46 @@ public static class ApoAclVerifier
         }
         return false;
     }
+
+    /// <summary>
+    /// v3.9.7 — « Tout le monde » (S-1-1-0) a-t-il Lecture + Exécution sur CE
+    /// dossier (bin) ? C'est la garantie que le moteur audio — quelle que
+    /// soit l'identité de service sous laquelle audiodg s'exécute — peut
+    /// CHARGER les DLL : une entrée manquante est le mécanisme exact du
+    /// retour terrain v3.9.6 (« plus de son sur la sortie où l'EQ est
+    /// activé » : graphe non construit, sortie muette). False en cas
+    /// d'erreur (prudence : refuser l'activation plutôt que couper le son).
+    /// </summary>
+    public static bool EveryoneCanReadAndExecute(string directory)
+    {
+        try
+        {
+            var rules = new DirectoryInfo(directory)
+                .GetAccessControl()
+                .GetAccessRules(true, true, typeof(SecurityIdentifier));
+            return EveryoneCanReadAndExecute(rules);
+        }
+        catch
+        {
+            return false; // illisible / non supporté : considérer non conforme
+        }
+    }
+
+    /// <summary>Surcharge PURE : les règles données accordent-elles Lecture +
+    /// Exécution (ou mieux) à « Tout le monde » ?</summary>
+    public static bool EveryoneCanReadAndExecute(AuthorizationRuleCollection rules)
+    {
+        var everyone = new SecurityIdentifier(WellKnownSidType.WorldSid, null);
+        foreach (var rule in rules.OfType<FileSystemAccessRule>())
+        {
+            if (rule.AccessControlType != AccessControlType.Allow)
+                continue;
+            if (rule.IdentityReference is not SecurityIdentifier sid || sid != everyone)
+                continue;
+            if ((rule.FileSystemRights & FileSystemRights.ReadAndExecute) != 0
+                || (rule.FileSystemRights & FileSystemRights.FullControl) != 0)
+                return true;
+        }
+        return false;
+    }
 }

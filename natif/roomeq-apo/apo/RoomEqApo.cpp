@@ -122,7 +122,12 @@ HRESULT STDMETHODCALLTYPE RoomEqApo::GetRegistrationProperties(APO_REG_PROPERTIE
     props->u32MaxOutputConnections = 1;
     props->u32MaxInstances = 64;
     props->u32NumAPOInterfaces = 1;
-    props->iidAPOInterfaceList[0] = IID_IAudioProcessingObjectRT;
+    // v3.9.7 : interface déclarée = IAudioProcessingObject, comme les DEUX
+    // références terrain (sample SysVAD de Microsoft — ComponentizedApoSample.inx
+    // écrit {FD7F2B29-…} à APOInterface0 — et Equalizer APO, dont le
+    // CRegAPOProperties reçoit __uuidof(IAudioProcessingObject)). La valeur
+    // registre (ApoEnginePolicy) et l'objet instancié restent miroir exact.
+    props->iidAPOInterfaceList[0] = IID_IAudioProcessingObject;
     *ppRegProps = props;
     return S_OK_;
 }

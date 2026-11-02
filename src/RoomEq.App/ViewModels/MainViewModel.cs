@@ -54,6 +54,23 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string sourceName = "";
     [ObservableProperty] private bool isPlaying;
 
+    /// <summary>v3.9.7 — l'utilisateur a-t-il délibérément quitté la sortie
+    /// par défaut de Windows ? (tant que non, l'écoute suit chaque changement
+    /// de défaut : branchement casque, réglage Windows… — cf. OutputFollowPolicy)</summary>
+    private bool _outputDivergedFromDefault;
+
+    /// <summary>La sortie d'écoute actuelle est-elle le défaut Windows ?</summary>
+    private static string? CurrentDefaultOutputId() => PlaybackEngine.DefaultRenderOutputId();
+
+    /// <summary>La sortie par défaut de Windows, cherchée dans la liste d'outputs.</summary>
+    private static OutputDeviceInfo? OutputForDefault(IEnumerable<OutputDeviceInfo> outputs)
+    {
+        string? defId = PlaybackEngine.DefaultRenderOutputId();
+        return defId == null
+            ? null
+            : outputs.FirstOrDefault(o => string.Equals(o.Id, defId, StringComparison.Ordinal));
+    }
+
     /// <summary>Demande l'ouverture du catalogue de signaux (fenêtre gérée par la vue).</summary>
     public event Action? SignalCatalogRequested;
 
@@ -111,7 +128,14 @@ public partial class MainViewModel : ObservableObject
         // D26 : la sortie mémorisée par la session précédente (mixer.json) est
         // restaurée si elle existe encore — sinon la première disponible ; la
         // barre du haut est la source de vérité unique (plus de sélecteur MASTER).
-        SelectedOutput = Mixer.PreferredInitialOutput(Outputs) ?? Outputs.FirstOrDefault();
+        // v3.9.7 — LE DÉFAUT DE WINDOWS PASSE D'ABORD : l'écoute (volume
+        // physique + preset) doit cibler la sortie que l'utilisateur écoute
+        // réellement ; la mémoire de session ne sert plus qu'en repli (sinon :
+        // curseur branché sur les haut-parleurs pendant que le casque est le
+        // défaut → « barre de volume sans effet », retour terrain v3.9.6).
+        SelectedOutput = OutputForDefault(Outputs)
+                         ?? Mixer.PreferredInitialOutput(Outputs)
+                         ?? Outputs.FirstOrDefault();
         if (SelectedOutput != null) Engine.SetOutput(SelectedOutput.Id);
         Engine.EnsureDefaultOutput();
         Signals.Refresh();
@@ -216,6 +240,10 @@ public partial class MainViewModel : ObservableObject
         StatusText = $"Sortie : {value.DisplayName}";
         Mixer.FollowTopBarOutput(value); // D26 : volume physique + preset suivent
         RefreshEqApplication();         // …et l'EQ système peut couvrir cette sortie
+        // v3.9.7 : choix délibéré hors défaut → divergence (le défaut ne sera
+        // plus suivi) ; retour AU défaut → suivi réactivé.
+        _outputDivergedFromDefault =
+            OutputFollowPolicy.Diverges(value.Id, CurrentDefaultOutputId());
     }
 
     /// <summary>
@@ -232,9 +260,21 @@ public partial class MainViewModel : ObservableObject
             Mixer.RefreshDevices();
             try { Analyzer.RefreshAudioDevices(); } catch { /* énumération indisponible */ }
             try { Calibration.RefreshAudioDevices(); } catch { /* énumération indisponible */ }
+            StatusText = "Périphériques audio mis à jour (branchement à chaud détecté).";
+
+            // v3.9.7 — le DÉFAUT de Windows a pu changer (casque branché,
+            // réglage Windows…) : l'écoute le suit tant que l'utilisateur
+            // n'a pas délibérément choisi une autre sortie dans l'application.
+            if (OutputFollowPolicy.ShouldFollow(SelectedOutput?.Id,
+                    CurrentDefaultOutputId(), _outputDivergedFromDefault)
+                && OutputForDefault(Outputs) is { } newDefault)
+            {
+                SelectedOutput = newDefault; // volume physique + preset suivent (OnChanged)
+                StatusText = $"Sortie d'écoute : {newDefault.DisplayName} (défaut Windows).";
+            }
+
             OutputPresets.Evaluate(Mixer.SelectedOutput);
             RefreshEqApplication(); // l'état APO des sorties peut avoir changé
-            StatusText = "Périphériques audio mis à jour (branchement à chaud détecté).";
         });
     }
 
