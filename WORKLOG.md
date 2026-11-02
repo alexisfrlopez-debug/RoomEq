@@ -2645,3 +2645,55 @@ Stage Summary:
   encore, le message transmis nommera le maillon exact (auto-test,
   prérequis, trace, erreur sonde, positions, Windows) — plus d'aller-
   retour d'investigation à l'aveugle.
+
+---
+Session : 31 — 2026-11-02
+Agent : main (Z.ai)
+Task : « continue » — reprise après recyclage sandbox : aucun nouveau
+retour terrain, v3.9.8 en attente de validation. Session de restauration
+et de vérification intégrale.
+
+Work Log:
+- **Sandbox recyclée (3e fois)** : dépôt local retombé à v3.6.0 + commit
+  de specs — `git pull origin v3-recodage` a tout restauré (v3.9.8,
+  0c293c0). SDK .NET 8.0.427 et Zig 0.14.1 réinstallés (recette
+  REPRISE.md). D22 a encore sauvé la session : tout le travail v3.7 →
+  v3.9.8 n'existait que sur GitHub + Drive.
+- **Vérification intégrale de l'état livré v3.9.8** (rien n'avait été
+  revérifié depuis la restauration) :
+  - Build solution : 0 erreur — mais **1 avertissement CS8602** dans
+    `ApoDllSelfTestLayoutTests.cs:142` (déréférence possible de
+    `Type.StructLayoutAttribute`, nullable) : les projets de tests
+    n'ont pas `TreatWarningsAsErrors` (seul src/ l'a) — l'avertissement
+    avait donc échappé au « 0 avertissement » annoncé en session 30.
+    Corrigé : capture locale + `Assert.NotNull(layout)` avant
+    `layout!.Pack` (test uniquement, aucun changement de comportement —
+    les binaires de l'application sont identiques).
+  - xUnit : **598/598 verts** (Core 237 + Audio 281 + App 80), build
+    0 erreur 0 avertissement après correctif.
+  - Harnais APO natif : **112 vérifications, 0 échec** ; DLL x64 (462 Ko)
+    + arm64 (419 Ko) recompilées par build-apo.sh, zip
+    RoomEq-APO-3.9.8-win.zip régénéré (identiques aux livrés — même
+    source, même Zig).
+  - **Drive contrôlé** (script de listing dédié,
+    `scripts/liste_drive_livrables.py` côté sandbox) : Livrables au
+    premier niveau = RoomEq-win-Setup.exe (53,8 Mo) + zips 3.9.8
+    (source 8,0 Mo / public 44,0 Mo / test 44,1 Mo) + AU 3.6.0 +
+    VST 3.5.2 ; Archive = 63 fichiers (3.9.7 archivés correctement).
+    Rien n'a été perdu au recyclage.
+- **Choix de livraison du micro-correctif** : le commit Git + miroir
+  Drive du dépôt suffisent — les zips 3.9.8 téléversés en session 30
+  restent valables (l'avertissement ne touche que la compilation du
+  projet de TESTS ; aucun binaire embarqué ne diffère). Le prochain
+  cycle de version régénérera les zips avec le correctif.
+
+Stage Summary:
+- Session de reprise : sandbox restaurée, v3.9.8 revérifiée de bout en
+  bout (598/598 xUnit, 112/112 natif, DLL recompilées, Drive complet),
+  1 avertissement résiduel corrigé (null-safety d'un test). Aucun
+  changement fonctionnel — v3.9.8 reste la version à valider sur le
+  terrain.
+- Prochaine étape : inchangée — validation terrain Windows : Setup
+  3.9.8, réactiver l'EQ sur le casque JBL, lire le verdict du panneau
+  (position MFX attendue) ; tout ⚠ ou message « LE SON A ÉTÉ PRÉSERVÉ »
+  = le transmettre tel quel (il contient le diagnostic différentiel).

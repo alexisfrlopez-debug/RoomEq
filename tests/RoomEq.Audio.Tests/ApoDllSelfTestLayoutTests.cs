@@ -139,7 +139,9 @@ public class ApoDllSelfTestLayoutTests
         Assert.Equal(40, Marshal.SizeOf<ApoConnectionDescriptor>());
         Assert.Equal(24, Marshal.SizeOf<ApoConnectionProperty>());
         // le format non compressé est packé à 4 (alignement des GUID du SDK)
-        Assert.Equal(4, typeof(ApoUncompressedFormat).StructLayoutAttribute.Pack);
+        var layout = typeof(ApoUncompressedFormat).StructLayoutAttribute;
+        Assert.NotNull(layout);
+        Assert.Equal(4, layout!.Pack);
     }
 
     private static MethodInfo Import(string name)

@@ -17,7 +17,16 @@
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 30 — v3.9.8 : position adaptée + auto-test + diagnostic)
+## 1. État (fin session 31 — v3.9.8 vérifiée après restauration)
+
+**Session 31 (2026-11-02)** — « continue » sans nouveau retour terrain :
+session de reprise après recyclage sandbox (dépôt local retombé à v3.6.0,
+`git pull` a tout restauré ; SDK .NET + Zig réinstallés). v3.9.8
+revérifiée intégralement : **598/598 xUnit**, **112/112 natif**, DLL
+x64+arm64 recompilées identiques, **Drive contrôlé** (Setup.exe 53,8 Mo +
+zips 3.9.8 + Archive 63 fichiers — rien perdu). 1 avertissement CS8602
+résiduel corrigé (null-safety d'un test — aucun changement fonctionnel).
+**Aucune évolution du code produit : la balle est dans le camp du terrain.**
 
 **Session 30 (2026-11-02)** — retour terrain v3.9.7 ENFIN transmis complet
 (capture : « Échec de l'activation de 'Casque JBL Tune Flex 2' — LE SON A
