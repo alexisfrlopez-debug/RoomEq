@@ -209,4 +209,58 @@ public class ApoFailureDiagnosticsTests
         Assert.Contains("preuve directe", message);
         Assert.DoesNotContain("SANS instanciation agrégée", message);
     }
+
+    // --------- v3.9.10 : drapeau combiné (l'EXPLICATION du choix initial)
+    // Retour terrain v3.9.9 : « Position choisie : EFX » sans dire POURQUOI
+    // (détection ratée — propriété booléenne lue comme chaîne) : le verdict
+    // énonce désormais le drapeau, et les positions des DEUX essais quand le
+    // repli automatique a joué.
+
+    [Theory]
+    [InlineData(true, "Périphérique combiné : oui")]
+    [InlineData(false, "Périphérique combiné : NON")]
+    [InlineData(null, "Périphérique combiné : inconnu (registre illisible)")]
+    public void ComposeDeadEndpoint_StatesCombinedFlag(bool? combined, string expected)
+    {
+        var context = new ApoDeadEndpointContext(
+            Engine: null,
+            LogShowsLoad: false,
+            LogTail: Array.Empty<string>(),
+            ProbeError: null,
+            SelfTest: null,
+            Inventory: null,
+            SlotChosen: "MFX",
+            OsVersion: "test",
+            CombinedDevice: combined);
+
+        string message = ApoFailureDiagnostics.ComposeDeadEndpoint(context);
+
+        Assert.Contains(expected, message);
+        Assert.Contains("Position choisie : MFX", message); // juste avant le drapeau
+    }
+
+    [Fact]
+    public void ComposeDeadEndpoint_AfterFallback_ShowsBothSlots()
+    {
+        // les DEUX positions essayées par l'échelle de repli sont nommées —
+        // le message transmis désigne ce qui a été tenté, pas seulement
+        // la position (qui a échoué deux fois)
+        var context = new ApoDeadEndpointContext(
+            Engine: null,
+            LogShowsLoad: true,
+            AggregatedSeen: true,
+            LogTail: Array.Empty<string>(),
+            ProbeError: "position EFX : 0x88890008 ; repli MFX : 0x88890008",
+            SelfTest: null,
+            Inventory: null,
+            SlotChosen: "EFX puis MFX (repli automatique)",
+            OsVersion: "test",
+            CombinedDevice: true);
+
+        string message = ApoFailureDiagnostics.ComposeDeadEndpoint(context);
+
+        Assert.Contains("Position choisie : EFX puis MFX (repli automatique)", message);
+        Assert.Contains("Périphérique combiné : oui", message);
+        Assert.Contains("repli MFX : 0x88890008", message);   // erreurs des DEUX sondes
+    }
 }

@@ -5,9 +5,10 @@ namespace RoomEq.Audio.Tests;
 
 /// <summary>
 /// Politique de position FxProperties (v3.9.8) — logique pure : choix EFX/MFX
-/// selon le périphérique, noms de valeurs par position, persistance du slot
-/// dans la sauvegarde (compatibilité ≤ v3.9.7), normalisation « notre CLSID
-/// compte comme absent ». Source terrain : Equalizer APO DeviceAPOInfo.cpp
+/// selon le périphérique, repli vers l'autre position (v3.9.10), noms de
+/// valeurs par position, persistance du slot dans la sauvegarde
+/// (compatibilité ≤ v3.9.7), normalisation « notre CLSID compte comme
+/// absent ». Source terrain : Equalizer APO DeviceAPOInfo.cpp
 /// (« bluetooth devices may be combined in Windows 11, EFX will not work
 /// then » → la référence installe en SFX/MFX sur les périphériques combinés).
 /// </summary>
@@ -18,6 +19,19 @@ public class ApoSlotPolicyTests
     [InlineData(true, ApoFxSlot.Mfx)]    // périphérique combiné (BT Win11) : MFX (,6)
     public void Choose_FollowsCombinedDevice(bool combined, ApoFxSlot expected)
         => Assert.Equal(expected, ApoSlotPolicy.Choose(combined));
+
+    [Theory]
+    [InlineData(ApoFxSlot.Efx, ApoFxSlot.Mfx)]  // EFX meurt → on retente MFX
+    [InlineData(ApoFxSlot.Mfx, ApoFxSlot.Efx)]  // MFX meurt → on retente EFX
+    public void Fallback_IsTheOtherSlot(ApoFxSlot dead, ApoFxSlot expected)
+    {
+        // v3.9.10 — échelle de repli (le « Install as » du Configurator
+        // d'Equalizer APO, exécuté automatiquement après une sortie morte)
+        Assert.Equal(expected, ApoSlotPolicy.Fallback(dead));
+        // le repli du repli revient à la position initiale : l'échelle à
+        // DEUX barreaux ne tourne jamais en boucle
+        Assert.Equal(dead, ApoSlotPolicy.Fallback(ApoSlotPolicy.Fallback(dead)));
+    }
 
     [Fact]
     public void ClsidValueName_MapsSlotToRegistryName()

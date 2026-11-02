@@ -7,17 +7,61 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.9.8** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1–v3.9.4 : correctifs activation (FxProperties → takeover registre → LUID interop → binding CloseHandle/kernel32), v3.9.5 : volume re-ciblé + chaîne de courbe observable + verrou ACL, v3.9.6 : recette complète de chargement (DisableProtectedAudioDG + inscription moteur + modes EFX), v3.9.7 : LE SON PASSE AVANT L'ÉGALISEUR — sonde WASAPI + rollback automatique + ACL bin vérifiée + écoute suivant le défaut Windows, v3.9.8 : position adaptée + auto-test + verdict différentiel, et **v3.9.9 : L'APO ACCEPTE L'AGRÉGATION COM DU MOTEUR AUDIO — le retour terrain enfin complet a désigné NOTRE fabrique (sonde WASAPI 0x80040110 CLASS_E_NOAGGREGATION = notre code de refus) : audiodg instancie TOUS les sAPO avec un contrôleur COM (fait établi : nnyj/virtual-surround-sound + fabrique d'Equalizer APO lue) ; agrégation native miroir de la référence (INonDelegatingUnknown, fabrique), 10e étape d'auto-test « CoCreateInstance agrégé », marqueur de fin d'auto-test + classification ApoLogTrace (seule l'instanciation AGRÉGÉE prouve le moteur)** — 608 tests xUnit + harnais APO 126 vérifications |
+| **Projet** | RoomEq **v3.9.10** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1–v3.9.4 : correctifs activation (FxProperties → takeover registre → LUID interop → binding CloseHandle/kernel32), v3.9.5 : volume re-ciblé + chaîne de courbe observable + verrou ACL, v3.9.6 : recette complète de chargement (DisableProtectedAudioDG + inscription moteur + modes EFX), v3.9.7 : LE SON PASSE AVANT L'ÉGALISEUR — sonde WASAPI + rollback automatique + ACL bin vérifiée + écoute suivant le défaut Windows, v3.9.8 : position adaptée + auto-test + verdict différentiel, v3.9.9 : L'APO ACCEPTE L'AGRÉGATION COM DU MOTEUR AUDIO (0x80040110 du terrain → INonDelegatingUnknown, fabrique miroir, 10e étape d'auto-test agrégée, marqueur de journal), et **v3.9.10 : DÉTECTION COMBINÉ PAR PRÉSENCE + REPLI AUTOMATIQUE — le verdict v3.9.9 a montré l'agrégation acceptée (instanciation AGRÉGÉE, Initialize acceptée) MAIS « Position choisie : EFX » sur le casque JBL combiné : la détection v3.9.8 lisait la propriété booléenne {b3f8fa53-…},41 « as string » et la ratait TOUJOURS (le faux registre des tests stockait une chaîne — le mock a menti) ; désormais HasDeviceProperty = présence TOUT TYPE (miroir de RegistryHelper::valueExists, DeviceAPOInfo.cpp lu : « EFX will not work then » → INSTALL_SFX_MFX) + échelle de REPLI AUTOMATIQUE EFX↔MFX après sortie morte sonde-détectée (le « Install as » du Configurator Equalizer APO exécuté sans intervention) + verdict enrichi (drapeau combiné, deux positions, deux sondes)** — 619 tests xUnit + harnais APO 126 vérifications |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **LANGUE (permanente)** | Répondre à l'utilisateur TOUJOURS en **français** (anglais accepté, chinois interdit — il ne le comprend pas) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
 | **Référence legacy** | clone git `/home/z/my-project/roomeq-git-ref` + miroir Drive `/home/z/my-project/roomeq-legacy` |
 | **SDK** | `export PATH="$HOME/.dotnet:$PATH"` (8.0.427 ; réinstaller : `curl -sSL https://dot.net/v1/dotnet-install.sh \| bash -s -- --channel 8.0 --install-dir "$HOME/.dotnet"`) |
-| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 598 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**112 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
+| **Vérifier** | `cd src && dotnet build RoomEq.sln -c Debug` puis les 3 suites (`dotnet test ../tests/RoomEq.*.Tests`) — 619 verts ; APO : `natif/roomeq-apo/build-tests.sh` (**126 vérifications**) puis `natif/roomeq-apo/build-apo.sh` (DLL x64+arm64 ; Zig dans `~/tools/zig-*` ou `/home/z/my-project/tools/zig-*`, sinon `curl -L https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz | tar -xJ -C ~/tools`) ; greffon AU : `cmake -S natif/roomeq-au -B build-au && cmake --build build-au && ./build-au/roomeq_au_tests natif/roomeq-au/tests/data` (**15 671** vérifications : parité + écriture JSON + banque + éditeur + auto-chargement ; gcc 14 : faux positif maybe-uninitialized de biquad.cpp neutralisé — plus de -Werror sur le cœur, aligné sur le VST) ; greffon VST : `cmake -S natif/roomeq-vst -B build-vst && cmake --build build-vst && ./build-vst/roomeq_vst_tests natif/roomeq-au/tests/data && ./build-vst/roomeq_vst_host build-vst/RoomEqVst.so natif/roomeq-au/tests/data` (430 + 41) puis `natif/roomeq-vst/build-vst.sh` (DLL win32 ; Zig dans `~/tools/zig-*` ; si la bibliothèque casques change : `python3 scripts/gen_headphone_bank.py` d'abord — sort désormais dans le cœur AU) ; macOS : `bash natif/roomeq-au/build-macos.sh` (build + auval) |
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 32 — v3.9.9 : l'APO accepte l'agrégation COM du moteur)
+## 1. État (fin session 33 — v3.9.10 : détection combiné par présence + repli automatique)
+
+**Session 33 (2026-11-02)** — retour terrain v3.9.9 (5e « message d'erreur",
+capture transmise — la passerelle IM transmet désormais les images) : le
+verdict v3.9.9 a prouvé que **l'agrégation COM fonctionne** (auto-test OK
+13 étapes, prérequis verts, journal « APO instanciée (AGRÉGÉE par le moteur
+audio) | Initialize acceptée | APO détruite », sonde 0x88890008
+AUDCLNT_E_DEVICE_INVALIDATED) et a désigné le maillon restant : **« Position
+choisie : EFX » sur le casque JBL pourtant COMBINÉ** (SFX et MFX occupés
+par des APO Microsoft, EFX = le seul slot libre — que le moteur refuse de
+construire sur ces périphériques).
+
+- **Cause racine, trouvée dans notre code en 1 ligne** :
+  `WindowsApoEndpointStore.GetDeviceProperty` lisait la propriété combiné
+  `{b3f8fa53-…},41` via `GetValue(...) as string` — or elle est un BOOLÉEN
+  persisté en type registre NON chaîne : le cast retournait TOUJOURS null,
+  sur TOUTE machine. Les tests passaient parce que le faux registre
+  stockait une chaîne (« 1 ») — **le mock a menti**. La référence
+  (DeviceAPOInfo.cpp lu en entier) teste la PRÉSENCE via
+  `RegistryHelper::valueExists` — JAMAIS le type.
+- **v3.9.10 — trois volets** :
+  1. **Présence, pas type** : `HasDeviceProperty` (tout type, miroir de
+     valueExists) + test de régression du terrain (valeur INT dans le faux
+     registre → MFX détecté).
+  2. **Échelle de repli automatique** : sortie morte (sonde) → Disable
+     (origine restaurée) → `Enable(key, forcedSlot)` dans l'AUTRE position
+     (`ApoSlotPolicy.Fallback` EFX↔MFX) → redémarrage → re-sonde ; double
+     échec → rollback + verdict complet. C'est le « Install as » du
+     Configurator d'Equalizer APO, exécuté sans intervention — une erreur
+     de détection ne peut plus couper l'EQ.
+  3. **Verdict enrichi** : drapeau « Périphérique combiné : oui/NON/
+     inconnu », les DEUX positions essayées, les erreurs des DEUX sondes.
+- **Tests** : 619/619 xUnit (Core 237 + Audio 302 + App 80, +11) ; harnais
+  APO 126/126 (natif inchangé — l'APO est saine, le moteur l'instanciait) ;
+  DLL x64+arm64 recompilées (3.9.10).
+- **Anomalie corrigée** : les commits des sessions 31-32 n'étaient JAMAIS
+  arrivés sur GitHub (sync_backup.sh ne s'arrête pas sur un échec de push) —
+  poussés et VÉRIFIÉS (ls-remote) en session 33 ; toujours vérifier
+  `git status -sb` après sync_backup.sh.
+- **Prochaine étape** : validation terrain — Setup 3.9.10, réactiver l'EQ
+  sur le casque JBL : attendu « EQ système activé … (position MFX —
+  périphérique combiné) » + « Vérifié : la sortie répond et l'APO est
+  chargé », puis un son MODIFIÉ par la courbe (preset jbltuneflex2
+  appliqué). Si un ⚠ subsiste, le transmettre tel quel (il nomme le
+  drapeau combiné et les deux positions essayées).
 
 **Session 32 (2026-11-02)** — retour terrain v3.9.8 : « message d'erreur » —
 la capture EST ENFIN PARVENUE (4e signalement). Le verdict v3.9.8 a désigné

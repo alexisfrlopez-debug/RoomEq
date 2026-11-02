@@ -1,14 +1,50 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.10 (as-built v3.9.9, 2
-  novembre 2026 — l'APO accepte l'AGRÉGATION COM du moteur audio
-  (mécanisme réel d'audiodg que v3.9.8 refusait : 0x80040110), auto-test
-  pré-vol qui rejoue la création AGRÉGÉE, verdict non piégé par les lignes
-  de l'auto-test dans le journal) ·
+- **Module** : M-AUD-09 · **Version de spec** : 1.11 (as-built v3.9.10, 2
+  novembre 2026 — détection des périphériques combinés par PRÉSENCE de la
+  propriété (type indifférent) + échelle de REPLI AUTOMATIQUE de position
+  EFX↔MFX + verdict enrichi drapeau combiné/deux positions) ·
   **Code** : `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/`
   (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.11** : retour terrain v3.9.9 (2ᵉ capture complète) —
+  l'agrégation COM v3.9.9 a FAIT SON TRAVAIL : auto-test OK (13 étapes
+  dont la création agrégée), prérequis verts, et le journal montre
+  l'instanciation AGRÉGÉE par le moteur (« preuve directe — la DLL a été
+  créée ET pilotée par audiodg ») puis Initialize acceptée puis APO
+  détruite — le moteur A BIEN chargé notre DLL puis a renoncé, sonde
+  WASAPI **0x88890008 AUDCLNT_E_DEVICE_INVALIDATED**. LE COUPABLE, désigné
+  par le verdict lui-même : « Position choisie : EFX » sur un casque
+  COMBINÉ (positions présentes : SFX et MFX occupés par des APO
+  Microsoft, EFX=RoomEq — le seul slot libre… que le moteur refuse de
+  construire sur ces périphériques). FAIT ÉTABLI (source primaire) : la
+  détection v3.9.8 lisait `{b3f8fa53-0004-438e-9003-51a46e139bfc},41`
+  « as string » (REG_SZ) alors que la propriété « périphérique combiné »
+  est un BOOLÉEN persisté en type NON chaîne (REG_DWORD/REG_BINARY) : la
+  lecture la ratait TOUJOURS (les tests v3.9.8 passaient parce que le
+  faux registre stockait… une chaîne) ; la référence teste la PRÉSENCE
+  via `RegistryHelper::valueExists` (DeviceAPOInfo.cpp LU : « bluetooth
+  devices may be combined in Windows 11, EFX will not work then » →
+  INSTALL_SFX_MFX). Correctifs v3.9.10 : (al) **détection par présence**
+  — `IApoEndpointStore.HasDeviceProperty` (remplace GetDeviceProperty,
+  présence quel que soit le type registre, miroir de valueExists),
+  verrouillée par le test de régression du terrain
+  `Enable_CombinedDevice_NonStringType_IsDetected` (valeur INT dans le
+  faux registre) ; (am) **échelle de repli automatique** — si la sonde
+  déclare la sortie morte : Disable (restaure l'origine VRAIE) →
+  `Enable(endpointKey, forcedSlot)` dans l'AUTRE position
+  (`ApoSlotPolicy.Fallback`, EFX↔MFX) → redémarrage → re-sonde ; seule
+  la sonde décide (aucune hypothèse sur le pourquoi) — c'est l'échelle
+  « Install as : SFX/EFX, SFX/MFX, LFX/GFX » que le Configurator
+  d'Equalizer APO fait manipuler À LA MAIN au dépannage, exécutée sans
+  intervention ; en cas de double échec, rollback complet et verdict qui
+  nomme les DEUX positions essayées et les erreurs des DEUX sondes ;
+  (an) **verdict enrichi** — ligne « Périphérique combiné :
+  oui/NON/inconnu » (l'EXPLICATION du choix initial, absente du verdict
+  v3.9.9) + `CombinedDevice` dans ApoDeadEndpointContext ; la
+  sauvegarde du repli capture l'origine vraie restaurée (test
+  `Enable_FallbackCycle_CapturesTrueOriginAgain`).
 - **As-built v1.10** : retour terrain v3.9.8 — capture ENFIN complète du
   panneau : auto-test DLL OK (12 étapes), prérequis moteur TOUS verts,
   journal APO présent… et sonde WASAPI = **0x80040110
@@ -436,7 +472,7 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
 
 ## Critères de test
 
-- Registrar (faux registre — `ApoRegistrarTests`, 30 tests) : énumération ;
+- Registrar (faux registre — `ApoRegistrarTests`, 35 tests) : énumération ;
   `IsForbiddenName` (câble RoomEq, VB-CABLE, VoiceMeeter, LoopBeAudio —
   négatifs inclus) ; **ordre sauvegarde→écriture vérifié par trace** ;
   restauration exacte (valeur EFX + Disable_SysFx, présentes ou absentes à
@@ -459,7 +495,13 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
   modes du pilote PRÉSERVÉS quand présents (comportement Equalizer APO) ;
   restitués à la désactivation (supprimés si absents à l'origine) ; une
   sauvegarde d'avant-champ ne les touche JAMAIS (compatibilité v3.7–v3.9.5) ;
-  la réparation les rétablit après effacement simulé**.
+  la réparation les rétablit après effacement simulé** ; **v3.9.10 : la
+  propriété combiné en type NON chaîne (int — LE cas terrain du booléen
+  REG_DWORD) est détectée (position MFX) ; en type chaîne aussi
+  (présence, tout type) ; position IMPOSÉE forcedSlot gagne sur la
+  détection (MFX sur non-combiné, EFX sur combiné) ; le cycle repli
+  (EFX → Disable → MFX forcé) capture l'origine VRAIE restaurée et
+  laisse l'EFX du pilote INTACT**.
 - Politique/inscription moteur (`ApoEnginePolicyTests`, 9 tests — v3.9.6) :
   les 12 valeurs d'inscription verrouillées une à une (noms, types chaîne/
   DWORD conformes au sample SysVAD, contenu miroir EXACT du natif :
@@ -518,7 +560,13 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
   AGREGEE avant le dernier marqueur ne compte PAS ; plusieurs marqueurs =
   seul le dernier délimite ; journal sans marqueur = comportement
   historique ; verdict : preuve directe énoncée quand AggregatedSeen.
-- Non-régression : suites xUnit 100 % vertes (608/608 : Core 237, Audio
-  291, App 80) et harnais VST/AU inchangés (APO : 126 vérifications —
+- Position & repli (`ApoSlotPolicyTests` + `ApoFailureDiagnosticsTests`, +11
+  cas — v3.9.10) : Fallback est l'AUTRE position et l'échelle à deux
+  barreaux ne boucle jamais (F(F(x)) = x) ; le verdict énonce le drapeau
+  « Périphérique combiné : oui/NON/inconnu » dans les trois états ; après
+  repli, il nomme les DEUX positions (« EFX puis MFX (repli
+  automatique) ») et les erreurs des DEUX sondes.
+- Non-régression : suites xUnit 100 % vertes (619/619 : Core 237, Audio
+  302, App 80) et harnais VST/AU inchangés (APO : 126 vérifications —
   l'interface déclarée des propriétés d'enregistrement verrouillée à
   IAudioProcessingObject).

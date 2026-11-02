@@ -41,6 +41,19 @@ public static class ApoSlotPolicy
     public static ApoFxSlot Choose(bool combinedDevice)
         => combinedDevice ? ApoFxSlot.Mfx : ApoFxSlot.Efx;
 
+    /// <summary>
+    /// v3.9.10 — position de REPLI quand la première rend la sortie muette :
+    /// l'autre position (EFX ↔ MFX). La référence offre cette échelle à la
+    /// main dans son Configurator (« Install as : SFX/EFX, SFX/MFX, LFX/GFX
+    /// » — dépannage terrain éprouvé) ; RoomEq l'exécute AUTOMATIQUEMENT :
+    /// la sonde WASAPI détecte la sortie morte, la restauration d'origine
+    /// joue, et l'activation retente dans l'autre position AVANT de
+    /// conclure — une détection qui se trompe ne peut plus couper
+    /// l'expérience utilisateur.
+    /// </summary>
+    public static ApoFxSlot Fallback(ApoFxSlot slot)
+        => slot == ApoFxSlot.Mfx ? ApoFxSlot.Efx : ApoFxSlot.Mfx;
+
     /// <summary>Nom de la valeur CLSID du slot (« ,7 » EFX ou « ,6 » MFX).</summary>
     public static string ClsidValueName(ApoFxSlot slot)
         => slot == ApoFxSlot.Mfx ? ApoConstants.FxModeEffectClsid

@@ -2826,3 +2826,129 @@ Stage Summary:
   répond et l'APO est chargé » puis un son MODIFIÉ par la courbe de
   l'onglet Égaliseur (le preset jbltuneflex2 est déjà appliqué). Si un
   ⚠ subsiste, le transmettre tel quel — il nomme son maillon.
+
+---
+Session : 33 — 2026-11-02
+Agent : main (Z.ai)
+Task : Retour terrain v3.9.9 (5e « message d'erreur », capture ENCORE
+transmise — la passerelle fonctionne désormais) : verdict v3.9.9 complet
+lu. L'agrégation COM a FAIT SON TRAVAIL : auto-test OK (13 étapes dont
+la création agrégée), prérequis verts, journal = « APO instanciée
+(AGRÉGÉE par le moteur audio) | Initialize acceptée | APO détruite »,
+sonde 0x88890008 AUDCLNT_E_DEVICE_INVALIDATED — le moteur a BIEN chargé
+notre DLL puis a renoncé. ET le verdict désignait le maillon restant :
+« Position choisie : EFX » sur le casque JBL pourtant COMBINÉ. Diagnostic
++ correctif v3.9.10.
+
+Work Log:
+- **Le suspect désigné par élimination différentielle** : le moteur
+  instancie (preuve directe agrégée), accepte Initialize, puis DÉTRUIT
+  l'APO sans LockForProcess — et la position choisie était EFX alors que
+  la recette v3.9.8 elle-même dit MFX pour les combinés (« EFX will not
+  work then »). L'inventaire du terrain montre SFX et MFX occupés par
+  des APO Microsoft, EFX=RoomEq (le seul slot libre) : la détection
+  « périphérique combiné » avait répondu NON à tort.
+- **Cause racine TROUVÉE DANS NOTRE CODE en 1 ligne** :
+  WindowsApoEndpointStore.GetDeviceProperty lisait la propriété
+  `{b3f8fa53-0004-438e-9003-51a46e139bfc},41` via
+  `GetValue(valueName) as string` (typage REG_SZ). Or la propriété
+  « périphérique combiné » est un BOOLÉEN persisté en type NON chaîne
+  (REG_DWORD/REG_BINARY) : le cast `as string` retournait TOUJOURS
+  null, sur TOUTE machine — la détection était structurellement aveugle.
+  Les tests v3.9.8 passaient parce que le FAUX REGISTRE stockait une
+  chaîne (« 1 ») : le mock a menti (leçon enregistrée : le faux doit
+  refléter le TYPE réel, pas seulement la présence).
+- **Contre-vérification source primaire** (DeviceAPOInfo.cpp du miroir
+  EqualizerAPO récupéré et LU en entier) : la référence teste la
+  PRÉSENCE via `RegistryHelper::valueExists(keyPath + L"\\Properties",
+  combinedDeviceValueName)` — même FMTID, même PID 41, même sous-clé
+  \Properties — JAMAIS le type ni la valeur. Elle choisit alors
+  INSTALL_SFX_MFX (lignes 328-330 : « bluetooth devices may be combined
+  in Windows 11, EFX will not work then »). Au passage, la même lecture
+  a fourni l'inventaire complet des noms de valeurs de la référence
+  (lfx/gfx/sfx/mfx/efx ,1/,2/,5/,6/,7 ; multi ,13/,14/,15 ; modes
+  {d3993a3f…},5/,6/,7 ; disableEnhancements ,5) : TOUS conformes à
+  ApoConstants — aucune autre divergence.
+- **Correctif v3.9.10 — trois volets** :
+  1. **PRÉSENCE, PAS TYPE** : `IApoEndpointStore.HasDeviceProperty`
+     (remplace GetDeviceProperty) — présence quel que soit le type
+     registre (`GetValue != null`), miroir exact de valueExists ;
+     registrar + verdict lisent le drapeau par là. Test de régression
+     DU TERRAIN : `Enable_CombinedDevice_NonStringType_IsDetected`
+     (valeur INT dans le faux registre → MFX) + variante chaîne
+     (compatibilité) + inertie Linux étendue.
+  2. **ÉCHELLE DE REPLI AUTOMATIQUE** (le filet qui rend toute future
+     erreur de détection non fatale) : si la sonde déclare la sortie
+     MORTE après activation : Disable (l'origine VRAIE est restaurée) →
+     `registrar.Enable(endpointKey, forcedSlot)` dans l'AUTRE position
+     (`ApoSlotPolicy.Fallback`, EFX↔MFX) → redémarrage service →
+     re-sonde. Succès → message « Position MFX adoptée par REPLI
+     AUTOMATIQUE… » ; double échec → rollback complet + verdict qui
+     nomme les DEUX positions et les erreurs des DEUX sondes. C'est
+     l'échelle « Install as : SFX/EFX, SFX/MFX, LFX/GFX » que le
+     Configurator d'Equalizer APO fait manipuler À LA MAIN au
+     dépannage (constat forum : les utilisateurs USB/BT y passent) —
+     exécutée ici sans intervention, décideur = la SONDE (aucune
+     hypothèse sur le pourquoi d'une sortie morte). Le cycle repli
+     capture l'origine vraie restaurée (test
+     `Enable_FallbackCycle_CapturesTrueOriginAgain` : l'EFX du pilote
+     reste INTACT après repli en MFX).
+  3. **VERDICT ENRICHI** : ligne « Périphérique combiné : oui/NON/
+     inconnu » (l'EXPLICATION du choix de position — absente du verdict
+     v3.9.9 qui montrait le choix sans la raison) + `CombinedDevice`
+     dans ApoDeadEndpointContext + SlotChosen « EFX puis MFX (repli
+     automatique) » + erreurs des deux sondes + meilleure trace des
+     deux cycles.
+- **Tests** : 619/619 xUnit (Core 237, Audio 281 → 302 : +11 —
+  détection type non chaîne (LE cas terrain), type chaîne, forcedSlot
+  MFX-sur-non-combiné, forcedSlot EFX-sur-combiné, cycle repli capture
+  l'origine vraie, Fallback = l'autre position (×2) et F(F(x))=x,
+  drapeau combiné oui/NON/inconnu (×3), verdict après repli nomme les
+  deux positions et les deux sondes ; MAJ interface du faux store +
+  inertie Linux). App 80. Harnais APO natif 126/126 (code natif
+  inchangé — l'APO elle-même est saine, le moteur l'instanciait et
+  l'initialisait). Build 0 erreur 0 avertissement. DLL x64+arm64
+  recompilées à l'identique (Zig 0.14.1, version 3.9.10).
+- **Verrous structurels** : Directory.Build.props + package_v3.sh
+  VERSION 3.9.10 + contrôle v3.9.10 (HasDeviceProperty dans registrar
+  ET store, « valueExists » cité, présence `k?.GetValue(valueName) !=
+  null`, ApoSlotPolicy.Fallback + forcedSlot + « repli automatique »
+  dans ApoSetupCommands, « Périphérique combiné » + CombinedDevice dans
+  ApoFailureDiagnostics, les 3 tests de régression nommés) ; verrou
+  v3.9.8 mis à jour (GetDeviceProperty → HasDeviceProperty).
+- **Docs** : spec I-AUD-09 v1.11 (as-built al/am/an + critères 35
+  registrar/619 total) ; docs/EQ-SYSTEME-APO.md (fait établi v3.9.10 :
+  la propriété combiné n'est pas une chaîne — le mock a menti) ;
+  LISEZMOI 3.9.10 (explication utilisateur) ; README (historique) ;
+  CARTE.md (M-AUD-09 v1.11) ; REPRISE.md (résumé express + état
+  session 33).
+- **Livrables (D22)** : package_v3.sh (zips test/public/source 3.9.10,
+  contrôles verts dont le verrou v3.9.10) ; build_setup.sh →
+  RoomEq-win-Setup.exe 3.9.10 régénéré (53,8 Mo) ; anciens zips 3.9.9
+  archivés dans Livrables/Archive ; miroir Drive complet + push GitHub.
+- **Anomalie de process corrigée au passage** : le dépôt local était
+  « ahead 2 » — les commits 5147d25 et 50b28ba (sessions 31-32)
+  n'étaient JAMAIS parvenus sur GitHub (sync_backup.sh ne s'arrête pas
+  sur un échec de push : `set -uo pipefail` sans `-e`). Poussé et
+  VÉRIFIÉ (ls-remote) en cette session ; le push de fin de session est
+  désormais vérifié explicitement.
+
+Stage Summary:
+- v3.9.10 : le verdict v3.9.9 a prouvé que l'agrégation COM fonctionnait
+  (instanciation AGRÉGÉE, Initialize acceptée) et a désigné le maillon
+  restant en une ligne : « Position choisie : EFX » sur un périphérique
+  combiné. La cause racine tenait en un cast (`as string` sur une
+  propriété booléenne — la détection était aveugle sur TOUTE machine),
+  prouvée par la source d'Equalizer APO qui teste la PRÉSENCE
+  (valueExists), pas le type. Outre la détection corrigée, l'activation
+  apprend à se rattraper seule : sortie morte → restauration → essai
+  dans l'AUTRE position (l'échelle « Install as » de la référence,
+  exécutée automatiquement) — une future erreur de détection ne peut
+  plus priver l'utilisateur de l'EQ ni couper son son.
+- Prochaine étape : validation terrain Windows — Setup 3.9.10,
+  réactiver l'EQ sur le casque JBL : attendu « EQ système activé …
+  (position MFX — périphérique combiné) » + « Vérifié : la sortie
+  répond et l'APO est chargé », puis un son MODIFIÉ par la courbe (le
+  preset jbltuneflex2 est déjà appliqué). Si un ⚠ subsiste, le
+  transmettre tel quel : il nomme désormais aussi le drapeau combiné et
+  les deux positions essayées.

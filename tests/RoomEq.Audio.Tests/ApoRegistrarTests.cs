@@ -79,11 +79,15 @@ public class ApoRegistrarTests
                 map[name] = values.ToArray();
         }
 
-        /// <summary>v3.9.8 : sous-clé \Properties de l'endpoint (stockée
-        /// sous la clé "{guid}\Properties" — détection périphérique combiné).</summary>
-        public string? GetDeviceProperty(string key, string name)
-            => Values.TryGetValue(key + @"\Properties", out var v) && v.TryGetValue(name, out var val)
-                ? val as string : null;
+        /// <summary>v3.9.10 : sous-clé \Properties de l'endpoint (stockée
+        /// sous la clé "{guid}\Properties" — détection périphérique combiné).
+        /// PRÉSENCE de la valeur, QUEL QUE SOIT SON TYPE (miroir de
+        /// RegistryHelper::valueExists de la référence — la propriété
+        /// combiné du terrain est un booléen persisté en type NON chaîne,
+        /// la lecture « as string » de v3.9.8 la ratait TOUJOURS).</summary>
+        public bool HasDeviceProperty(string key, string name)
+            => Values.TryGetValue(key + @"\Properties", out var v)
+               && v.ContainsKey(name);
 
         public bool FxPropertiesExists(string key)
         {
@@ -517,10 +521,12 @@ public class ApoRegistrarTests
     public void Enable_CombinedDevice_WritesMfx_NotEfx()
     {
         var (registrar, store, backups) = Make();
-        // périphérique combiné : la propriété {b3f8fa53…},41 existe
+        // périphérique combiné : la propriété {b3f8fa53…},41 existe —
+        // v3.9.10 : en type NON chaîne (int), LE cas du terrain (booléen
+        // persisté REG_DWORD/REG_BINARY que la lecture REG_SZ ratait)
         store.Values["{bt}\\Properties"] = new()
         {
-            [ApoConstants.CombinedDeviceProperty] = "1",
+            [ApoConstants.CombinedDeviceProperty] = 1,
         };
 
         var result = registrar.Enable("{bt}");
@@ -552,7 +558,7 @@ public class ApoRegistrarTests
         };
         store.Values["{bt}\\Properties"] = new()
         {
-            [ApoConstants.CombinedDeviceProperty] = "1",
+            [ApoConstants.CombinedDeviceProperty] = 1,
         };
 
         Assert.True(registrar.Enable("{bt}").Success);
@@ -577,7 +583,7 @@ public class ApoRegistrarTests
         };
         store.Values["{bt}\\Properties"] = new()
         {
-            [ApoConstants.CombinedDeviceProperty] = "1",
+            [ApoConstants.CombinedDeviceProperty] = 1,
         };
         registrar.Enable("{bt}");
 
@@ -605,6 +611,110 @@ public class ApoRegistrarTests
         Assert.Null(store.GetStrings("{bt}", ApoConstants.FxMfxProcessingModes));
     }
 
+    // --------------- v3.9.10 : PRÉSENCE, PAS TYPE + position IMPOSÉE (repli)
+    // Retour terrain v3.9.9 : « Position choisie : EFX » sur le casque JBL
+    // COMBINÉ, sortie morte — la détection v3.9.8 lisait la propriété
+    // booléenne « as string » et la ratait TOUJOURS ; la référence teste la
+    // PRÉSENCE (RegistryHelper::valueExists). L'échelle de repli impose
+    // ensuite la position quand la sonde déclare la sortie morte.
+
+    [Fact]
+    public void Enable_CombinedDevice_NonStringType_IsDetected()
+    {
+        var (registrar, store, backups) = Make();
+        // LE cas du terrain : la propriété combiné en type NON chaîne
+        // (booléen → REG_DWORD/REG_BINARY) — v3.9.8 voyait « absente »
+        store.Values["{bt}\\Properties"] = new()
+        {
+            [ApoConstants.CombinedDeviceProperty] = 1,          // int, pas string
+        };
+
+        var result = registrar.Enable("{bt}");
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxModeEffectClsid]);
+        Assert.False(store.Values["{bt}"].ContainsKey(ApoConstants.FxEndpointEffectClsid));
+        Assert.Equal("MFX", backups.Load("{bt}")!.SlotUsed);
+    }
+
+    [Fact]
+    public void Enable_CombinedDevice_StringType_IsStillDetected()
+    {
+        var (registrar, store, _) = Make();
+        // compatibilité : la présence compte pour TOUT type — même une
+        // chaîne (faux registre historique, ou propriété future)
+        store.Values["{bt}\\Properties"] = new()
+        {
+            [ApoConstants.CombinedDeviceProperty] = "n'importe quoi",
+        };
+
+        var result = registrar.Enable("{bt}");
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxModeEffectClsid]);
+    }
+
+    [Fact]
+    public void Enable_ForcedMfxSlot_OnNonCombinedDevice_WritesMfx()
+    {
+        var (registrar, store, backups) = Make();
+
+        // repli automatique : la position IMPOSÉE gagne sur la détection
+        // (sortie NON combinée → détection EFX, l'échelle impose MFX)
+        var result = registrar.Enable("{bt}", ApoFxSlot.Mfx);
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxModeEffectClsid]);
+        Assert.False(store.Values["{bt}"].ContainsKey(ApoConstants.FxEndpointEffectClsid));
+        Assert.Equal("MFX", backups.Load("{bt}")!.SlotUsed);
+        Assert.Equal(new[] { ApoConstants.DefaultProcessingMode },
+            store.GetStrings("{bt}", ApoConstants.FxMfxProcessingModes));
+    }
+
+    [Fact]
+    public void Enable_ForcedEfxSlot_OnCombinedDevice_WritesEfx()
+    {
+        var (registrar, store, backups) = Make();
+        store.Values["{bt}\\Properties"] = new()
+        {
+            [ApoConstants.CombinedDeviceProperty] = 1,
+        };
+
+        var result = registrar.Enable("{bt}", ApoFxSlot.Efx);
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxEndpointEffectClsid]);
+        Assert.False(store.Values["{bt}"].ContainsKey(ApoConstants.FxModeEffectClsid));
+        Assert.Equal("EFX", backups.Load("{bt}")!.SlotUsed);
+    }
+
+    [Fact]
+    public void Enable_FallbackCycle_CapturesTrueOriginAgain()
+    {
+        // le cycle REPLI du terrain : essai EFX (détection trompeuse) →
+        // rollback → essai MFX forcé : la sauvegarde du SECOND essai
+        // capture l'origine VRAIE (restaurée par le premier Disable)
+        var (registrar, store, backups) = Make();
+        store.Values["{bt}"] = new()
+        {
+            [ApoConstants.FxEndpointEffectClsid] = "{efx-pilote}",
+            [ApoConstants.FxModeEffectClsid] = "{mfx-pilote}",
+        };
+
+        Assert.True(registrar.Enable("{bt}", ApoFxSlot.Efx).Success);   // 1er essai
+        Assert.True(registrar.Disable("{bt}").Success);                 // rollback sonde
+        Assert.True(registrar.Enable("{bt}", ApoFxSlot.Mfx).Success);   // repli
+
+        var backup = backups.Load("{bt}");
+        Assert.NotNull(backup);
+        Assert.Equal("MFX", backup.SlotUsed);
+        Assert.Equal("{mfx-pilote}", backup.OriginalModeEffectClsid);  // origine vraie
+        Assert.Equal("{efx-pilote}", backup.OriginalEndpointEffectClsid);
+        // état registre : MFX à nous, EFX du pilote INTACT
+        Assert.Equal(ApoConstants.Clsid, store.Values["{bt}"][ApoConstants.FxModeEffectClsid]);
+        Assert.Equal("{efx-pilote}", store.Values["{bt}"][ApoConstants.FxEndpointEffectClsid]);
+    }
+
     [Fact]
     public void Enable_StaleOursClsidInOtherSlot_IsRemovedNotRestored()
     {
@@ -618,7 +728,7 @@ public class ApoRegistrarTests
         };
         store.Values["{bt}\\Properties"] = new()
         {
-            [ApoConstants.CombinedDeviceProperty] = "1",
+            [ApoConstants.CombinedDeviceProperty] = 1,
         };
 
         Assert.True(registrar.Enable("{bt}").Success);
@@ -642,7 +752,7 @@ public class ApoRegistrarTests
         var (registrar, store, backups) = Make();
         store.Values["{bt}\\Properties"] = new()
         {
-            [ApoConstants.CombinedDeviceProperty] = "1",
+            [ApoConstants.CombinedDeviceProperty] = 1,
         };
         registrar.Enable("{bt}");
         // une mise à jour de pilote efface l'inscription ET les modes
@@ -799,7 +909,7 @@ public class ApoRegistrarTests
         Assert.Null(store.GetString("{x}", ApoConstants.FxEndpointEffectClsid));
         Assert.Null(store.GetInt("{x}", ApoConstants.FxDisableSysFx));
         Assert.Null(store.GetStrings("{x}", ApoConstants.FxEfxProcessingModes));
-        Assert.Null(store.GetDeviceProperty("{x}", ApoConstants.CombinedDeviceProperty)); // v3.9.8
+        Assert.False(store.HasDeviceProperty("{x}", ApoConstants.CombinedDeviceProperty)); // v3.9.10
         store.SetString("{x}", ApoConstants.FxEndpointEffectClsid, ApoConstants.Clsid); // no-op
         Assert.Null(store.GetString("{x}", ApoConstants.FxEndpointEffectClsid));
         Assert.False(store.FxPropertiesExists("{x}"));

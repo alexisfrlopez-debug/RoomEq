@@ -55,7 +55,22 @@ public static class ApoSetupCommands
             return ApoInstallResult.Fail(ApoFailureDiagnostics.SelfTestBlocked(selfTest, dll));
 
         var registrar = Registrar();
-        var result = registrar.Enable(endpointKey);
+
+        // v3.9.10 — ÉCHELLE DE POSITION AVEC REPLI AUTOMATIQUE : la position
+        // primaire vient de la détection (combiné → MFX, sinon EFX — la
+        // détection v3.9.10 teste la PRÉSENCE de la propriété, comme la
+        // référence) ; si la sonde déclare la sortie MORTE, on restaure
+        // l'origine puis on retente dans l'AUTRE position AVANT de conclure.
+        // C'est l'échelle « Install as : SFX/EFX, SFX/MFX, LFX/GFX » que le
+        // Configurator d'Equalizer APO fait manipuler À LA MAIN au dépannage
+        // — exécutée ici sans intervention : une détection qui se trompe ne
+        // peut plus priver l'utilisateur de l'EQ, et le verdict final nomme
+        // les DEUX positions essayées.
+        bool? combined = ReadCombinedFlag(endpointKey);
+        ApoFxSlot primary = ApoSlotPolicy.Choose(combined ?? false);
+        ApoFxSlot secondary = ApoSlotPolicy.Fallback(primary);
+
+        var result = registrar.Enable(endpointKey, primary);
         if (!result.Success)
             return result;
 
@@ -64,8 +79,6 @@ public static class ApoSetupCommands
         // (variantes « multi » = Windows ignore les CLSID simples ; CLSID
         // constructeur en SFX/MFX = chaîne non vide à contourner).
         var inventory = CaptureSlotInventory(endpointKey);
-        string slotChosen = ApoSlotPolicy.SlotName(
-            registrar.EnabledSlot(endpointKey) ?? ApoFxSlot.Efx) ?? "EFX";
 
         RestartAudioService();
 
@@ -80,29 +93,88 @@ public static class ApoSetupCommands
         var (health, probeError, trace) = VerifyEndpointHealth(endpointKey);
         if (health == ApoActivationHealth.DeadEndpoint)
         {
+            // v3.9.10 — REPLI : restaurer, retenter dans l'autre position,
+            // re-sonder. Seule la sonde décide — pas d'hypothèse sur le
+            // « pourquoi » de la sortie morte.
+            Registrar().Disable(endpointKey);              // restaure l'origine
+            var retry = Registrar().Enable(endpointKey, secondary);
+            var (health2, probeError2, trace2) = (ApoActivationHealth.DeadEndpoint,
+                (string?)null, ApoEngineTrace.None);
+            if (retry.Success)
+            {
+                RestartAudioService();
+                (health2, probeError2, trace2) = VerifyEndpointHealth(endpointKey);
+                if (health2 != ApoActivationHealth.DeadEndpoint)
+                    return ApoInstallResult.Ok(retry.Message +
+                        " Position " + ApoSlotPolicy.SlotName(secondary) +
+                        " adoptée par REPLI AUTOMATIQUE : la position " +
+                        ApoSlotPolicy.SlotName(primary) + " rendait la sortie muette " +
+                        "(détecté par la sonde, origine restaurée entre-temps)." +
+                        SuccessEpilogue(selfTest, health2));
+                Registrar().Disable(endpointKey);          // 2e échec : tout restaurer
+            }
+            RestartAudioService();                         // le graphe d'origine revient
+
+            // Verdict différentiel (v3.9.8) enrichi v3.9.10 : les DEUX
+            // positions essayées, le drapeau combiné (l'explication du
+            // choix initial), les erreurs des DEUX sondes, la meilleure
+            // trace des deux cycles.
+            ApoEngineTrace bestTrace = trace2 > trace ? trace2 : trace;
+            string? bothProbes = probeError2 != null
+                ? "position " + ApoSlotPolicy.SlotName(primary) + " : " + probeError
+                  + " ; repli " + ApoSlotPolicy.SlotName(secondary) + " : " + probeError2
+                : probeError;
             string diag = ApoFailureDiagnostics.ComposeDeadEndpoint(new ApoDeadEndpointContext(
                 Engine: ReadEnginePrerequisites(),
-                LogShowsLoad: trace != ApoEngineTrace.None,
-                AggregatedSeen: trace == ApoEngineTrace.Aggregated,
+                LogShowsLoad: bestTrace != ApoEngineTrace.None,
+                AggregatedSeen: bestTrace == ApoEngineTrace.Aggregated,
                 LogTail: ReadLogTailLines(3),
-                ProbeError: probeError,
+                ProbeError: bothProbes,
                 SelfTest: selfTest,
                 Inventory: inventory,
-                SlotChosen: slotChosen,
-                OsVersion: Environment.OSVersion.VersionString));
-            Registrar().Disable(endpointKey);          // restaure l'origine
-            RestartAudioService();                    // le graphe d'origine revient
+                SlotChosen: ApoSlotPolicy.SlotName(primary) + " puis " +
+                    ApoSlotPolicy.SlotName(secondary) + " (repli automatique)",
+                OsVersion: Environment.OSVersion.VersionString,
+                CombinedDevice: combined))
+                + (retry.Success ? "" :
+                    " Repli " + ApoSlotPolicy.SlotName(secondary) + " impossible : " + retry.Message);
             return ApoInstallResult.Fail(diag);
         }
 
-        return ApoInstallResult.Ok(result.Message +
-            " Le service audio a été redémarré : le son s'interrompt environ une seconde." +
-            " Le moteur audio accepte désormais les DLL non signées (réglage réversible d'Equalizer APO) : " +
-            "les rares applications exigeant un chemin audio protégé peuvent refuser de jouer. " +
-            " Auto-test DLL : " + selfTest.Summary() + "." +
-            (health == ApoActivationHealth.Healthy
-                ? " Vérifié : la sortie répond et l'APO est chargé (journal à l'heure)."
-                : " Vérifié : la sortie répond au rendu (journal de l'APO muet — permissions « %ProgramData% » ; sans conséquence sur le son)."));
+        return ApoInstallResult.Ok(result.Message + SuccessEpilogue(selfTest, health));
+    }
+
+    /// <summary>
+    /// Épilogue commun des activations réussies (v3.9.10, extrait du chemin
+    /// unique v3.9.8) : redémarrage du service, réglage des DLL non signées
+    /// (réversible, recette Equalizer APO), auto-test et verdict de sonde.
+    /// </summary>
+    private static string SuccessEpilogue(ApoSelfTestReport selfTest, ApoActivationHealth health)
+        => " Le service audio a été redémarré : le son s'interrompt environ une seconde."
+         + " Le moteur audio accepte désormais les DLL non signées (réglage réversible d'Equalizer APO) : "
+         + "les rares applications exigeant un chemin audio protégé peuvent refuser de jouer."
+         + " Auto-test DLL : " + selfTest.Summary() + "."
+         + (health == ApoActivationHealth.Healthy
+            ? " Vérifié : la sortie répond et l'APO est chargé (journal à l'heure)."
+            : " Vérifié : la sortie répond au rendu (journal de l'APO muet — permissions « %ProgramData% » ; sans conséquence sur le son).");
+
+    /// <summary>
+    /// Drapeau « périphérique combiné » de l'endpoint (v3.9.10) : PRÉSENCE
+    /// de la propriété {b3f8fa53-…},41 dans \Properties, tout type confondu
+    /// (miroir de RegistryHelper::valueExists). Alimente le choix de
+    /// position ET le verdict. Null = registre illisible.
+    /// </summary>
+    private static bool? ReadCombinedFlag(string endpointKey)
+    {
+        try
+        {
+            return new WindowsApoEndpointStore().HasDeviceProperty(
+                endpointKey, ApoConstants.CombinedDeviceProperty);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     // ---------------------------------------------------------------- désactiver

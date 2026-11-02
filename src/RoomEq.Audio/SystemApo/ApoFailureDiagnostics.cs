@@ -40,7 +40,8 @@ public sealed record ApoDeadEndpointContext(
     ApoSlotInventory? Inventory,
     string SlotChosen,
     string OsVersion,
-    bool AggregatedSeen = false);
+    bool AggregatedSeen = false,
+    bool? CombinedDevice = null);
 
 /// <summary>
 /// Compositeur PUR des verdicts de diagnostic v3.9.8 (correctif « EQ activé
@@ -120,8 +121,18 @@ public static class ApoFailureDiagnostics
             ? "échec (détail indisponible)"
             : c.ProbeError));
 
-        // 5. Position choisie + inventaire (multi* = CLSID simples ignorés).
+        // 5. Position choisie + drapeau combiné + inventaire (multi* = CLSID
+        //    simples ignorés). v3.9.10 : le drapeau combiné EXPLIQUE le choix
+        //    de position — le retour terrain v3.9.9 montrait « Position
+        //    choisie : EFX » sans dire POURQUOI (détection ratée : la
+        //    propriété booléenne était lue comme chaîne).
         diag.Add("Position choisie : " + c.SlotChosen);
+        diag.Add("Périphérique combiné : " + (c.CombinedDevice switch
+        {
+            true => "oui",
+            false => "NON",
+            _ => "inconnu (registre illisible)"
+        }));
         if (c.Inventory != null)
             diag.Add("Positions présentes : " + DescribeInventory(c.Inventory));
 

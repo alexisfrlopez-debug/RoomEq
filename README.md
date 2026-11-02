@@ -150,7 +150,22 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   ne peut plus jamais atteindre le registre), et verdict non piégé par
   les lignes de l'auto-test dans le journal (marqueur de fin +
   classification ApoLogTrace : seule l'instanciation AGRÉGÉE prouve le
-  moteur) (spec I-AUD-09 v1.10, 598 → 608 tests, APO 112 → 126)
+  moteur) (spec I-AUD-09 v1.10, 598 → 608 tests, APO 112 → 126) ;
+  **v3.9.10** : le retour terrain v3.9.9 a montré l'agrégation COM
+  acceptée (instanciation AGRÉGÉE vue puis APO détruite, sonde
+  0x88890008 AUDCLNT_E_DEVICE_INVALIDATED) mais « Position choisie :
+  EFX » sur le casque JBL COMBINÉ — la détection v3.9.8 lisait la
+  propriété {b3f8fa53-…},41 « as string » alors que c'est un BOOLÉEN
+  (type registre non chaîne) : elle la ratait TOUJOURS ; la référence
+  teste la PRÉSENCE (RegistryHelper::valueExists, DeviceAPOInfo.cpp).
+  Correctifs : détection par présence tout type (HasDeviceProperty),
+  ÉCHELLE DE REPLI AUTOMATIQUE (sortie morte → restauration → essai
+  dans l'AUTRE position avant de conclure — le « Install as » du
+  Configurator d'Equalizer APO exécuté sans intervention,
+  registrar.Enable(forcedSlot) + ApoSlotPolicy.Fallback), et verdict
+  enrichi (drapeau « périphérique combiné », les DEUX positions
+  essayées, erreurs des DEUX sondes) (spec I-AUD-09 v1.11, 608 → 619
+  tests, APO 126)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`

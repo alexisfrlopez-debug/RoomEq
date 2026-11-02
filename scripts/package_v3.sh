@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.9
+VERSION=3.9.10
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -264,7 +264,7 @@ grep -qE 'EveryoneCanReadAndExecute' "$SRC/src/RoomEq.Audio/SystemApo/ApoAclVeri
   && grep -qF 'CombinedDeviceProperty' "$SRC/src/RoomEq.Audio/SystemApo/ApoConstants.cs" \
   && grep -qF 'b3f8fa53-0004-438e-9003-51a46e139bfc' "$SRC/src/RoomEq.Audio/SystemApo/ApoConstants.cs" \
   && grep -qE 'SlotUsed' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
-  && grep -qE 'GetDeviceProperty' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qF 'HasDeviceProperty' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
   && grep -qE 'ApoSlotPolicy\.Choose' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
   && grep -qE 'ApoDllSelfTest\.Run' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
   && grep -qE 'SelfTestBlocked' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
@@ -309,6 +309,39 @@ grep -qE 'EveryoneCanReadAndExecute' "$SRC/src/RoomEq.Audio/SystemApo/ApoAclVeri
   && ! grep -qF 'a été instanciée par le moteur audio' \
       "$SRC/src/RoomEq.Audio/SystemApo/ApoFailureDiagnostics.cs" \
   && echo "   ✓ v3.9.9 : agrégation COM native (fabrique + INonDelegatingUnknown) + étape auto-test agrégée + marqueur de journal + verdict non piégé"
+
+# --- v3.9.10 : PRÉSENCE, PAS TYPE + REPLI AUTOMATIQUE DE POSITION — retour
+#     terrain v3.9.9 : « Position choisie : EFX » sur le casque JBL
+#     COMBINÉ, instanciation AGRÉGÉE vue puis APO détruite, sonde
+#     0x88890008 AUDCLNT_E_DEVICE_INVALIDATED. La détection combiné de
+#     v3.9.8 lisait la propriété {b3f8fa53-…},41 « as string » alors que
+#     c'est un BOOLÉEN (type registre non chaîne) : elle la ratait
+#     TOUJOURS. La référence (Equalizer APO, DeviceAPOInfo.cpp) teste la
+#     PRÉSENCE via RegistryHelper::valueExists. Correctifs : (1) détection
+#     par PRÉSENCE tout type (HasDeviceProperty) ; (2) ÉCHELLE DE REPLI
+#     AUTOMATIQUE — sortie morte → restauration → essai dans l'AUTRE
+#     position (le « Install as » du Configurator de la référence,
+#     exécuté sans intervention) ; (3) verdict enrichi : drapeau
+#     « périphérique combiné », les DEUX positions essayées, les erreurs
+#     des DEUX sondes ---
+[[ -f "$SRC/src/RoomEq.Audio/SystemApo/ApoSlotPolicy.cs" ]] \
+  && grep -qF 'HasDeviceProperty' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
+  && grep -qF 'HasDeviceProperty' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qF 'valueExists' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qF 'k?.GetValue(valueName) != null' \
+      "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qF 'ApoSlotPolicy.Fallback' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && grep -qF 'forcedSlot' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
+  && grep -qF 'repli automatique' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && grep -qF 'Périphérique combiné' "$SRC/src/RoomEq.Audio/SystemApo/ApoFailureDiagnostics.cs" \
+  && grep -qF 'CombinedDevice' "$SRC/src/RoomEq.Audio/SystemApo/ApoFailureDiagnostics.cs" \
+  && grep -qF 'Enable_CombinedDevice_NonStringType_IsDetected' \
+      "$SRC/tests/RoomEq.Audio.Tests/ApoRegistrarTests.cs" \
+  && grep -qF 'Enable_FallbackCycle_CapturesTrueOriginAgain' \
+      "$SRC/tests/RoomEq.Audio.Tests/ApoRegistrarTests.cs" \
+  && grep -qF 'Fallback_IsTheOtherSlot' \
+      "$SRC/tests/RoomEq.Audio.Tests/ApoSlotPolicyTests.cs" \
+  && echo "   ✓ v3.9.10 : détection combiné par PRÉSENCE (tout type) + repli automatique EFX↔MFX + verdict enrichi (drapeau combiné, deux positions)"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

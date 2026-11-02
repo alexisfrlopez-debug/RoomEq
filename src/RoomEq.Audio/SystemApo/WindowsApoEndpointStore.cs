@@ -264,24 +264,30 @@ public sealed class WindowsApoEndpointStore : IApoEndpointStore
     // ------------------------------------- propriétés d'endpoint (v3.9.8)
 
     /// <summary>
-    /// Valeur REG_SZ de la sous-clé <c>\Properties</c> de l'endpoint : sert à
-    /// détecter les périphériques COMBINÉS (Bluetooth Windows 11 — valeur
-    /// <c>{b3f8fa53-…},41</c>) pour choisir la position FxProperties.
-    /// Lecture seule, jamais d'exception, null si absente.
+    /// La valeur de la sous-clé <c>\Properties</c> de l'endpoint est-elle
+    /// présente, QUEL QUE SOIT SON TYPE ? Sert à détecter les périphériques
+    /// COMBINÉS (Bluetooth Windows 11 — valeur <c>{b3f8fa53-…},41</c>).
+    /// v3.9.10 : la propriété combiné est un booléen persisté en type NON
+    /// chaîne — la lecture <c>as string</c> de v3.9.8–v3.9.9 la ratait
+    /// TOUJOURS (retour terrain : EFX choisi sur le casque JBL combiné,
+    /// sortie morte). La référence (Equalizer APO) teste la présence via
+    /// <c>RegistryHelper::valueExists</c> : miroir exact — REG_SZ, DWORD,
+    /// BINARY… tout compte, seul compte l'EXISTENCE. Lecture seule, jamais
+    /// d'exception, false si absente.
     /// </summary>
-    public string? GetDeviceProperty(string endpointKey, string valueName)
+    public bool HasDeviceProperty(string endpointKey, string valueName)
     {
         if (!OperatingSystem.IsWindows())
-            return null;
+            return false;
         try
         {
             using var hklm = OpenHklm();
             using var k = hklm.OpenSubKey(EndpointPath(endpointKey) + @"\Properties");
-            return k?.GetValue(valueName) as string;
+            return k?.GetValue(valueName) != null;
         }
         catch
         {
-            return null; // clé absente ou accès refusé : considérée absente
+            return false; // clé absente ou accès refusé : considérée absente
         }
     }
 

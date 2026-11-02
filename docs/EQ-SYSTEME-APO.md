@@ -349,6 +349,31 @@ pré-vol (même DLL, même journal) — un marqueur de fin les départage
 désormais et seule l'instanciation AGRÉGÉE compte comme preuve du
 moteur (`ApoLogTrace`).
 
+**Fait établi v3.9.10 (la propriété « périphérique combiné » n'est pas
+une chaîne)** : le retour terrain v3.9.9 a confirmé l'agrégation
+acceptée (instanciation AGRÉGÉE vue, Initialize acceptée, puis APO
+détruite, sonde 0x88890008 AUDCLNT_E_DEVICE_INVALIDATED) MAIS «
+Position choisie : EFX » sur le casque JBL pourtant combiné — la
+détection v3.9.8 lisait `{b3f8fa53-0004-438e-9003-51a46e139bfc},41`
+via `GetValue(...) as string` (REG_SZ), alors que cette propriété est
+un **booléen persisté en type registre non chaîne** : la lecture la
+ratait TOUJOURS, sur TOUTE machine (les tests passaient parce que le
+faux registre stockait une chaîne — le mock a menti). La référence
+teste la **PRÉSENCE** : `RegistryHelper::valueExists(keyPath +
+L"\\Properties", combinedDeviceValueName)` (DeviceAPOInfo.cpp LU —
+même FMTID, même PID 41, même sous-clé `\Properties`). Correctifs
+v3.9.10 : (1) `HasDeviceProperty` (présence, tout type — miroir de
+valueExists), test de régression avec valeur INT dans le faux
+registre ; (2) **échelle de repli automatique** : sortie morte
+déclarée par la sonde → Disable (origine restaurée) → Enable dans
+l'AUTRE position (`ApoSlotPolicy.Fallback`, EFX↔MFX) → redémarrage →
+re-sonde — le « Install as : SFX/EFX, SFX/MFX, LFX/GFX » que le
+Configurator d'Equalizer APO fait manipuler À LA MAIN, exécuté sans
+intervention : une détection qui se trompe ne peut plus priver
+l'utilisateur de l'EQ ; (3) verdict enrichi : drapeau « périphérique
+combiné : oui/NON/inconnu » (l'explication du choix), les DEUX
+positions essayées, les erreurs des DEUX sondes.
+
 ### 3.3 Ce que ça devient dans RoomEq
 
 ```

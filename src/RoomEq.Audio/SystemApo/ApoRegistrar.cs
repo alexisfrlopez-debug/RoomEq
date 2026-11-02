@@ -47,12 +47,16 @@ public interface IApoEndpointStore
     void SetStrings(string endpointKey, string valueName, IReadOnlyList<string>? values);
 
     /// <summary>
-    /// Valeur REG_SZ de la sous-clé <c>\Properties</c> de l'endpoint (null si
-    /// absente — jamais d'exception). v3.9.8 : sert à détecter les
-    /// périphériques COMBINÉS (Bluetooth Windows 11) pour le choix de
-    /// position FxProperties (<see cref="ApoSlotPolicy"/>).
+    /// La valeur de la sous-clé <c>\Properties</c> de l'endpoint est-elle
+    /// PRÉSENTE — quel que soit son type registre ? v3.9.10 : la propriété
+    /// « périphérique combiné » (<c>{b3f8fa53-…},41</c>) est un BOOLÉEN
+    /// persisté en type NON chaîne (REG_DWORD/REG_BINARY) : la lire comme
+    /// REG_SZ (v3.9.8–v3.9.9) la rendait TOUJOURS absente — le terrain
+    /// recevait EFX sur un casque combiné et la sortie mourait. La référence
+    /// (Equalizer APO, DeviceAPOInfo.cpp) teste la PRÉSENCE
+    /// (<c>RegistryHelper::valueExists</c>), pas le type : miroir exact.
     /// </summary>
-    string? GetDeviceProperty(string endpointKey, string valueName);
+    bool HasDeviceProperty(string endpointKey, string valueName);
 
     /// <summary>
     /// La sous-clé FxProperties de cet endpoint existe-t-elle ? Un pilote sans
@@ -260,7 +264,12 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
     /// (3) écriture du CLSID en EFX, (4) déblocage des effets système si
     /// besoin. Idempotent : un double activation ne réécrit pas l'origine.
     /// </summary>
-    public ApoInstallResult Enable(string endpointKey)
+    /// <param name="endpointKey">Clé registre de l'endpoint de rendu.</param>
+    /// <param name="forcedSlot">v3.9.10 : position IMPOSÉE (repli
+    /// automatique de <see cref="ApoSetupCommands"/> quand la position
+    /// détectée rend la sortie muette) ; null = détecter comme v3.9.8
+    /// (combiné → MFX, sinon EFX).</param>
+    public ApoInstallResult Enable(string endpointKey, ApoFxSlot? forcedSlot = null)
     {
         var endpoint = FindEndpoint(endpointKey);
         if (endpoint == null)
@@ -282,9 +291,14 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
             // EFX (« bluetooth devices may be combined in Windows 11, EFX
             // will not work then » — Equalizer APO, DeviceAPOInfo.cpp) : MFX
             // alors, EFX sinon. Source : la sous-clé \Properties de l'endpoint.
-            bool combined = store.GetDeviceProperty(
-                endpointKey, ApoConstants.CombinedDeviceProperty) != null;
-            ApoFxSlot slot = ApoSlotPolicy.Choose(combined);
+            // v3.9.10 — PRÉSENCE, PAS TYPE : la référence teste
+            // valueExists (la propriété combiné est un booléen persisté en
+            // type non chaîne ; la lecture REG_SZ de v3.9.8 la ratait
+            // TOUJOURS — retour terrain : « Position choisie : EFX » sur le
+            // casque JBL combiné, sortie morte). Miroir exact désormais.
+            bool combined = store.HasDeviceProperty(
+                endpointKey, ApoConstants.CombinedDeviceProperty);
+            ApoFxSlot slot = forcedSlot ?? ApoSlotPolicy.Choose(combined);
             string clsidValueName = ApoSlotPolicy.ClsidValueName(slot);
             string modesValueName = ApoSlotPolicy.ModesValueName(slot);
 
