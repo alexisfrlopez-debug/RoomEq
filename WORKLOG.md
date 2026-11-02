@@ -2230,3 +2230,147 @@ Stage Summary:
   « Courbe envoyée… ✓ APO : courbe publiée et appliquée ») et vérifier
   le volume dans les deux sens après activation. Tout ⚠ du panneau =
   le transmettre tel quel.
+
+---
+Session : 28 — 2026-11-02
+Agent : main (Z.ai)
+Task : Retour terrain v3.9.5 transmis tel quel (« message d'erreur » +
+capture du panneau EQ système) : « journal APO absent — la DLL n'a jamais
+été chargée par le moteur audio — cliquer Réparer » alors que la courbe
+était bien envoyée (10 bandes, préampli -2 dB, révision 37) et l'EQ
+activé sur le casque JBL. v3.9.6.
+
+Work Log:
+- **L'observabilité v3.9.5 a fonctionné exactement comme prévu** : le
+  panneau a nommé le maillon défaillant (DLL jamais chargée) sans nouvel
+  aller-retour d'investigation — restait à trouver POURQUOI le moteur
+  audio ne chargeait pas une DLL pourtant inscrite.
+- **Cause racine ÉTABLIE par recoupement de sources de référence** (le
+  dépôt local était en retard sur GitHub : pull origin v3-recodage d'abord
+  — v3.9.5 poussée en session 27) :
+  1. **Doc développeur OFFICIELLE d'Equalizer APO** (Wiki/Developer.txt,
+     miroir GitHub `mirror/equalizerapo`) : « The following changes have
+     to be done to the registry to make the Windows Audio Service load
+     the DLL file that implements the APO : (1) Under the registry key
+     HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio
+     the DWORD value DisableProtectedAudioDG has to be set to 1. This
+     disables the signature check for APOs, so that unsigned APOs will
+     be loaded. » + (3) la clé
+     HKLM\SOFTWARE\Classes\AudioEngine\AudioProcessingObjects\{GUID}
+     « has to be created, which is normally handled by the function
+     RegisterAPO ».
+  2. **Code source d'Equalizer APO** (DeviceAPOInfo.cpp, cloné et lu) :
+     `checkProtectedAudioDG(fix)` écrit la DWORD à 1 ; l'installation
+     SFX_EFX écrit AUSSI le MULTI_SZ de modes de traitement EFX
+     (`{d3993a3f-99c2-4402-b5ec-a92a0367664b},7` =
+     `{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}`) quand absent ; DllMain →
+     DllRegisterServer → RegisterAPO + inscription COM ThreadingModel Both.
+  3. **Sample officiel Microsoft SysVAD** (Windows-driver-samples,
+     ComponentizedApoSample.inx) : les VALEURS NOMMÉES exactes de la clé
+     AudioEngine\AudioProcessingObjects\{CLSID} (FriendlyName, Copyright,
+     MajorVersion, MinorVersion, Flags, Min/MaxInputConnections,
+     Min/MaxOutputConnections, MaxInstances, NumAPOInterfaces,
+     APOInterface0).
+  4. **Notes É. Dechamps** (github.com/dechamps/APO) : le tableau
+     SFX/MFX/EFX confirme notre position EFX `,7` — ce maillon-là était
+     CORRECT, ainsi que le COM et le mécanisme de clé FxProperties.
+- **Synthèse du diagnostic** : Windows, en mode « audio protégé »
+  (PUMA), vérifie la signature de chaque DLL APO chargée par audiodg et
+  REFUSE SILENCIEUSEMENT les non signées — notre DLL (compilée Zig, non
+  signée) n'était donc jamais même OUVERTE : pas d'apo.log, pas de
+  message d'erreur, aucune trace côté application. L'affirmation de
+  notre analyse d'origine (« aucune signature n'est exigée pour une APO
+  user-mode », docs/EQ-SYSTEME-APO.md § 3.2) était INEXACTE : Equalizer
+  APO fonctionne non signé PARCE QUE son installateur désactive cette
+  vérification. Correction consignée dans le doc.
+- **Correctif v3.9.6 — la recette COMPLETE, avec la réversibilité
+  RoomEq en plus** :
+  - `ApoConstants` : clé de politique audio, nom de valeur
+    DisableProtectedAudioDG, clé d'inscription moteur
+    (AudioEngine\AudioProcessingObjects\{CLSID}), valeur de modes EFX
+    ({d3993a3f…},7), mode par défaut ({C18E2F7E…}), chemin de
+    sauvegarde audio-policy.json, nom de DLL déployée factorisé.
+  - `ApoEnginePolicy` (NOUVEAU, pur, testable Linux) : les 12 valeurs
+    d'inscription — miroir EXACT de GetRegistrationProperties natif
+    (FriendlyName/Copyright, versions 1.0, Flags = DEFAULT|INPLACE = 15,
+    connexions 1-1-1-1, MaxInstances 64, APOInterface0 =
+    IID_IAudioProcessingObjectRT) ; sémantique de la politique (seule
+    la valeur exactement 1 autorise une DLL non signée) ;
+    sauvegarde/restauration JSON de la valeur d'origine (atomique,
+    tolérante, « illisible = absent »).
+  - `WindowsApoEndpointStore` : GetStrings/SetStrings (REG_MULTI_SZ,
+    modes EFX) ; IsEngineRegistered/RegisterEngineApo/UnregisterEngineApo
+    (idempotent : n'écrit que ce qui diffère) ;
+    GetProtectedAudioDg/SetProtectedAudioDg — tout en vue Registry64 et
+    inerte hors Windows.
+  - `ApoSetupCommands.Deploy` (élevé, appelé par ACTIVATION et
+    RÉPARATION) : inscrit l'APO auprès du moteur + ouvre la politique SI
+    besoin — l'origine est capturée UNE fois, UNIQUEMENT si c'est nous
+    qui changeons la politique (un Equalizer APO installé, ou une
+    activation précédente, n'est jamais modifié ni « restauré ») ; le
+    message d'activation énonce la contrepartie DRM honnêtement.
+  - `ApoRegistrar` : sauvegarde des modes EFX d'origine avant écriture
+    (invariant 2), écrit le mode par défaut si absent (comportement
+    Equalizer APO : modes du pilote préservés), restaure à la
+    désactivation, rétablit à la réparation ;
+    EfxProcessingModesCaptured distingue les sauvegardes v3.7–v3.9.5
+    (jamais touchées — rétrocompatibilité).
+  - Désinstallation : restitue la politique d'origine, retire
+    l'inscription moteur, supprime audio-policy.json — Windows revient
+    EXACTEMENT comme avant.
+  - `WindowsApoSystem.GetEngineStatus()` + `ApoChainText` : le panneau
+    nomme désormais le PRÉREQUIS manquant quand la DLL n'est pas
+    chargée (« Windows refuse de charger la DLL (APO non signée, moteur
+    protégé)… cliquez Réparer » / « pas inscrit auprès du moteur audio »
+    / « inscription COM absente ») au lieu du générique « pilote ? ».
+- **Nettoyage au passage** : 6 avertissements CA1416 PRÉEXISTANTS dans
+  ApoAclVerifierTests (v3.9.5) neutralisés (gardes en ligne reconnues
+  par l'analyseur dans les helpers + pragma justifié pour le seul appel
+  VOLONTAIREMENT multiplateforme, qui verrouille le contrat « inerte
+  hors Windows ») — build vraiment 0 avertissement désormais.
+- **Tests** : 531/531 xUnit (Core 237, Audio 199 → 219 : +5 registrar
+  [modes écrits si absents, modes pilote préservés, restitution exacte,
+  suppression si absents à l'origine, sauvegarde d'avant-champ
+  intouchable, réparation les rétablit] +9 ApoEnginePolicy [12 valeurs
+  une à une, types SysVAD, = 1 seulement ×4 cas, round-trip sauvegarde,
+  fichier corrompu, constantes de recette] +6 ApoChainText [politique
+  protégée nommée, inscription moteur nommée, COM absent nommé,
+  prérequis inconnus → générique conservé, tout conforme → générique,
+  journal illisible → prérequis non accusés] ; App 75). Build 0 erreur
+  0 avertissement. Harnais natif APO inchangé (112 vérifications, code
+  natif non touché — le blocage était côté configuration Windows).
+- **Verrous structurels** : Directory.Build.props + package_v3.sh
+  VERSION 3.9.6 + contrôle v3.9.6 (DisableProtectedAudioDG,
+  AudioEngine/AudioProcessingObjects, ApoEnginePolicy + tests,
+  EnsureProtectedAudioDgAllowsUnsignedApos, RegisterEngineApo,
+  FxEfxProcessingModes, GetEngineStatus, EnginePolicyOk,
+  IsDllLoadAllowed).
+- **Docs** : spec I-AUD-09 v1.7 (as-built t/u/v/w/x/y/z, invariants 1
+  et 11 étendus, critères de test 30 registrar + 9 politique) ;
+  docs/EQ-SYSTEME-APO.md (fait établi v3.9.6 + CORRECTION de « aucune
+  signature n'est exigée » + entrée d'historique) ; LISEZMOI 3.9.6
+  (explication utilisateur, contrepartie DRM énoncée) ; README
+  (historique) ; CARTE.md (M-AUD-09 v1.7, 8 fichiers) ; REPRISE.md
+  (résumé express + état session 28).
+- **Livrables (D22)** : package_v3.sh (zips test/public/source 3.9.6,
+  contrôles verts dont le verrou v3.9.6) ; build_setup.sh →
+  RoomEq-win-Setup.exe 3.9.6 régénéré et re-téléversé sur Drive ;
+  anciens zips 3.9.5 archivés dans Livrables/Archive ; miroir Drive
+  complet + push GitHub.
+
+Stage Summary:
+- v3.9.6 : le panneau v3.9.5 avait nommé le maillon (« DLL jamais
+  chargée ») — la cause était un prérequis de la recette Equalizer APO
+  que notre analyse d'origine croyait inutile : Windows VÉRIFIE la
+  signature des APO en mode protégé et refuse les non signées sans le
+  moindre message. L'activation applique désormais la recette complète
+  (DisableProtectedAudioDG + inscription AudioEngine/AudioProcessingObjects
+  + modes EFX), réversiblement et sans jamais toucher un réglage posé
+  par un tiers — et le panneau nomme le prérequis manquant si un pilote
+  ou Windows l'efface.
+- Prochaine étape : validation terrain Windows — Setup 3.9.6, cliquer
+  « Réparer » (ou réactiver la sortie) : le service audio redémarre,
+  puis lecture d'une musique. Attendu : le ⚠ « DLL jamais chargée »
+  disparaît, remplacé par « ✓ APO : courbe publiée et appliquée par le
+  moteur audio » dans le panneau, et le son CHANGE avec la courbe. Si
+  un ⚠ subsiste, le transmettre tel quel — il nomme son maillon.

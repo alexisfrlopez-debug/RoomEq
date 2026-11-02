@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.5
+VERSION=3.9.6
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -180,6 +180,27 @@ grep -qE 'public bool Reacquire' "$SRC/src/RoomEq.Audio/Routing/EndpointVolumeCo
   && grep -qE 'ApoChainText.Compose' "$SRC/src/RoomEq.App/ViewModels/MixerViewModel.SystemApo.cs" \
   && grep -qE 'ReadApoLogTail' "$SRC/src/RoomEq.Audio/SystemApo/ApoConfigStore.cs" \
   && echo "   ✓ v3.9.5 : volume re-ciblé après redémarrage du service audio + chaîne de courbe observable (courbe/écriture/APO) + verrou ACL"
+
+# --- v3.9.6 : la DLL APO n'était JAMAIS chargée par le moteur audio (retour
+#     terrain v3.9.5 : « journal APO absent ») — il manquait les DEUX
+#     prérequis de la recette Equalizer APO : DisableProtectedAudioDG=1
+#     (sinon audiodg refuse SILENCIEUSEMENT toute DLL non signée) et la clé
+#     AudioEngine\AudioProcessingObjects\{CLSID} (RegisterAPO) ; plus le
+#     MULTI_SZ de modes de traitement EFX ({d3993a3f…},7) écrit quand absent ---
+grep -qE 'DisableProtectedAudioDgValue = "DisableProtectedAudioDG"' \
+      "$SRC/src/RoomEq.Audio/SystemApo/ApoConstants.cs" \
+  && grep -qE 'AudioEngine.AudioProcessingObjects' \
+      "$SRC/src/RoomEq.Audio/SystemApo/ApoConstants.cs" \
+  && [[ -f "$SRC/src/RoomEq.Audio/SystemApo/ApoEnginePolicy.cs" \
+     && -f "$SRC/tests/RoomEq.Audio.Tests/ApoEnginePolicyTests.cs" ]] \
+  && grep -qE 'EnsureProtectedAudioDgAllowsUnsignedApos' \
+        "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && grep -qE 'RegisterEngineApo' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoEndpointStore.cs" \
+  && grep -qE 'FxEfxProcessingModes' "$SRC/src/RoomEq.Audio/SystemApo/ApoRegistrar.cs" \
+  && grep -qE 'GetEngineStatus' "$SRC/src/RoomEq.Audio/SystemApo/WindowsApoSystem.cs" \
+  && grep -qE 'EnginePolicyOk' "$SRC/src/RoomEq.Audio/SystemApo/ApoChainText.cs" \
+  && grep -qE 'IsDllLoadAllowed' "$SRC/tests/RoomEq.Audio.Tests/ApoEnginePolicyTests.cs" \
+  && echo "   ✓ v3.9.6 : DisableProtectedAudioDG + inscription AudioEngine/AudioProcessingObjects + modes EFX (recette Equalizer APO complète)"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

@@ -38,6 +38,15 @@ public interface IApoEndpointStore
     void SetInt(string endpointKey, string valueName, int? value);
 
     /// <summary>
+    /// Valeur REG_MULTI_SZ d'un endpoint (null si absente — jamais d'exception).
+    /// v3.9.6 : modes de traitement EFX (recette Equalizer APO).
+    /// </summary>
+    IReadOnlyList<string>? GetStrings(string endpointKey, string valueName);
+
+    /// <summary>Écrit (ou supprime si null) une valeur REG_MULTI_SZ d'un endpoint.</summary>
+    void SetStrings(string endpointKey, string valueName, IReadOnlyList<string>? values);
+
+    /// <summary>
     /// La sous-clé FxProperties de cet endpoint existe-t-elle ? Un pilote sans
     /// effets déclarés ne la crée pas ; l'activation la créera (le moteur
     /// audio lit cette clé quel que soit son auteur — mécanisme standalone
@@ -102,7 +111,9 @@ public sealed record ApoEndpointBackup(
     string? OriginalEndpointEffectClsid,
     int? OriginalDisableSysFx,
     bool FxPropertiesExisted = true,
-    ApoSecuritySnapshot? Security = null);
+    ApoSecuritySnapshot? Security = null,
+    bool EfxProcessingModesCaptured = false,
+    string[]? OriginalEfxProcessingModes = null);
 
 /// <summary>Magasin de sauvegardes (JSON sur disque, ou mémoire pour les tests).</summary>
 public interface IApoBackupStore
@@ -248,13 +259,32 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
             // store devra prendre possession (mécanisme Equalizer APO) et la
             // désactivation restituera l'origine (invariant 2 étendu).
             ApoSecuritySnapshot? security = store.CaptureSecurity(endpointKey);
+            // v3.9.6 : modes de traitement EFX d'origine — capturés AVANT
+            // écriture (invariant 2). Null = valeur absente (nous écrirons le
+            // mode par défaut, recette Equalizer APO INSTALL_SFX_EFX).
+            // EfxProcessingModesCaptured distingue « absente à l'origine »
+            // (restaurer par suppression) des sauvegardes d'avant-champ
+            // (ne rien toucher — compatibilité v3.7–v3.9.5).
+            var originalModes = store.GetStrings(endpointKey, ApoConstants.FxEfxProcessingModes);
             backups.Save(endpointKey, new ApoEndpointBackup(
                 OriginalEndpointEffectClsid: store.GetString(endpointKey, ApoConstants.FxEndpointEffectClsid),
                 OriginalDisableSysFx: store.GetInt(endpointKey, ApoConstants.FxDisableSysFx),
                 FxPropertiesExisted: fxExisted,
-                Security: security));
+                Security: security,
+                EfxProcessingModesCaptured: true,
+                OriginalEfxProcessingModes: originalModes?.ToArray()));
 
             store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, ApoConstants.Clsid);
+
+            // v3.9.6 : rattacher l'EFX au mode de traitement PAR DÉFAUT si la
+            // valeur est absente (pilote sans FxProperties → clé créée par
+            // nous : sans mode déclaré, l'EFX peut ne s'appliquer à AUCUN
+            // flux). Si le pilote avait ses propres modes, on les garde
+            // (comportement Equalizer APO : writeMultiValue seulement si
+            // absente).
+            if (store.GetStrings(endpointKey, ApoConstants.FxEfxProcessingModes) == null)
+                store.SetStrings(endpointKey, ApoConstants.FxEfxProcessingModes,
+                    new[] { ApoConstants.DefaultProcessingMode });
 
             int? disableSysFx = store.GetInt(endpointKey, ApoConstants.FxDisableSysFx);
             if (disableSysFx == 1)
@@ -320,6 +350,15 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
             store.SetString(endpointKey, ApoConstants.FxEndpointEffectClsid, backup.OriginalEndpointEffectClsid);
             store.SetInt(endpointKey, ApoConstants.FxDisableSysFx, backup.OriginalDisableSysFx);
 
+            // v3.9.6 : restitution exacte des modes de traitement EFX —
+            // SEULEMENT si le champ a été capturé par cette version (les
+            // sauvegardes v3.7–v3.9.5 ne l'ont pas : ne rien toucher). Capturé
+            // et null à l'origine = supprimer la valeur que nous avions
+            // écrite ; capturé et non null = restituer les modes du pilote.
+            if (backup.EfxProcessingModesCaptured)
+                store.SetStrings(endpointKey, ApoConstants.FxEfxProcessingModes,
+                    backup.OriginalEfxProcessingModes);
+
             // Restitution EXACTE (invariant 2) : une sous-clé FxProperties que
             // NOUS avons créée (pilote sans slot déclaré) et qui ne contient
             // plus RIEN après restauration est supprimée — l'état d'origine
@@ -368,6 +407,12 @@ public sealed class ApoRegistrar(IApoEndpointStore store, IApoBackupStore backup
                 store.SetString(key, ApoConstants.FxEndpointEffectClsid, ApoConstants.Clsid);
                 if (backup.OriginalDisableSysFx == 1)
                     store.SetInt(key, ApoConstants.FxDisableSysFx, 0);
+                // v3.9.6 : une mise à jour de pilote qui efface l'inscription
+                // efface AUSSI les modes de traitement — les rétablir au
+                // besoin (idempotent).
+                if (store.GetStrings(key, ApoConstants.FxEfxProcessingModes) == null)
+                    store.SetStrings(key, ApoConstants.FxEfxProcessingModes,
+                        new[] { ApoConstants.DefaultProcessingMode });
                 repaired++;
             }
             catch

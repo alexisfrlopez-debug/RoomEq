@@ -37,7 +37,7 @@ public static class ApoSetupCommands
 
     private static ApoInstallResult Enable(string endpointKey, string appBase)
     {
-        var deploy = Deploy(appBase);
+        var (deploy, _) = Deploy(appBase);
         if (!deploy.Success)
             return deploy;
 
@@ -48,7 +48,9 @@ public static class ApoSetupCommands
 
         RestartAudioService();
         return ApoInstallResult.Ok(result.Message +
-            " Le service audio a été redémarré : le son s'interrompt environ une seconde.");
+            " Le service audio a été redémarré : le son s'interrompt environ une seconde." +
+            " Le moteur audio accepte désormais les DLL non signées (réglage réversible d'Equalizer APO) : " +
+            "les rares applications exigeant un chemin audio protégé peuvent refuser de jouer.");
     }
 
     // ---------------------------------------------------------------- désactiver
@@ -65,15 +67,20 @@ public static class ApoSetupCommands
 
     private static ApoInstallResult Repair(string appBase)
     {
-        var deploy = Deploy(appBase); // ré-installe aussi les DLL/CLSID manquants
+        var (deploy, fixedPrerequisites) = Deploy(appBase); // ré-installe aussi les DLL/CLSID manquants
         if (!deploy.Success)
             return deploy;
 
         int repaired = Registrar().RepairEnabled();
-        if (repaired > 0)
+        if (repaired > 0 || fixedPrerequisites)
         {
             RestartAudioService();
-            return ApoInstallResult.Ok(repaired + " sortie(s) réparée(s) (mise à jour de pilote qui a effacé l'inscription).");
+            var parts = new List<string>();
+            if (repaired > 0)
+                parts.Add(repaired + " sortie(s) réparée(s) (mise à jour de pilote qui a effacé l'inscription)");
+            if (fixedPrerequisites)
+                parts.Add("prérequis du moteur audio réparés (inscription APO, acceptation des DLL non signées)");
+            return ApoInstallResult.Ok(string.Join(" · ", parts) + ".");
         }
         return ApoInstallResult.Ok("Rien à réparer : toutes les sorties activées sont conformes.");
     }
@@ -88,6 +95,11 @@ public static class ApoSetupCommands
             return result;
 
         WindowsApoEndpointStore.UnregisterCom();
+        // v3.9.6 : inscription moteur audio retirée + politique « audio
+        // protégé » restituée à son état d'origine (uniquement si NOUS l'avons
+        // modifiée — un Equalizer APO installé ne doit pas être désactivé).
+        WindowsApoEndpointStore.UnregisterEngineApo();
+        RestoreProtectedAudioDg();
         RestartAudioService();
 
         // fichiers partagés : DLL déployées + sauvegardes + courbe + journal.
@@ -98,7 +110,8 @@ public static class ApoSetupCommands
             if (Directory.Exists(ApoConstants.DeployedBinDir))
                 Directory.Delete(ApoConstants.DeployedBinDir, recursive: true);
             foreach (var f in new[] { ApoConstants.BackupPath, ApoConstants.ActiveCurvePath,
-                                      ApoConstants.ApoLogPath, ApoConstants.SetupResultPath })
+                                      ApoConstants.ApoLogPath, ApoConstants.SetupResultPath,
+                                      ApoConstants.AudioPolicyBackupPath })
                 if (File.Exists(f))
                     File.Delete(f);
         }
@@ -106,25 +119,42 @@ public static class ApoSetupCommands
         {
             // des fichiers occupés ne doivent pas faire échouer la restauration
         }
-        return ApoInstallResult.Ok(result.Message + " Inscription COM retirée, fichiers partagés supprimés.");
+        return ApoInstallResult.Ok(result.Message +
+            " Inscription COM et inscription moteur audio retirées, politique audio d'origine restaurée, fichiers partagés supprimés.");
+    }
+
+    /// <summary>Restitue la politique « audio protégé » si nous l'avions
+    /// modifiée (sauvegarde présente) : remet la valeur d'origine — ou la
+    /// supprime si elle n'existait pas. Sans sauvegarde : ne rien toucher.</summary>
+    private static void RestoreProtectedAudioDg()
+    {
+        var backup = ApoEnginePolicy.LoadBackup(ApoConstants.AudioPolicyBackupPath);
+        if (backup == null)
+            return; // nous n'avons jamais changé cette politique
+        WindowsApoEndpointStore.SetProtectedAudioDg(backup.Original);
+        ApoEnginePolicy.DeleteBackup(ApoConstants.AudioPolicyBackupPath);
     }
 
     // ---------------------------------------------------------------- déploiement
 
     /// <summary>
-    /// Copie les DLL APO de l'application vers %ProgramData%\RoomEq\apo\bin
-    /// et (re)fait l'inscription COM vers la DLL de l'architecture de la
-    /// machine. Idempotent.
+    /// Copie les DLL APO de l'application vers %ProgramData%\RoomEq\apo\bin,
+    /// (re)fait l'inscription COM de la DLL, l'INSCRIPTION AUPRÈS DU MOTEUR
+    /// AUDIO (v3.9.6 — clé AudioEngine\AudioProcessingObjects, équivalent
+    /// RegisterAPO/regsvr32) et ouvre la politique « audio protégé »
+    /// (DisableProtectedAudioDG=1 — sans quoi audiodg refuse SILENCIEUSEMENT
+    /// de charger une DLL non signée ; réglage Equalizer APO 10+ ans, valeur
+    /// d'origine sauvegardée et restituée à la désinstallation). Idempotent.
     /// </summary>
-    private static ApoInstallResult Deploy(string appBase)
+    private static (ApoInstallResult Result, bool FixedSomething) Deploy(string appBase)
     {
         try
         {
             string src = Path.Combine(appBase, ApoConstants.AppApoSubdir);
             if (!Directory.Exists(src))
-                return ApoInstallResult.Fail(
+                return (ApoInstallResult.Fail(
                     "DLL APO introuvables (dossier « apo » absent à côté de l'application) : " +
-                    "réinstallez RoomEq avec le dernier installateur.");
+                    "réinstallez RoomEq avec le dernier installateur."), false);
 
             string bin = ApoConstants.DeployedBinDir;
             Directory.CreateDirectory(bin);
@@ -139,13 +169,10 @@ public static class ApoSetupCommands
                 File.Copy(from, to, overwrite: true);
             }
 
-            string arch = Environment.Is64BitOperatingSystem
-                && Environment.GetEnvironmentVariable("PROCESSOR_ARCHITECTURE")?.StartsWith("ARM", StringComparison.OrdinalIgnoreCase) == true
-                    ? "RoomEqApo_arm64.dll"
-                    : "RoomEqApo_x64.dll";
-            string dll = Path.Combine(bin, arch);
+            string dll = Path.Combine(bin, ApoConstants.DeployedDllName);
             if (!File.Exists(dll))
-                return ApoInstallResult.Fail("DLL APO " + arch + " absente du dossier « apo » de l'application.");
+                return (ApoInstallResult.Fail(
+                    "DLL APO " + ApoConstants.DeployedDllName + " absente du dossier « apo » de l'application."), false);
 
             ApplyAcls(bin);
 
@@ -154,12 +181,12 @@ public static class ApoSetupCommands
             // pouvait plus écrire la courbe, l'EQ restait muet sans explication.
             // Désormais : vérification .NET réelle, et échec EXPLICITE si absent.
             if (!ApoAclVerifier.UsersCanModify(ApoConstants.ProgramDataDir))
-                return ApoInstallResult.Fail(
+                return (ApoInstallResult.Fail(
                     "Les permissions du dossier " + ApoConstants.ProgramDataDir
                     + " n'ont pas pu être établies (icacls a échoué) : l'application ne "
                     + "pourrait pas envoyer la courbe à l'égaliseur système. Réessayez "
                     + "l'activation ; si l'échec persiste, créez le dossier manuellement et "
-                    + "accordez « Modifier » aux Utilisateurs.");
+                    + "accordez « Modifier » aux Utilisateurs."), false);
 
             // v3.9.5 — courbe initiale : garantit qu'active.json existe, appartient
             // au dossier et est valide DÈS l'activation (l'app l'écrase par la
@@ -182,12 +209,54 @@ public static class ApoSetupCommands
             if (!WindowsApoEndpointStore.ComRegistered(dll))
                 WindowsApoEndpointStore.RegisterCom(dll);
 
-            return ApoInstallResult.Ok("Déploiement APO à jour.");
+            // v3.9.6 — les DEUX prérequis qui manquaient (retour terrain
+            // v3.9.5 : « journal APO absent, DLL jamais chargée par le moteur
+            // audio ») : l'inscription auprès du moteur audio (RegisterAPO)
+            // et l'acceptation des DLL non signées (DisableProtectedAudioDG,
+            // mécanisme Equalizer APO — sans lui, audiodg en mode protégé
+            // refuse notre DLL sans le moindre message).
+            bool fixedEngineRegistration = WindowsApoEndpointStore.RegisterEngineApo();
+            bool fixedPolicy = EnsureProtectedAudioDgAllowsUnsignedApos();
+
+            var whatChanged = new List<string>();
+            if (fixedEngineRegistration)
+                whatChanged.Add("inscription moteur audio restaurée");
+            if (fixedPolicy)
+                whatChanged.Add("chargement des DLL non signées autorisé (réglage Equalizer APO, original sauvegardé)");
+
+            return (ApoInstallResult.Ok(whatChanged.Count == 0
+                ? "Déploiement APO à jour."
+                : "Déploiement APO réparé : " + string.Join(" · ", whatChanged) + "."),
+                fixedEngineRegistration || fixedPolicy);
         }
         catch (Exception ex)
         {
-            return ApoInstallResult.Fail("Déploiement impossible : " + ex.Message);
+            return (ApoInstallResult.Fail("Déploiement impossible : " + ex.Message), false);
         }
+    }
+
+    /// <summary>
+    /// Ouvre la politique « audio protégé » si nécessaire (processus élevé) :
+    /// DisableProtectedAudioDG=1 sous HKLM\…\CurrentVersion\Audio. La valeur
+    /// d'ORIGINE est capturée UNE fois (audio-policy.json) — uniquement si
+    /// nous sommes celui qui change la politique : si elle est déjà à 1
+    /// (Equalizer APO installé, ou activation RoomEq précédente), on ne
+    /// touche à rien et la désinstallation n'y touchera pas non plus.
+    /// </summary>
+    /// <returns>Vrai si la politique a été modifiée par NOUS.</returns>
+    private static bool EnsureProtectedAudioDgAllowsUnsignedApos()
+    {
+        int? current = WindowsApoEndpointStore.GetProtectedAudioDg();
+        if (ApoEnginePolicy.IsDllLoadAllowed(current))
+            return false; // déjà ouverte (nous ou un tiers) : ne rien toucher
+
+        // capture l'origine UNE fois — une ré-activation ne doit JAMAIS
+        // écraser la VRAIE valeur d'origine par une valeur intermédiaire
+        if (ApoEnginePolicy.LoadBackup(ApoConstants.AudioPolicyBackupPath) == null)
+            ApoEnginePolicy.SaveBackup(ApoConstants.AudioPolicyBackupPath, current);
+
+        WindowsApoEndpointStore.SetProtectedAudioDg(1);
+        return true;
     }
 
     /// <summary>

@@ -61,6 +61,24 @@ public class ApoRegistrarTests
                 map[name] = value.Value;
         }
 
+        // v3.9.6 : MULTI_SZ (modes de traitement EFX) — stockés en string[].
+        public IReadOnlyList<string>? GetStrings(string key, string name)
+        {
+            Trace.Add($"getmulti:{key}/{name}");
+            return Values.TryGetValue(key, out var v) && v.TryGetValue(name, out var val)
+                ? val as string[] : null;
+        }
+
+        public void SetStrings(string key, string name, IReadOnlyList<string>? values)
+        {
+            Trace.Add(values == null ? $"delmulti:{key}/{name}" : $"setmulti:{key}/{name}");
+            var map = Values.TryGetValue(key, out var v) ? v : Values[key] = new();
+            if (values == null)
+                map.Remove(name);
+            else
+                map[name] = values.ToArray();
+        }
+
         public bool FxPropertiesExists(string key)
         {
             Trace.Add($"exists:{key}");
@@ -186,6 +204,99 @@ public class ApoRegistrarTests
             "l'existence de FxProperties doit être capturée avant l'écriture");
     }
 
+    // --------------------------- v3.9.6 : modes de traitement EFX (MULTI_SZ,
+    // recette Equalizer APO INSTALL_SFX_EFX — sans mode déclaré, l'EFX peut
+    // ne s'appliquer à aucun flux)
+
+    [Fact]
+    public void Enable_WritesDefaultProcessingMode_WhenAbsent()
+    {
+        var (registrar, store, backups) = Make();
+
+        var result = registrar.Enable("{bt}"); // sortie sans FxProperties du tout
+
+        Assert.True(result.Success, result.Message);
+        // le mode par défaut est inscrit en MULTI_SZ (un seul GUID)
+        var modes = store.GetStrings("{bt}", ApoConstants.FxEfxProcessingModes);
+        Assert.NotNull(modes);
+        Assert.Equal(new[] { ApoConstants.DefaultProcessingMode }, modes);
+        // l'origine (absente) est capturée AVANT l'écriture (invariant 2)
+        var backup = backups.Load("{bt}");
+        Assert.NotNull(backup);
+        Assert.True(backup.EfxProcessingModesCaptured);
+        Assert.Null(backup.OriginalEfxProcessingModes);
+        int read = store.Trace.IndexOf($"getmulti:{{bt}}/{ApoConstants.FxEfxProcessingModes}");
+        int write = store.Trace.IndexOf($"setmulti:{{bt}}/{ApoConstants.FxEfxProcessingModes}");
+        Assert.True(read >= 0 && write > read, "la capture doit précéder l'écriture des modes");
+    }
+
+    [Fact]
+    public void Enable_KeepsDriverProcessingModes_WhenPresent()
+    {
+        var (registrar, store, backups) = Make();
+        // le pilote déclarait ses propres modes pour son EFX
+        var driverModes = new[] { "{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}", "{autre-mode}" };
+        store.Values["{hp}"][ApoConstants.FxEfxProcessingModes] = driverModes;
+
+        var result = registrar.Enable("{hp}");
+
+        Assert.True(result.Success, result.Message);
+        // les modes du pilote sont INTACTS (comportement Equalizer APO :
+        // writeMultiValue seulement si absente)
+        Assert.Equal(driverModes,
+            store.GetStrings("{hp}", ApoConstants.FxEfxProcessingModes));
+        var backup = backups.Load("{hp}");
+        Assert.NotNull(backup);
+        Assert.Equal(driverModes, backup.OriginalEfxProcessingModes);
+    }
+
+    [Fact]
+    public void Disable_RestoresProcessingModes_Exactly()
+    {
+        var (registrar, store, backups) = Make();
+        store.Values["{hp}"][ApoConstants.FxEfxProcessingModes] =
+            new[] { "{mode-pilote}" };
+        registrar.Enable("{hp}");
+
+        Assert.True(registrar.Disable("{hp}").Success);
+
+        // restitués tels quels (pas le mode par défaut)
+        Assert.Equal(new[] { "{mode-pilote}" },
+            store.GetStrings("{hp}", ApoConstants.FxEfxProcessingModes));
+    }
+
+    [Fact]
+    public void Disable_RemovesOurDefaultMode_WhenOriginallyAbsent()
+    {
+        var (registrar, store, _) = Make();
+        registrar.Enable("{bt}"); // écrit le mode par défaut (absent à l'origine)
+
+        Assert.True(registrar.Disable("{bt}").Success);
+
+        // restitution exacte : la valeur que NOUS avions écrite disparaît
+        // (la clé {bt} entière disparaît de toute façon — clé créée par nous)
+        Assert.False(store.Values.ContainsKey("{bt}"));
+    }
+
+    [Fact]
+    public void Disable_LegacyBackupWithoutModesCapture_NeverTouchesModes()
+    {
+        var (registrar, store, backups) = Make();
+        registrar.Enable("{bt}");
+        // le pilote a écrit ses modes APRÈS notre activation
+        store.Values["{bt}"][ApoConstants.FxEfxProcessingModes] = new[] { "{modes-pilote}" };
+        // sauvegarde au format v3.7–v3.9.5 (champ modes absent → non capturé)
+        backups.Save("{bt}", new ApoEndpointBackup(null, null));
+
+        Assert.True(registrar.Disable("{bt}").Success);
+
+        // les modes du pilote sont INTACTS (jamais supprimés par une
+        // sauvegarde qui ne les a pas capturés)
+        var modes = store.GetStrings("{bt}", ApoConstants.FxEfxProcessingModes);
+        Assert.NotNull(modes);
+        Assert.Equal(new[] { "{modes-pilote}" }, modes);
+    }
+
     [Fact]
     public void Disable_AfterKeyCreation_RemovesNowEmptyFxProperties()
     {
@@ -229,9 +340,16 @@ public class ApoRegistrarTests
         Assert.True(registrar.Disable("{bt}").Success);
 
         // prudence : sans la connaissance « clé créée par nous », jamais de
-        // suppression — nos valeurs sont retirées, la clé (vide) reste
+        // suppression — nos valeurs suivies sont retirées, la clé reste
         Assert.True(store.Values.ContainsKey("{bt}"));
-        Assert.Empty(store.Values["{bt}"]);
+        Assert.DoesNotContain(ApoConstants.FxEndpointEffectClsid, store.Values["{bt}"].Keys);
+        // v3.9.6 : la valeur MULTI_SZ de modes de traitement peut rester —
+        // une sauvegarde d'avant-champ ne l'a PAS capturée, la supprimer
+        // reviendrait à risquer celle du pilote (elle peut légitimement
+        // contenir le mode par défaut). Inerte sans CLSID EFX.
+        if (store.Values["{bt}"].ContainsKey(ApoConstants.FxEfxProcessingModes))
+            Assert.Equal(new[] { ApoConstants.DefaultProcessingMode },
+                store.GetStrings("{bt}", ApoConstants.FxEfxProcessingModes));
     }
 
     [Fact]
@@ -454,12 +572,17 @@ public class ApoRegistrarTests
         // mise à jour de pilote : les FxProperties sont écrasées
         store.Values["{hp}"][ApoConstants.FxEndpointEffectClsid] = "{realtek-new}";
         store.Values["{spk}"].Remove(ApoConstants.FxEndpointEffectClsid);
+        // v3.9.6 : la mise à jour a aussi effacé les modes de traitement
+        store.Values["{spk}"].Remove(ApoConstants.FxEfxProcessingModes);
 
         int repaired = registrar.RepairEnabled();
 
         Assert.Equal(2, repaired);
         Assert.Equal(ApoConstants.Clsid, store.Values["{hp}"][ApoConstants.FxEndpointEffectClsid]);
         Assert.Equal(ApoConstants.Clsid, store.Values["{spk}"][ApoConstants.FxEndpointEffectClsid]);
+        // le mode de traitement EFX est rétabli lui aussi (idempotent)
+        Assert.Equal(new[] { ApoConstants.DefaultProcessingMode },
+            store.GetStrings("{spk}", ApoConstants.FxEfxProcessingModes));
 
         // rien à réparer au second passage
         Assert.Equal(0, registrar.RepairEnabled());

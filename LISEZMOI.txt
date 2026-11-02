@@ -1,4 +1,4 @@
-RoomEq 3.9.5 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.9.6 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,25 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    511 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    531 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
     build 0 erreur 0 avertissement.
+  • CORRECTIF 3.9.6 — L'EQ SYSTÈME EST MAINTENANT VRAIMENT CHARGÉ PAR
+    WINDOWS : le panneau disait « DLL jamais chargée par le moteur audio »
+    alors que tout semblait activé. Cause trouvée (c'est le réglage qu'utilise
+    Equalizer APO depuis 10+ ans) : Windows, en mode « audio protégé »,
+    VÉRIFIE LA SIGNATURE des égaliseurs système et refuse SILENCIEUSEMENT
+    les non signés — le nôtre l'est, il n'était donc jamais même ouvert.
+    L'activation applique désormais les trois prérequis qui manquaient :
+    (1) elle désactive cette vérification de signature (réglage réversible :
+    la valeur d'origine de Windows est sauvegardée et restituée à la
+    désinstallation ; contrepartie honnête : les rares applications exigeant
+    un chemin audio protégé, type certains services DRM, pourraient refuser
+    de lire du son tant que l'EQ système est actif) ; (2) elle inscrit
+    l'égaliseur auprès du moteur audio Windows (clé
+    AudioEngine\AudioProcessingObjects, comme le font les effets Realtek/
+    Dolby) ; (3) elle rattache l'effet au mode de traitement par défaut de
+    la sortie. Si un prérequis manque un jour (mise à jour de pilote), le
+    panneau le NOMME et le bouton « Réparer » le rétablit.
   • CORRECTIF 3.9.5 — VOLUME BLOQUÉ APRÈS ACTIVATION + EQ SYSTÈME
     SOUS SURVEILLANCE : activer l'EQ système redémarre le service audio de
     Windows (~1 s de coupure, c'est inévitable) — or ce redémarrage

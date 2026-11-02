@@ -121,4 +121,88 @@ public class ApoChainTextTests
         Assert.Contains("APO : journal présent", text);
         Assert.Contains("APO instancie (RoomEqApo)", text);
     }
+
+    // ------------------------- v3.9.6 : DLL jamais chargée — le panneau nomme
+    // le PRÉREQUIS machine manquant (politique audio protégé / inscription
+    // moteur / inscription COM) au lieu d'un générique « pilote ? »
+
+    [Fact]
+    public void DllJamaisChargee_PolitiqueProtegee_NommeLaVerifDeSignature()
+    {
+        var text = ApoChainText.Compose(new ApoChainState(
+            Curve(), null, Array.Empty<string>(), null,
+            EnginePolicyOk: false, EngineRegistered: true, ComRegistered: true));
+
+        Assert.Contains("Windows refuse de charger la DLL de l'égaliseur (APO non signée", text);
+        Assert.Contains("Equalizer APO", text);
+        Assert.Contains("« Réparer »", text);
+        // les autres maillons ne sont pas accusés à tort
+        Assert.DoesNotContain("AudioEngine\\AudioProcessingObjects) — cliquez", text);
+        Assert.DoesNotContain("inscription COM absente", text);
+    }
+
+    [Fact]
+    public void DllJamaisChargee_InscriptionMoteurAbsente_NommeLaCle()
+    {
+        var text = ApoChainText.Compose(new ApoChainState(
+            Curve(), null, Array.Empty<string>(), null,
+            EnginePolicyOk: true, EngineRegistered: false, ComRegistered: true));
+
+        Assert.Contains("n'est pas inscrit auprès du moteur", text);
+        Assert.Contains("AudioEngine\\AudioProcessingObjects", text);
+        Assert.Contains("« Réparer »", text);
+        Assert.DoesNotContain("Windows refuse de charger", text);
+    }
+
+    [Fact]
+    public void DllJamaisChargee_ComAbsent_NommeLInscription()
+    {
+        var text = ApoChainText.Compose(new ApoChainState(
+            Curve(), null, Array.Empty<string>(), null,
+            EnginePolicyOk: true, EngineRegistered: true, ComRegistered: false));
+
+        Assert.Contains("inscription COM absente", text);
+        Assert.Contains("« Réparer »", text);
+        Assert.DoesNotContain("Windows refuse de charger", text);
+    }
+
+    [Fact]
+    public void DllJamaisChargee_PrerequisInconnus_MessageGeneriqueConservé()
+    {
+        // état inconnu (null) : pas d'accusation à l'aveugle, le message
+        // générique v3.9.5 reste (compatibilité des tests/panneaux antérieurs)
+        var text = ApoChainText.Compose(new ApoChainState(
+            Curve(), null, Array.Empty<string>(), null));
+
+        Assert.Contains("⚠ Journal de l'APO absent", text);
+        Assert.Contains("sortie réellement utilisée ? pilote ?", text);
+        Assert.DoesNotContain("Windows refuse de charger", text);
+    }
+
+    [Fact]
+    public void DllJamaisChargee_TousPrealablesOk_MessageGenerique()
+    {
+        // tout est conforme pourtant la DLL ne charge pas → l'ancien message
+        // reste le bon (sortie utilisée ? pilote ?)
+        var text = ApoChainText.Compose(new ApoChainState(
+            Curve(), null, Array.Empty<string>(), null,
+            EnginePolicyOk: true, EngineRegistered: true, ComRegistered: true));
+
+        Assert.Contains("⚠ Journal de l'APO absent", text);
+        Assert.DoesNotContain("Windows refuse de charger", text);
+        Assert.DoesNotContain("AudioProcessingObjects", text);
+    }
+
+    [Fact]
+    public void JournalIllisible_PrerequisNonAccuses()
+    {
+        // journal présent mais illisible : les prérequis machine ne sont pas
+        // mis en cause (la DLL a été chargée au moins une fois)
+        var text = ApoChainText.Compose(new ApoChainState(
+            Curve(), null, Array.Empty<string>(), DateTime.UtcNow,
+            EnginePolicyOk: false, EngineRegistered: false, ComRegistered: false));
+
+        Assert.Contains("Journal de l'APO illisible", text);
+        Assert.DoesNotContain("Windows refuse de charger", text);
+    }
 }

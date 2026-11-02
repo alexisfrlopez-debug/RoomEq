@@ -13,6 +13,18 @@ public sealed record ApoEndpointStatus(
     bool IsDefault);     // sortie par défaut de Windows
 
 /// <summary>
+/// Prérequis machine pour que le moteur audio charge la DLL APO (v3.9.6) :
+/// politique « audio protégé » ouverte (DisableProtectedAudioDG=1), APO
+/// inscrite auprès du moteur (AudioEngine\AudioProcessingObjects), CLSID COM
+/// inscrit vers la DLL déployée. Chaque maillon faux explique une DLL
+/// « jamais chargée » — le panneau les nomme un par un.
+/// </summary>
+public sealed record ApoEngineStatus(
+    bool ProtectedAudioDgDisabled,
+    bool EngineRegistered,
+    bool ComRegistered);
+
+/// <summary>
 /// Façade « EQ système » pour l'interface (spec I-AUD-09) : statut des
 /// sorties (lectures non élevées), activation/désactivation/réparation via
 /// <see cref="ApoSetupRunner"/> (élévation UAC unique), courbe active via
@@ -141,6 +153,30 @@ public sealed class WindowsApoSystem : IDisposable
     /// </summary>
     public IReadOnlyList<string> ReadApoLogTail(int maxLines = 8)
         => Config.ReadApoLogTail(maxLines);
+
+    /// <summary>
+    /// Prérequis machine du chargement APO (v3.9.6, lecture non élevée) :
+    /// politique audio protégé, inscription moteur, inscription COM. Un
+    /// maillon faux = la DLL n'est JAMAIS chargée, quel que soit l'état des
+    /// sorties — le panneau nomme le coupable sans aller-retour terrain.
+    /// </summary>
+    public ApoEngineStatus GetEngineStatus()
+    {
+        if (!IsPlatformSupported)
+            return new ApoEngineStatus(false, false, false);
+        try
+        {
+            return new ApoEngineStatus(
+                ApoEnginePolicy.IsDllLoadAllowed(WindowsApoEndpointStore.GetProtectedAudioDg()),
+                WindowsApoEndpointStore.IsEngineRegistered(),
+                WindowsApoEndpointStore.ComRegistered(
+                    Path.Combine(ApoConstants.DeployedBinDir, ApoConstants.DeployedDllName)));
+        }
+        catch
+        {
+            return new ApoEngineStatus(false, false, false); // registre illisible : tout signaler
+        }
+    }
 
     /// <summary>
     /// L'EQ système est-il actif sur CETTE sortie ? (D26) — sert à l'anti-double-

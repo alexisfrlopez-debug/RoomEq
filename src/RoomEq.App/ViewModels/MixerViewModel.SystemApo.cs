@@ -89,6 +89,7 @@ public partial class MixerViewModel
         OnPropertyChanged(nameof(SystemApoSupported));
 
         var load = SystemApo.LastApoLoadUtc;
+        var engine = SystemApo.GetEngineStatus(); // v3.9.6 : prérequis machine (politique/inscription)
         SystemApoStatusText = !WindowsApoSystem.IsPlatformSupported
             ? "EQ système : fonctionnalité Windows."
             : !SystemApo.IsReady
@@ -100,7 +101,10 @@ public partial class MixerViewModel
                             SystemApo.Config.Refresh(),
                             SystemApo.LastCurveWriteError,
                             SystemApo.ReadApoLogTail(),
-                            load))
+                            load,
+                            EnginePolicyOk: engine.ProtectedAudioDgDisabled,
+                            EngineRegistered: engine.EngineRegistered,
+                            ComRegistered: engine.ComRegistered))
                         : "Activez une ou plusieurs sorties : tout leur son traversera l'égaliseur (invite administrateur, réversible).";
     }
 

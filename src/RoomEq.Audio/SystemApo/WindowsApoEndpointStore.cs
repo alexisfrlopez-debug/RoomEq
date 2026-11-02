@@ -231,6 +231,36 @@ public sealed class WindowsApoEndpointStore : IApoEndpointStore
             k.SetValue(valueName, value.Value, RegistryValueKind.DWord);
     }
 
+    // ------------------------------------------- MULTI_SZ (v3.9.6, modes EFX)
+
+    public IReadOnlyList<string>? GetStrings(string endpointKey, string valueName)
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+        using var k = OpenFx(endpointKey, writable: false);
+        if (k == null)
+            return null;
+        try
+        {
+            return k.GetValue(valueName) as string[];
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public void SetStrings(string endpointKey, string valueName, IReadOnlyList<string>? values)
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        using var k = OpenFxForWrite(endpointKey);
+        if (values == null)
+            k.DeleteValue(valueName, throwOnMissingValue: false);
+        else
+            k.SetValue(valueName, values.ToArray(), RegistryValueKind.MultiString);
+    }
+
     // ------------------------------------------- structure de la sous-clé (v3.9.1)
 
     public bool FxPropertiesExists(string endpointKey)
@@ -376,5 +406,116 @@ public sealed class WindowsApoEndpointStore : IApoEndpointStore
         {
             // l'absence d'inscription n'est pas une erreur de désinstallation
         }
+    }
+
+    // ------------------- inscription auprès du MOTEUR AUDIO (v3.9.6 — ce que
+    // fait RegisterAPO du DDK / regsvr32 d'Equalizer APO ; sans cette clé, la
+    // doc développeur d'Equalizer APO dit que l'APO n'est pas chargée)
+
+    /// <summary>Notre APO est-elle inscrite auprès du moteur audio
+    /// (clé + FriendlyName à nous) ? Lecture non élevée — sert au panneau.</summary>
+    public static bool IsEngineRegistered()
+    {
+        if (!OperatingSystem.IsWindows())
+            return false;
+        try
+        {
+            using var hklm = OpenHklm();
+            using var k = hklm.OpenSubKey(ApoConstants.EngineApoRegistrationKey);
+            return string.Equals(k?.GetValue("FriendlyName") as string,
+                ApoConstants.ComFriendlyName, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Inscrit l'APO auprès du moteur audio : crée
+    /// AudioEngine\AudioProcessingObjects\{CLSID} et y écrit les valeurs
+    /// nommées de <see cref="ApoEnginePolicy.RegistrationValues"/> (processus
+    /// élevé). Idempotent.
+    /// </summary>
+    /// <returns>Vrai si une écriture a eu lieu (false = déjà conforme).</returns>
+    public static bool RegisterEngineApo()
+    {
+        if (!OperatingSystem.IsWindows())
+            return false;
+        try
+        {
+            using var hklm = OpenHklm();
+            using var key = hklm.CreateSubKey(ApoConstants.EngineApoRegistrationKey);
+            bool changed = false;
+            foreach (var v in ApoEnginePolicy.RegistrationValues())
+            {
+                var current = key.GetValue(v.Name);
+                var wanted = (object?)v.Dword ?? v.Text;
+                if (!Equals(current, wanted))
+                {
+                    key.SetValue(v.Name, wanted!,
+                        v.Dword != null ? RegistryValueKind.DWord : RegistryValueKind.String);
+                    changed = true;
+                }
+            }
+            return changed;
+        }
+        catch
+        {
+            return false; // meilleur effort : l'échec sera nommé par le panneau
+        }
+    }
+
+    /// <summary>Retire l'inscription moteur audio (processus élevé).</summary>
+    public static void UnregisterEngineApo()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        try
+        {
+            using var hklm = OpenHklm();
+            hklm.DeleteSubKeyTree(ApoConstants.EngineApoRegistrationKey, throwOnMissingSubKey: false);
+        }
+        catch
+        {
+            // l'absence d'inscription n'est pas une erreur de désinstallation
+        }
+    }
+
+    // ----------------------- politique « audio protégé » (v3.9.6 — sans elle,
+    // audiodg REFUSE SILENCIEUSEMENT toute DLL APO non signée : journal absent,
+    // « la DLL n'a jamais été chargée par le moteur audio » — retour terrain
+    // v3.9.5 ; réglage Equalizer APO DisableProtectedAudioDG, 10+ ans de terrain)
+
+    /// <summary>Valeur actuelle de DisableProtectedAudioDG (null = absente
+    /// ou illisible — lecture non élevée, sert au panneau).</summary>
+    public static int? GetProtectedAudioDg()
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+        try
+        {
+            using var hklm = OpenHklm();
+            using var k = hklm.OpenSubKey(ApoConstants.AudioPolicyKey);
+            return k?.GetValue(ApoConstants.DisableProtectedAudioDgValue) as int?;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Écrit (ou supprime si null) DisableProtectedAudioDG
+    /// (processus élevé).</summary>
+    public static void SetProtectedAudioDg(int? value)
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        using var hklm = OpenHklm();
+        using var k = hklm.CreateSubKey(ApoConstants.AudioPolicyKey);
+        if (value == null)
+            k.DeleteValue(ApoConstants.DisableProtectedAudioDgValue, throwOnMissingValue: false);
+        else
+            k.SetValue(ApoConstants.DisableProtectedAudioDgValue, value.Value, RegistryValueKind.DWord);
     }
 }

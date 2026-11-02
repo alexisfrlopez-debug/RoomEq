@@ -34,6 +34,22 @@ public static class ApoConstants
     /// </summary>
     public const string FxDisableSysFx = "{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5";
 
+    /// <summary>
+    /// PKEY_FX_…ProcessingModes (v3.9.6) : modes de traitement couverts par
+    /// l'effet de position EFX — Equalizer APO écrit le MULTI_SZ
+    /// « mode par défaut » à cette valeur quand elle est absente (recette
+    /// éprouvée DeviceAPOInfo::install, INSTALL_SFX_EFX). Sans elle, l'EFX
+    /// peut n'être rattaché à AUCUN mode et donc jamais instancié.
+    /// FMTID {d3993a3f-99c2-4402-b5ec-a92a0367664b}, PID 7 (EFX).
+    /// </summary>
+    public const string FxEfxProcessingModes = "{d3993a3f-99c2-4402-b5ec-a92a0367664b},7";
+
+    /// <summary>
+    /// Mode de traitement « par défaut » (audio DEFAULT mode) — le GUID que
+    /// Equalizer APO inscrit dans les valeurs ProcessingModes.
+    /// </summary>
+    public const string DefaultProcessingMode = "{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}";
+
     /// <summary>Racine registre des endpoints de rendu (par GUID d'endpoint).</summary>
     public const string RenderEndpointsKey =
         @"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render";
@@ -43,6 +59,44 @@ public static class ApoConstants
 
     /// <summary>Inscription COM de la DLL (HKLM, machine entière).</summary>
     public static string ComClsidKey => @"SOFTWARE\Classes\CLSID\" + Clsid;
+
+    /// <summary>
+    /// Inscription de l'APO auprès du MOTEUR AUDIO (v3.9.6) — ce que fait la
+    /// fonction RegisterAPO du DDK (audioenginebaseapo.h) et que l'installateur
+    /// Equalizer APO exécute via regsvr32 : la clé
+    /// HKLM\SOFTWARE\Classes\AudioEngine\AudioProcessingObjects\{CLSID}
+    /// expose les propriétés d'enregistrement (nom, copyright, versions,
+    /// drapeaux, connexions, interfaces) sous forme de VALEURS NOMMÉES (cf.
+    /// ComponentizedApoSample.inx du sample SysVAD de Microsoft).
+    /// </summary>
+    public static string EngineApoRegistrationKey =>
+        @"SOFTWARE\Classes\AudioEngine\AudioProcessingObjects\" + Clsid;
+
+    /// <summary>
+    /// Politique du moteur audio (v3.9.6) : sous cette clé, la DWORD
+    /// <c>DisableProtectedAudioDG</c> à 1 désactive la VÉRIFICATION DE
+    /// SIGNATURE des APO — sinon audiodg (mode audio protégé) refuse de
+    /// charger toute DLL non signée, SILENCIEUSEMENT. C'est le réglage
+    /// utilisé depuis 10+ ans par Equalizer APO (doc développeur officielle,
+    /// DeviceAPOInfo::checkProtectedAudioDG). Contrepartie honnête : les
+    /// rares applications exigeant un chemin audio protégé (DRM) peuvent
+    /// refuser de jouer — réversible à la désinstallation (valeur d'origine
+    /// sauvegardée et restituée).
+    /// </summary>
+    public const string AudioPolicyKey =
+        @"SOFTWARE\Microsoft\Windows\CurrentVersion\Audio";
+
+    /// <summary>Nom de la valeur de politique audio (DWORD, 1 = signature APO non vérifiée).</summary>
+    public const string DisableProtectedAudioDgValue = "DisableProtectedAudioDG";
+
+    /// <summary>
+    /// Sauvegarde de la valeur d'origine de <c>DisableProtectedAudioDG</c>
+    /// (JSON, %ProgramData%\RoomEq\apo\audio-policy.json) : null = la
+    /// valeur n'existait pas à la première activation (la désinstallation la
+    /// supprimera) ; un entier = la restituer tel quel. Absent = nous n'avons
+    /// jamais modifié la politique (un tiers ou personne) → ne rien toucher.
+    /// </summary>
+    public static string AudioPolicyBackupPath => Path.Combine(ProgramDataDir, "audio-policy.json");
 
     /// <summary>
     /// Sous-répertoire de données partagées (audiodg tourne en LocalService :
@@ -73,6 +127,22 @@ public static class ApoConstants
     /// l'installateur (source du déploiement vers ProgramData).
     /// </summary>
     public const string AppApoSubdir = "apo";
+
+    /// <summary>
+    /// Nom de la DLL APO déployée pour l'architecture de CETTE machine
+    /// (x64 par défaut, ARM64 si le processeur est ARM) — même règle pour le
+    /// déploiement (processus élevé) et la vérification COM du panneau.
+    /// </summary>
+    public static string DeployedDllName
+    {
+        get
+        {
+            bool arm = Environment.Is64BitOperatingSystem
+                && Environment.GetEnvironmentVariable("PROCESSOR_ARCHITECTURE")
+                    ?.StartsWith("ARM", StringComparison.OrdinalIgnoreCase) == true;
+            return arm ? "RoomEqApo_arm64.dll" : "RoomEqApo_x64.dll";
+        }
+    }
 
     /// <summary>Extrait la clé registre d'un endpoint depuis son ID MMDevice.</summary>
     /// <example>"{0.0.0.00000000}.{GUID}" → "{GUID}"</example>

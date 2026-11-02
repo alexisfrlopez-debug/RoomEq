@@ -82,6 +82,35 @@
   %ProgramData%\RoomEq\apo (icacls échouait en silence = EQ muet) et échoue
   avec un verdict explicite sinon ; (4) courbe initiale écrite à
   l'activation. Spec I-AUD-09 v1.6, 495 → 511 tests.
+  **v3.9.6 (session 28, 2 novembre 2026)** : retour terrain v3.9.5 — le
+  panneau a nommé le maillon (« journal APO absent : la DLL n'a jamais été
+  chargée par le moteur audio ») alors que l'inscription COM, le CLSID EFX
+  et la courbe étaient corrects. FAIT ÉTABLI (recette complète d'Equalizer
+  APO — doc développeur officielle Wiki/Developer.txt + DeviceAPOInfo.cpp,
+  croisée avec le sample SysVAD de Microsoft) : il manquait TROIS prérequis
+  au chargement. (1) **`DisableProtectedAudioDG=1`** : sans cette DWORD,
+  audiodg (protected audio) refuse SILENCIEUSEMENT toute DLL APO non signée
+  — la nôtre (Zig, non signée) n'était donc jamais même ouverte. C'est LE
+  réglage qui fait fonctionner Equalizer APO depuis 10+ ans ; contrepartie
+  honnête : les applications exigeant un chemin audio protégé (DRM) peuvent
+  refuser de jouer. (2) la clé **`AudioEngine\AudioProcessingObjects\{CLSID}`**
+  (équivalent RegisterAPO du DDK — valeurs nommées FriendlyName/Copyright/
+  versions/Flags/connexions/interfaces). (3) la valeur **MULTI_SZ de modes
+  de traitement EFX** (`{d3993a3f…},7` = mode par défaut) quand absente.
+  Correctifs : `ApoEnginePolicy` (pur, 9 tests Linux : 12 valeurs miroir
+  EXACT du natif, round-trip de la sauvegarde audio-policy.json, sémantique
+  « = 1 seulement ») ; `Deploy` inscrit moteur + ouvre la politique (capture
+  l'origine UNE fois, uniquement si NOUS la changeons — un Equalizer APO
+  installé n'est jamais touché) ; le registrar écrit/restaure les modes EFX
+  (compatibilité v3.7–v3.9.5 : jamais touchés par une sauvegarde
+  d'avant-champ) ; la désinstallation restitue TOUT (politique, inscription
+  moteur, COM, endpoints) ; `GetEngineStatus` + ApoChainText nomment le
+  prérequis manquant dans le panneau (« Windows refuse de charger la DLL
+  (APO non signée)… cliquez Réparer »). La CORRECTION de l'analyse
+  d'origine est consignée § 3.2 : « aucune signature n'est exigée » était
+  inexact — la vérification de signature a simplement été désactivée par
+  Equalizer APO sur toutes ces machines. Spec I-AUD-09 v1.7, 511 → 531
+  tests.
 - **Question posée** : « Je voudrais que l'application installe son propre
   driver de carte son virtuelle afin de ne plus dépendre de VB-Cable, mais je
   bute sur le problème du driver signé Microsoft qui demande une solution
@@ -216,12 +245,38 @@ Conséquences immédiates :
 - `audiodg.exe` tourne sous un compte de type LocalService **sans accès aux
   dossiers utilisateurs** : la configuration de l'APO devra vivre sous
   `%ProgramData%\RoomEq\apo\` (et pas dans %APPDATA%).
-- **Aucune signature n'est exigée** pour qu'une APO tierce soit chargée
-  (user-mode). Preuve à l'échelle : **Equalizer APO** — égaliseur système
-  gratuit open source, binaires non signés (« File not signed, but legitimate
-  audio equalizer software »), utilisé par des millions de machines Windows
-  10/11 y compris 24H2 ; l'écosystème (Peace, HeSuVi, packs APO communautaires
-  — encore actifs en janvier 2026) vit entièrement de ce mécanisme.
+- **La signature des APO n'est vérifiée que si le moteur reste « protégé »** —
+  et ce réglage se désactive par le registre. Preuve à l'échelle : **Equalizer
+  APO** — égaliseur système gratuit open source, binaires non signés (« File
+  not signed, but legitimate audio equalizer software »), utilisé par des
+  millions de machines Windows 10/11 y compris 24H2 ; l'écosystème (Peace,
+  HeSuVi, packs APO communautaires — encore actifs en janvier 2026) vit
+  entièrement de ce mécanisme.
+
+**Fait établi v3.9.6 (LE prérequis qui manquait — « la DLL n'a jamais été
+chargée par le moteur audio »)** : l'affirmation initiale « aucune signature
+n'est exigée » était INEXACTE telle quelle. En mode par défaut (protected
+audio / PUMA), audiodg **vérifie la signature de chaque DLL APO** et refuse
+silencieusement les non signées. Equalizer APO fonctionne non signé PARCE QUE
+son installation règle la DWORD **`DisableProtectedAudioDG=1`** sous
+`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio` — « This disables the
+signature check for APOs, so that unsigned APOs will be loaded » (doc
+développeur officielle, Wiki/Developer.txt ; code :
+`DeviceAPOInfo::checkProtectedAudioDG`). Ce réglage a une contrepartie
+documentée : « applications requiring a secure audio path may change their
+behaviour or refuse to output audio altogether » — en pratique rare (Equalizer
+APO le déploie depuis 10+ ans). La recette complète exige AUSSI : (1) la clé
+`HKLM\SOFTWARE\Classes\AudioEngine\AudioProcessingObjects\{CLSID}` avec ses
+valeurs nommées (ce que fait `RegisterAPO` du DDK, exécuté par l'installateur
+Equalizer APO via regsvr32 ; noms des valeurs : sample officiel SysVAD,
+ComponentizedApoSample.inx) ; (2) la valeur MULTI_SZ de modes de traitement
+EFX `{d3993a3f-99c2-4402-b5ec-a92a0367664b},7` = mode par défaut
+`{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}` quand absente
+(`DeviceAPOInfo::install`, INSTALL_SFX_EFX). v3.9.6 applique les trois,
+avec la supériorité de réversibilité habituelle : la valeur d'origine de la
+politique est sauvegardée (`audio-policy.json`) et restituée à la
+désinstallation — et jamais touchée si un tiers (Equalizer APO installé)
+l'avait déjà réglée.
 
 Point d'honnêteté : le chemin « APO standalone par registre direct » est
 éprouvé mais **n'est pas une API officiellement supportée** par Microsoft

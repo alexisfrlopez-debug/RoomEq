@@ -1,11 +1,48 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.6 (as-built v3.9.5, 2
-  novembre 2026 — volume re-ciblé après redémarrage du service audio +
-  chaîne de courbe observable + verrou ACL) · **Code** :
+- **Module** : M-AUD-09 · **Version de spec** : 1.7 (as-built v3.9.6, 2
+  novembre 2026 — les prérequis manquants du CHARGEMENT par le moteur audio :
+  DisableProtectedAudioDG + inscription AudioEngine/AudioProcessingObjects +
+  modes de traitement EFX) · **Code** :
   `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/` (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.7** : retour terrain v3.9.5 — le panneau a nommé le maillon
+  (« journal APO absent : la DLL n'a jamais été chargée par le moteur audio »)
+  alors que l'activation, l'inscription COM et le CLSID EFX étaient corrects.
+  FAIT ÉTABLI (recette complète d'Equalizer APO, doc développeur officielle
+  + `DeviceAPOInfo.cpp`, croisée avec le sample SysVAD de Microsoft) : notre
+  inscription était INCOMPLÈTE — (t) sans la DWORD **`DisableProtectedAudioDG=1`**
+  sous `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio`, audiodg (mode
+  audio protégé) REFUSE SILENCIEUSEMENT de charger toute DLL APO non signée
+  — pas de journal, pas de message, la DLL n'est même jamais ouverte (notre
+  DLL est non signée : compilée Zig) ; (u) la clé **`HKLM\SOFTWARE\Classes\
+  AudioEngine\AudioProcessingObjects\{CLSID}`** doit exister avec des valeurs
+  nommées (FriendlyName, Copyright, Major/MinorVersion, Flags, Min/Max
+  Input/OutputConnections, MaxInstances, NumAPOInterfaces, APOInterface0) —
+  c'est ce que fait `RegisterAPO` du DDK, exécuté par l'installateur
+  d'Equalizer APO via regsvr32 ; (v) la valeur **MULTI_SZ de modes de
+  traitement EFX** `{d3993a3f-99c2-4402-b5ec-a92a0367664b},7` doit contenir le
+  mode par défaut `{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}` quand elle est
+  absente (Equalizer APO l'écrit systématiquement à l'installation EFX).
+  Correctifs : (w) `ApoEnginePolicy` (pur, testé Linux) détient les 12
+  valeurs d'inscription — miroir EXACT de `GetRegistrationProperties` natif —
+  et la sauvegarde/restauration de la valeur d'origine de la politique
+  (`audio-policy.json`, capturée UNE fois, uniquement quand c'est NOUS qui
+  changeons la politique : un Equalizer APO installé n'est jamais touché,
+  ni modifié ni restauré) ; (x) `Deploy` (processus élevé) inscrit
+  l'APO auprès du moteur, ouvre la politique si nécessaire — l'activation
+  et la réparation deviennent AUTO-RÉPARATRICES ; (y) le registrar écrit le
+  MULTI_SZ de modes EFX à l'activation (sauvegardé avant écriture, restitué
+  à la désactivation, une sauvegarde d'avant-champ n'y touche jamais) et le
+  rétablit à la réparation ; (z) `WindowsApoSystem.GetEngineStatus()` (lecture
+  non élevée) alimente `ApoChainText` : un journal absent nomme désormais le
+  prérequis manquant (« Windows refuse de charger la DLL (APO non signée) » /
+  « pas inscrit auprès du moteur audio » / « inscription COM absente ») au
+  lieu du générique « pilote ? ». Contrepartie honnête de la politique
+  (affichée à l'activation et dans LISEZMOI) : les rares applications
+  exigeant un chemin audio protégé (DRM) peuvent refuser de jouer — réversible
+  à la désinstallation de l'EQ système, valeur d'origine restituée.
 - **As-built v1.6** : retours terrain v3.9.4 — activation RÉUSSIE (« le
   routage fonctionne ») mais (a) « je n'entends pas de différence de son
   quand l'eq est activé (pourtant chargé) » et (b) volume gelé dans les deux
@@ -215,8 +252,11 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
 
 1. **Zéro pilote noyau** : le module ne touche jamais au magasin de pilotes,
    à bcdedit ni à un service ; il ne modifie que (a) l'inscription COM de
-   notre DLL et (b) les valeurs FxProperties des endpoints explicitement
-   choisis par l'utilisateur.
+   notre DLL, (b) l'inscription de l'APO auprès du moteur audio
+   (`AudioEngine\AudioProcessingObjects\{CLSID}`, v3.9.6), (c) la politique
+   `DisableProtectedAudioDG` — sauvegardée puis restituée à la désinstallation,
+   jamais touchée si un tiers l'a déjà réglée — et (d) les valeurs
+   FxProperties des endpoints explicitement choisis par l'utilisateur.
 2. **Sauvegarde AVANT écriture** : aucune valeur EFX n'est écrasée sans
    copie préalable (registre + fichier) ; `Disable` restaure
    exactement l'origine (ou supprime la valeur si elle n'existait pas ;
@@ -253,15 +293,17 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
     (listes vides, `IsSupported` faux), jamais d'exception.
 11. **Désinstallation propre** : la désinstallation de l'application RESTAURE
     d'abord tous les endpoints modifiés, puis retire DLL + inscription COM +
-    dossier ProgramData — un utilisateur qui désinstalle retrouve Windows
-    exactement comme avant (audit de registre à l'appui).
+    inscription moteur audio, RESTAURE la politique audio d'origine (si nous
+    l'avions modifiée) et supprime le dossier ProgramData — un utilisateur
+    qui désinstalle retrouve Windows exactement comme avant (audit de
+    registre à l'appui).
 12. **Vérité produit** : les limites documentées (mode exclusif/ASIO hors
     périmètre, effets fabricant suspendus, DRM à confirmer au terrain) sont
     énoncées dans l'UI et la doc utilisateur, jamais cachées.
 
 ## Critères de test
 
-- Registrar (faux registre — `ApoRegistrarTests`, 25 tests) : énumération ;
+- Registrar (faux registre — `ApoRegistrarTests`, 30 tests) : énumération ;
   `IsForbiddenName` (câble RoomEq, VB-CABLE, VoiceMeeter, LoopBeAudio —
   négatifs inclus) ; **ordre sauvegarde→écriture vérifié par trace** ;
   restauration exacte (valeur EFX + Disable_SysFx, présentes ou absentes à
@@ -279,7 +321,22 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
   restitution si le snapshot est null (clé admins-inscriptibles ou
   sauvegarde héritée v3.7–v3.9.1) ; rétrocompatibilité disque d'un
   backups.json sans le champ Security ; inertie Linux étendue à
-  CaptureSecurity/RestoreSecurity**.
+  CaptureSecurity/RestoreSecurity** ; **v3.9.6 : MULTI_SZ de modes EFX écrit
+  à l'activation quand absent (mode par défaut, capture AVANT écriture) ;
+  modes du pilote PRÉSERVÉS quand présents (comportement Equalizer APO) ;
+  restitués à la désactivation (supprimés si absents à l'origine) ; une
+  sauvegarde d'avant-champ ne les touche JAMAIS (compatibilité v3.7–v3.9.5) ;
+  la réparation les rétablit après effacement simulé**.
+- Politique/inscription moteur (`ApoEnginePolicyTests`, 9 tests — v3.9.6) :
+  les 12 valeurs d'inscription verrouillées une à une (noms, types chaîne/
+  DWORD conformes au sample SysVAD, contenu miroir EXACT du natif :
+  FriendlyName/Copyright/versions 1.0/Flags=15/connexions 1-1-1-1/
+  MaxInstances 64/APOInterface0 = IID_IAudioProcessingObjectRT) ; la
+  politique n'autorise la DLL QUE pour la valeur exactement 1 (absente/0/2 =
+  refus) ; round-trip JSON de la sauvegarde (origine absente = null,
+  présente = entier, consommée = fichier supprimé, illisible = agir comme
+  absente) ; constantes de la recette verrouillées (EFX `,7`, modes
+  `{d3993a3f…},7`, mode par défaut, clé de politique, nom de valeur).
 - ApoConfigStore (`ApoConfigStoreTests`, 7 tests) : aller-retour courbe
   (bandes + préampli + bande désactivée + type Notch), révision croissante,
   bypass sans perte de courbe (et idempotent), écriture atomique observée

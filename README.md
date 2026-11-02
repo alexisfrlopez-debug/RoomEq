@@ -83,7 +83,17 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   chaîne de courbe observable dans le panneau (courbe envoyée, écriture,
   publication par le moteur audio lue dans son journal — un EQ inaudible
   nomme son maillon) + verrou ACL de %ProgramData% (icacls muet = EQ muet)
-  (spec I-AUD-09 v1.6, 495 → 511 tests)
+  (spec I-AUD-09 v1.6, 495 → 511 tests) ; **v3.9.6** : la DLL APO n'était
+  JAMAIS chargée par le moteur audio (« journal APO absent » alors que
+  l'inscription COM et le CLSID EFX étaient corrects) — il manquait les
+  prérequis de la recette Equalizer APO : DisableProtectedAudioDG=1 (sinon
+  audiodg en mode protégé refuse SILENCIEUSEMENT toute DLL non signée ;
+  réglage réversible, valeur d'origine sauvegardée/restituée, un Equalizer
+  APO installé n'est jamais touché), inscription auprès du moteur audio
+  (clé AudioEngine\AudioProcessingObjects\{CLSID}, valeurs nommées —
+  équivalent RegisterAPO du DDK) et mode de traitement EFX par défaut
+  (MULTI_SZ). Le panneau nomme désormais le prérequis manquant et
+  « Réparer » rétablit tout (spec I-AUD-09 v1.7, 511 → 531 tests)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`

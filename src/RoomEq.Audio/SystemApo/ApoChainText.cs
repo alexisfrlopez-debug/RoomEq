@@ -3,7 +3,10 @@ namespace RoomEq.Audio.SystemApo;
 /// <summary>
 /// Photographie de la chaîne EQ système pour le panneau (correctif v3.9.5 —
 /// « l'EQ est activé et chargé mais je n'entends pas de différence ») :
-/// les TROIS maillons y sont visibles séparément, chacun avec son état :
+/// les maillons y sont visibles séparément, chacun avec son état :
+/// (0) les prérequis MACHINE sans lesquels le moteur audio ne charge JAMAIS
+///     la DLL (v3.9.6 : politique « audio protégé », inscription moteur,
+///     inscription COM — null = inconnu/hors Windows, liens non affichés) ;
 /// (1) la courbe que l'application a écrite dans active.json ;
 /// (2) l'écriture elle-même (erreur éventuelle, permissions %ProgramData%) ;
 /// (3) ce que le moteur audio (audiodg) en a fait — son journal.
@@ -12,7 +15,10 @@ public sealed record ApoChainState(
     ApoConfigStore.ActiveCurve? Curve,
     string? CurveWriteError,
     IReadOnlyList<string> ApoLogTail,
-    DateTime? ApoLogLastWriteUtc);
+    DateTime? ApoLogLastWriteUtc,
+    bool? EnginePolicyOk = null,
+    bool? EngineRegistered = null,
+    bool? ComRegistered = null);
 
 /// <summary>
 /// Composeur PUR du texte d'état de la chaîne EQ système (v3.9.5) — même
@@ -64,12 +70,28 @@ public static class ApoChainText
         // ---- maillon 2 : le moteur audio a-t-il publié cette courbe ? (apo.log) ----
         string? lastPublish = LastLine(state.ApoLogTail, "nouvelle courbe publiee");
         string? lastLoad = LastLine(state.ApoLogTail, "LockForProcess");
-        if (state.ApoLogTail.Count == 0)
+        if (state.ApoLogTail.Count == 0 && state.ApoLogLastWriteUtc == null)
         {
-            lines.Add(state.ApoLogLastWriteUtc == null
-                ? "⚠ Journal de l'APO absent : la DLL n'a JAMAIS été chargée par le moteur audio "
-                  + "(sortie réellement utilisée ? pilote ?) — cliquez « Réparer »."
-                : "⚠ Journal de l'APO illisible (permissions %ProgramData%\\RoomEq\\apo).");
+            // v3.9.6 : la DLL n'a jamais été chargée — NOMMER le prérequis
+            // manquant au lieu d'un générique « pilote ? » : trois causes
+            // machine, toutes réparables par le bouton « Réparer ».
+            if (state.EnginePolicyOk == false)
+                lines.Add("⚠ Windows refuse de charger la DLL de l'égaliseur (APO non signée, "
+                    + "moteur audio protégé) : cliquez « Réparer » — RoomEq appliquera le réglage "
+                    + "éprouvé d'Equalizer APO (vérification de signature désactivée, réversible).");
+            else if (state.EngineRegistered == false)
+                lines.Add("⚠ DLL jamais chargée : l'égaliseur n'est pas inscrit auprès du moteur "
+                    + "audio (clé AudioEngine\\AudioProcessingObjects) — cliquez « Réparer ».");
+            else if (state.ComRegistered == false)
+                lines.Add("⚠ DLL jamais chargée : inscription COM absente (la DLL déployée n'est "
+                    + "pas enregistrée) — cliquez « Réparer ».");
+            else
+                lines.Add("⚠ Journal de l'APO absent : la DLL n'a JAMAIS été chargée par le moteur audio "
+                    + "(sortie réellement utilisée ? pilote ?) — cliquez « Réparer ».");
+        }
+        else if (state.ApoLogTail.Count == 0)
+        {
+            lines.Add("⚠ Journal de l'APO illisible (permissions %ProgramData%\\RoomEq\\apo).");
         }
         else if (state.Curve != null && TryRevision(lastPublish, out long published)
                  && published == state.Curve.Revision && !state.Curve.Bypass)

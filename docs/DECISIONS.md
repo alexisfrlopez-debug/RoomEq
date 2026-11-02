@@ -684,7 +684,21 @@ effet système ; les effets EFX du fabricant sont suspendus sur une sortie
 activée (sauvegardés, restaurés) ; une MAJ de pilote peut écraser
 FxProperties → bouton « Réparer » + réparation automatique au branchement à
 chaud ; mécanisme standalone éprouvé (Equalizer APO, 10+ ans) mais non
-officiellement supporté par Microsoft.
+officiellement supporté par Microsoft. **Complément D24 (v3.9.6)** : le
+chargement réel de la DLL exige la recette COMPLÈTE d'Equalizer APO —
+`DisableProtectedAudioDG=1` (sans quoi audiodg, en mode « audio protégé »,
+vérifie la signature des APO et REFUSE SILENCIEUSEMENT les non signées :
+notre DLL n'était jamais même ouverte), l'inscription
+`AudioEngine\AudioProcessingObjects\{CLSID}` (équivalent RegisterAPO du
+DDK) et le mode de traitement EFX par défaut (MULTI_SZ). RoomEq applique
+les trois, avec deux différences assumées : la valeur d'origine de la
+politique est SAUVEGARDÉE (audio-policy.json) et restituée à la
+désinstallation, et un réglage posé par un tiers (Equalizer APO installé)
+n'est jamais modifié ni restauré. Contrepartie documentée à l'utilisateur
+(activation + LISEZMOI) : les applications exigeant un chemin audio
+protégé (certaines DRM) peuvent refuser de jouer tant que l'EQ système est
+actif — le prix du gratuit, identique pour tous les utilisateurs
+d'Equalizer APO depuis 10+ ans.
 
 ## D25 — Console allégée : retrait des tranches « entrée/sortie » (2 novembre 2026)
 
