@@ -77,12 +77,13 @@ public static class ApoSetupCommands
         // morte → RESTAURATION AUTOMATIQUE immédiate de l'origine + nouveau
         // redémarrage : l'utilisateur garde toujours du son, et le verdict
         // EMBARQUE LE DIAGNOSTIC DIFFÉRENTIEL COMPLET (v3.9.8).
-        var (health, probeError, logShowsLoad) = VerifyEndpointHealth(endpointKey);
+        var (health, probeError, trace) = VerifyEndpointHealth(endpointKey);
         if (health == ApoActivationHealth.DeadEndpoint)
         {
             string diag = ApoFailureDiagnostics.ComposeDeadEndpoint(new ApoDeadEndpointContext(
                 Engine: ReadEnginePrerequisites(),
-                LogShowsLoad: logShowsLoad,
+                LogShowsLoad: trace != ApoEngineTrace.None,
+                AggregatedSeen: trace == ApoEngineTrace.Aggregated,
                 LogTail: ReadLogTailLines(3),
                 ProbeError: probeError,
                 SelfTest: selfTest,
@@ -189,8 +190,12 @@ public static class ApoSetupCommands
     /// service). Jamais d'exception ; verdict piloté par ApoActivationPolicy.
     /// v3.9.8 : remonte AUSSI l'erreur exacte de la dernière tentative de
     /// sonde et l'état « journal » — éléments du diagnostic différentiel.
+    /// v3.9.9 : la trace est CLASSÉE (ApoLogTrace) — seules les lignes
+    /// POSTÉRIEURES au marqueur d'auto-test comptent, et l'instanciation
+    /// AGRÉGÉE est la preuve directe du moteur (l'auto-test écrit lui aussi
+    /// des lignes de cycle de vie : le verdict v3.9.8 s'est fait piéger).
     /// </summary>
-    private static (ApoActivationHealth Health, string? ProbeError, bool LogShowsLoad) VerifyEndpointHealth(
+    private static (ApoActivationHealth Health, string? ProbeError, ApoEngineTrace Trace) VerifyEndpointHealth(
         string endpointKey)
     {
         const int maxAttempts = 4;
@@ -205,36 +210,37 @@ public static class ApoSetupCommands
             if (!ApoActivationPolicy.ShouldRetryProbe(attempt, maxAttempts, witness))
                 break; // témoin vivant et elle morte : verdict immédiat
         }
-        bool loaded = LogShowsLoad();
-        return (ApoActivationPolicy.Evaluate(probe.Result, loaded), probe.LastError, loaded);
+        var trace = ReadEngineTrace();
+        return (ApoActivationPolicy.Evaluate(probe.Result, trace != ApoEngineTrace.None), probe.LastError, trace);
     }
 
     /// <summary>
-    /// L'APO a-t-elle laissé une trace de chargement ? Journal principal
+    /// Trace du moteur dans le journal de l'APO : journal principal
     /// (%ProgramData%\RoomEq\apo\apo.log) OU journal de repli (profil du
-    /// service — écrit quand %ProgramData% refuse l'écriture à audiodg).
-    /// Lecture tolérante, jamais d'exception.
+    /// service — écrit quand %ProgramData% refuse l'écriture à audiodg),
+    /// classé par <see cref="ApoLogTrace.Classify"/> (v3.9.9 : ne comptent
+    /// que les lignes postérieures au marqueur d'auto-test ; l'instanciation
+    /// agrégée est la preuve directe du moteur). Lecture tolérante.
     /// </summary>
-    private static bool LogShowsLoad()
+    private static ApoEngineTrace ReadEngineTrace()
     {
+        ApoEngineTrace best = ApoEngineTrace.None;
         foreach (string path in LogCandidatePaths())
         {
             try
             {
                 if (!File.Exists(path))
                     continue;
-                string text = File.ReadAllText(path);
-                if (text.Contains("APO instancie", StringComparison.Ordinal)
-                    || text.Contains("LockForProcess", StringComparison.Ordinal)
-                    || text.Contains("surveillant actif", StringComparison.Ordinal))
-                    return true;
+                var trace = ApoLogTrace.Classify(File.ReadAllText(path));
+                if (trace > best)
+                    best = trace;
             }
             catch
             {
                 // journal occupé/illisible : ce n'est pas un verdict de mort
             }
         }
-        return false;
+        return best;
     }
 
     private static IEnumerable<string> LogCandidatePaths()

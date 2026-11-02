@@ -1,13 +1,60 @@
 # I-AUD-09 — EQ système par APO (sans pilote, sans mode test)
 
-- **Module** : M-AUD-09 · **Version de spec** : 1.9 (as-built v3.9.8, 2
-  novembre 2026 — position ADAPTÉE AU PÉRIPHÉRIQUE (MFX pour les
-  Bluetooth « combinés » de Windows 11), AUTO-TEST COM PRÉ-VOL de la DLL
-  avant toute écriture registre, verdict d'échec DIFFÉRENTIEL complet) ·
+- **Module** : M-AUD-09 · **Version de spec** : 1.10 (as-built v3.9.9, 2
+  novembre 2026 — l'APO accepte l'AGRÉGATION COM du moteur audio
+  (mécanisme réel d'audiodg que v3.9.8 refusait : 0x80040110), auto-test
+  pré-vol qui rejoue la création AGRÉGÉE, verdict non piégé par les lignes
+  de l'auto-test dans le journal) ·
   **Code** : `src/RoomEq.Audio/SystemApo/` + **natif** `natif/roomeq-apo/`
   (N-APO-01)
 - **Analyse d'origine** : `docs/EQ-SYSTEME-APO.md` (pourquoi ce module
   existe : contourner l'exigence de signature Microsoft des pilotes noyau).
+- **As-built v1.10** : retour terrain v3.9.8 — capture ENFIN complète du
+  panneau : auto-test DLL OK (12 étapes), prérequis moteur TOUS verts,
+  journal APO présent… et sonde WASAPI = **0x80040110
+  CLASS_E_NOAGGREGATION** — NOTRE PROPRE CODE DE REFUS, celui de la
+  fabrique COM (`if (pUnkOuter != nullptr) return 0x80040110;`). FAITS
+  ÉTABLIS (sources croisées) : (1) le moteur audio (audiodg) instancie
+  les APO en AGRÉGATION COM — « audiodg AGGREGATES APOs:
+  IClassFactory::CreateInstance receives a non-null outer unknown.
+  Returning CLASS_E_NOAGGREGATION makes the host silently abandon the
+  APO after a factory probe » (nnyj/virtual-surround-sound,
+  apo-forwarder-internals.md, juillet 2026 — implémentation indépendante
+  qui a documenté le piège) ; (2) la référence l'accepte sans y penser :
+  fabrique d'Equalizer APO = `new EqualizerAPO(pUnkOuter)` +
+  `NonDelegatingQueryInterface` (ClassFactory.cpp LU) — aucun document
+  Microsoft ne mentionne l'exigence, elle est invisible sauf à écrire la
+  fabrique à la main comme nous ; (3) les lignes de journal du verdict
+  v3.9.8 (« APO instancié… UnlockForProcess ») venaient de NOTRE
+  auto-test pré-vol (même DLL, même fichier, même processus élevé) — pas
+  du moteur : le verdict a annoncé à tort « instanciée par le moteur
+  audio ». Correctifs v3.9.9 : (ai) **agrégation COM native** —
+  `INonDelegatingUnknown` (apo_abi.h, vtable binairement compatible
+  IUnknown : trois méthodes mêmes signatures même ordre — technique
+  Equalizer APO) ; l'objet détient `unkOuter_` (pointeur EMPRUNTÉ, jamais
+  AddRefé — règle COM) : le contrôleur s'il est agrégé, sa propre identité
+  non déléguante sinon (routage sans branchement) ; IUnknown déléguant
+  (QueryInterface/AddRef/Release → contrôleur), identité interne
+  (NDQueryInterface : IUnknown → sous-objet non déléguant, même pointeur
+  à chaque appel ; NDAddRef/NDRelease : compteur d'identité, seul
+  détenteur de la durée de vie) ; la fabrique accepte
+  CreateInstance(pUnkOuter, IID_IUnknown) et renvoie l'inner (miroir
+  exact d'Equalizer APO, E_NOINTERFACE pour outer + IID ≠ IUnknown) ; le
+  constructeur journalise « APO instanciee (AGREGEE par le moteur
+  audio) » vs « (directe) » ; (aj) **étape d'auto-test « CoCreateInstance
+  agrégé »** (10ᵉ étape) — contrôleur CCW managé (Marshal.
+  GetIUnknownForObject), création agrégée via l'inscription COM réelle,
+  interfaces obtenues par l'inner, et QI(IUnknown) via l'interface de
+  l'agrégat DOIT retourner l'identité du contrôleur (définition même de
+  l'agrégation) — un refus éventuel bloque l'activation AVANT toute
+  écriture avec « l'APO refuse l'agrégation COM exigée par le moteur
+  audio » ; (ak) **verdict non piégé** — l'auto-test appose un MARQUEUR
+  de fin dans le journal (« === auto-test termine (processus eleve)
+  === ») et `ApoLogTrace.Classify` (PUR, 9 tests) ne considère que les
+  lignes POSTÉRIEURES au dernier marqueur : None / DirectOnly /
+  Aggregated (seule l'instanciation AGRÉGÉE prouve le moteur — le
+  verdict l'énonce comme « preuve directe ») ; rétrocompatible (journal
+  sans marqueur = comportement historique).
 - **As-built v1.9** : retour terrain v3.9.7 — capture ENFIN transmise
   (« Échec de l'activation de 'Casque JBL Tune Flex 2' — LE SON A ÉTÉ
   PRÉSERVÉ : le moteur audio n'a pas réussi à charger l'égaliseur ») :
@@ -458,6 +505,20 @@ Natif N-APO-01 — natif/roomeq-apo/ : RoomEqApo.dll (COM, x64 + ARM64)
   App) : divergence uniquement sur choix non-défaut délibéré ; suivi du
   nouveau défaut tant que pas divergé ; pas de suicide quand déjà conforme
   ou défaut inconnu ; rien de sélectionné + défaut connu = le prendre.
-- Non-régression : suites xUnit 100 % vertes (550/550 : Core 237, Audio
-  233, App 80) et harnais VST/AU/APO inchangés (APO : l'interface déclarée
-  des propriétés d'enregistrement verrouillée à IAudioProcessingObject).
+- Agrégation COM (harnais natif, 14 vérifications — v3.9.9) : outer +
+  IID ≠ IUnknown refusé (E_NOINTERFACE) ; création agrégée = S_OK + inner
+  non déléguant, contrôleur JAMAIS AddRefé ; QI des interfaces par l'inner
+  (non déléguant) ; AddRef/Release DÉLÉGUÉS montent le compteur du
+  CONTRÔLEUR ; QI(IUnknown) via l'agrégat = L'IDENTITÉ DU CONTRÔLEUR ;
+  QI inconnu délégué (compté) ; la référence INTERNE est la seule qui
+  détruit (NDRelease → 0) ; faux contrôleur à compteurs (rôle d'audiodg).
+- Classification du journal (`ApoLogTraceTests`, 9 tests — v3.9.9) : lignes
+  d'auto-test seules = AUCUNE trace (le piège v3.9.9, faux positif v3.9.8) ;
+  lignes post-marqueur comptent ; AGREGEE post-marqueur = preuve directe ;
+  AGREGEE avant le dernier marqueur ne compte PAS ; plusieurs marqueurs =
+  seul le dernier délimite ; journal sans marqueur = comportement
+  historique ; verdict : preuve directe énoncée quand AggregatedSeen.
+- Non-régression : suites xUnit 100 % vertes (608/608 : Core 237, Audio
+  291, App 80) et harnais VST/AU inchangés (APO : 126 vérifications —
+  l'interface déclarée des propriétés d'enregistrement verrouillée à
+  IAudioProcessingObject).

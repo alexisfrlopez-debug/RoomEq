@@ -2697,3 +2697,132 @@ Stage Summary:
   3.9.8, réactiver l'EQ sur le casque JBL, lire le verdict du panneau
   (position MFX attendue) ; tout ⚠ ou message « LE SON A ÉTÉ PRÉSERVÉ »
   = le transmettre tel quel (il contient le diagnostic différentiel).
+
+---
+Session : 32 — 2026-11-02
+Agent : main (Z.ai)
+Task : Retour terrain v3.9.8 : « message d'erreur » — la capture du
+panneau EST ENFIN PARVENUE (4e signalement, la passerelle IM a transmis
+l'image cette fois). Verdict v3.9.8 complet lu : auto-test DLL OK (12
+étapes), prérequis moteur tous verts, journal APO présent, position EFX
+choisie, Windows 11 build 26300 — et sonde WASAPI 0x80040110
+CLASS_E_NOAGGREGATION. Diagnostic + correctif v3.9.9.
+
+Work Log:
+- **L'observabilité v3.9.8 a désigné le coupable à la première lecture** :
+  l'erreur exacte de la sonde (0x80040110) est LE CODE DE REFUS DE NOTRE
+  PROPRE FABRIQUE COM (`if (pUnkOuter != nullptr) return
+  kClassNoAggregation;`) — l'exception remontée par la sonde WASAPI est
+  le HRESULT que le moteur audio a propagé après notre refus.
+- **Cause racine ÉTABLIE par recoupement de DEUX sources primaires** :
+  1. **nnyj/virtual-surround-sound** (github, juillet 2026 —
+     implémentation indépendante d'un APO custom Win11, doc
+     apo-forwarder-internals.md) : « audiodg AGGREGATES APOs:
+     IClassFactory::CreateInstance receives a non-null outer unknown.
+     Returning CLASS_E_NOAGGREGATION makes the host silently abandon the
+     APO after a factory probe […] the APO must implement standard COM
+     aggregation: inner non-delegating IUnknown owns identity and
+     lifetime » + « symptom of missing support: endpoint FX graph fails ».
+  2. **Equalizer APO** (miroir github.com/mirror/equalizerapo cloné et
+     LU — ClassFactory.cpp + EqualizerAPO.cpp) : la référence accepte
+     l'agrégation sans même y penser — `new EqualizerAPO(pUnkOuter)` +
+     `NonDelegatingQueryInterface`, classe `INonDelegatingUnknown` à
+     vtable binairement compatible IUnknown, contrôleur jamais AddRefé,
+     ND-QI : IUnknown → sous-objet non déléguant, AddRef final via le
+     pointeur retourné (déléguant — compteur du contrôleur quand
+     agrégé). Aucun document Microsoft ne mentionne l'exigence : elle
+     est invisible sauf à écrire la fabrique à la main, comme nous.
+  **Synthèse** : le moteur crée l'APO AVEC contrôleur d'agrégation ;
+  notre fabrique refusait → le moteur abandonnait l'APO après sa sonde
+  de fabrique → le graphe de la sortie ne se construisait pas →
+  IAudioClient::Initialize échouait avec NOTRE 0x80040110 → sortie
+  muette. C'est LE mécanisme qui coupait le son depuis v3.9.6 (avant,
+  le refus de signature avait lieu avant la construction du graphe).
+- **Relecture croisée de la même source** (au passage) : la propriété
+  « improvements désactivés » d'EAPO = {1da5d803-d492-4edd-8c23-
+  e0c0ffee7f0e},5 dans FxProperties, supprimée à l'installation
+  (« force-enable enhancements ») — notre registrar la gérait DÉJÀ
+  (sauvegarde → 0 → restauration, clé identique) : rien à faire.
+- **Correctif v3.9.9 — trois volets** :
+  1. **AGRÉGATION COM native** (RoomEqApo.h/.cpp + apo_abi.h) :
+     `INonDelegatingUnknown` (vtable binairement compatible IUnknown :
+     trois méthodes, mêmes signatures, même ordre — technique EAPO) ;
+     l'objet détient `unkOuter_` (pointeur EMPRUNTÉ, jamais AddRefé) :
+     le contrôleur s'il est agrégé, sa propre identité non déléguante
+     sinon (routage des déléguants SANS branchement) ; IUnknown
+     déléguant (QI/AddRef/Release → unkOuter_) ; identité interne
+     NDQueryInterface (IUnknown → sous-objet non déléguant, même
+     pointeur à chaque appel ; NDAddRef/NDRelease : compteur d'identité,
+     SEUL détenteur de la durée de vie) ; fabrique miroir exact
+     d'Equalizer APO (outer + IID ≠ IUnknown → E_NOINTERFACE ; outer +
+     IID_IUnknown → inner non déléguant) ; le constructeur journalise
+     « APO instanciee (AGREGEE par le moteur audio) » vs « (directe) ».
+  2. **10ᵉ étape d'auto-test « CoCreateInstance agrégé »**
+     (ApoDllSelfTest) : contrôleur CCW managé
+     (Marshal.GetIUnknownForObject), création agrégée via l'inscription
+     COM réelle, interfaces obtenues par l'inner, et QI(IUnknown) via
+     l'interface de l'agrégat DOIT retourner l'identité du CONTRÔLEUR
+     (définition même de l'agrégation) — un échec bloque l'activation
+     AVANT toute écriture registre : « l'APO refuse l'agrégation COM
+     exigée par le moteur audio ». Ce défaut ne peut plus JAMAIS
+     atteindre le terrain.
+  3. **Verdict non piégé** (ApoLogTrace, PUR + 9 tests) : le retour
+     v3.9.8 montrait « trace de chargement PRÉSENTE (l'APO a été
+     instanciée par le moteur audio) » — FAUX : ces lignes venaient de
+     NOTRE auto-test pré-vol (même DLL, même journal, même processus
+     élevé). L'auto-test appose désormais un MARQUEUR de fin (« ===
+     auto-test termine (processus eleve) === ») et la classification ne
+     considère que les lignes POSTÉRIEURES au DERNIER marqueur :
+     None / DirectOnly / Aggregated — seule l'instanciation AGRÉGÉE
+     prouve le moteur (libellé « preuve directe ») ; rétrocompatible
+     (journal sans marqueur = comportement historique).
+- **Tests** : 608/608 xUnit (Core 237, Audio 281 → 291 : +9 ApoLogTrace
+  [journal vide, lignes d'auto-test seules ne comptent plus — LE piège,
+  post-marqueur comptent, AGREGEE = preuve, AGREGEE avant marqueur ne
+  compte pas, plusieurs marqueurs, sans marqueur = historique ×2,
+  lignes sans rapport] + 1 diagnostics [preuve directe énoncée] + MAJ
+  libellés) ; App 80. Harnais APO natif 112 → **126 vérifications**
+  (+14 agrégation : outer+IID≠IUnknown refusé, création agrégée =
+  S_OK + inner, contrôleur JAMAIS AddRefé, QI interfaces par l'inner,
+  AddRef/Release délégués → compteur du CONTRÔLEUR, QI(IUnknown) via
+  l'agrégat = identité du contrôleur, QI inconnu délégué compté, la
+  référence INTERNE seule détruit, contrôleur n'a rien gardé — faux
+  contrôleur à compteurs jouant le rôle d'audiodg). Build 0 erreur
+  0 avertissement. DLL x64+arm64 recompilées (Zig 0.14.1, version
+  3.9.9).
+- **Verrous structurels** : Directory.Build.props + package_v3.sh
+  VERSION 3.9.9 + contrôle v3.9.9 (ApoLogTrace.cs + tests, INonDelegatingUnknown
+  dans apo_abi.h ET RoomEqApo.h/.cpp, « AGREGEE par le moteur audio »
+  littéral, kClassNoAgregation ABSENT de RoomEqApo.cpp, « CoCreateInstance
+  agrégé » dans ApoDllSelfTest, SelfTestMarker dans ApoDllSelfTest +
+  ApoLogTrace, ReadEngineTrace dans ApoSetupCommands, AggregatedSeen dans
+  ApoFailureDiagnostics, ancien libellé trompeur ABSENT).
+- **Docs** : spec I-AUD-09 v1.10 (as-built ai/aj/ak + critères 126/9) ;
+  docs/EQ-SYSTEME-APO.md (fait établi v3.9.9 : le moteur AGRÈGE les
+  APO, sources) ; LISEZMOI 3.9.9 (explication utilisateur — « votre
+  message a désigné le coupable ») ; README (historique) ; CARTE.md
+  (M-AUD-09 v1.10, 18 fichiers) ; REPRISE.md (résumé express + état
+  session 32).
+- **Livrables (D22)** : package_v3.sh (zips test/public/source 3.9.9,
+  contrôles verts dont le verrou v3.9.9) ; build_setup.sh →
+  RoomEq-win-Setup.exe 3.9.9 régénéré et téléversé sur Drive ; anciens
+  zips 3.9.8 archivés dans Livrables/Archive ; miroir Drive complet +
+  push GitHub.
+
+Stage Summary:
+- v3.9.9 : le message d'erreur ENFIN transmis a désigné le coupable en
+  une ligne — 0x80040110 est le code de refus d'agrégation de NOTRE
+  fabrique COM, et le moteur audio de Windows instancie tous les
+  égaliseurs système en agrégation COM (fait établi par deux sources
+  primaires : l'implémentation indépendante nnyj/virtual-surround-sound
+  et la fabrique d'Equalizer APO elle-même). L'APO accepte désormais
+  l'agrégation à l'identique de la référence, l'auto-test pré-vol la
+  rejoue (10ᵉ étape) pour que ce défaut ne puisse plus jamais atteindre
+  le registre, et le verdict ne se fait plus piéger par les lignes de
+  l'auto-test dans le journal (marqueur + classification : seule
+  l'instanciation AGRÉGÉE prouve le moteur).
+- Prochaine étape : validation terrain Windows — Setup 3.9.9,
+  réactiver l'EQ sur le casque JBL : attendu « Vérifié : la sortie
+  répond et l'APO est chargé » puis un son MODIFIÉ par la courbe de
+  l'onglet Égaliseur (le preset jbltuneflex2 est déjà appliqué). Si un
+  ⚠ subsiste, le transmettre tel quel — il nomme son maillon.

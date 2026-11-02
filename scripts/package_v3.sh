@@ -20,7 +20,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-/home/z/my-project/download}"
 PUBLISH="$SRC/publish/win-x64"
-VERSION=3.9.8
+VERSION=3.9.9
 # Télémétrie : fichier réel (ignoré par git) ou repli sur l'example.
 TELEMETRY="${TELEMETRY:-$SRC/scripts/telemetrie.json}"
 TELEMETRY_EXAMPLE="$SRC/scripts/telemetrie.json.example"
@@ -274,6 +274,41 @@ grep -qE 'EveryoneCanReadAndExecute' "$SRC/src/RoomEq.Audio/SystemApo/ApoAclVeri
   && grep -qE 'AudioServiceRunning' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
   && grep -qF 'MFX' "$SRC/src/RoomEq.Audio/SystemApo/ApoSlotPolicy.cs" \
   && echo "   ✓ v3.9.8 : position MFX périphériques combinés + auto-test COM pré-vol + verdict différentiel complet"
+
+# --- v3.9.9 : L'APO ACCEPTÉ L'AGRÉGATION COM DU MOTEUR — retour terrain
+#     v3.9.8 ENFIN complet (capture du panneau) : auto-test OK, prérequis
+#     tous verts, journal APO présent… et sonde WASAPI = 0x80040110
+#     CLASS_E_NOAGGREGATION — NOTRE propre code de refus d'agrégation !
+#     Le moteur audio (audiodg) instancie les APO en AGRÉGATION COM
+#     (pUnkOuter non nul + IID_IUnknown) : « audiodg AGGREGATES APOs…
+#     Returning CLASS_E_NOAGGREGATION makes the host silently abandon the
+#     APO » (nnyj/virtual-surround-sound, apo-forwarder-internals.md) — et
+#     la fabrique d'Equalizer APO l'accepte (ClassFactory.cpp : new
+#     EqualizerAPO(pUnkOuter) + NonDelegatingQueryInterface). Correctifs :
+#     (1) AGRÉGATION COM native (INonDelegatingUnknown à vtable
+#     binairement compatible IUnknown, techniques EAPO : déléguation au
+#     contrôleur, identité interne, fabrique miroir de la référence) ;
+#     (2) l'AUTO-TEST pré-vol rejoue la création AGRÉGÉE (contrôleur CCW
+#     managé) et vérifie la délégation d'identité — ce défaut ne peut plus
+#     JAMAIS atteindre le registre ; (3) le verdict ne se fait plus piéger
+#     par les lignes de l'auto-test dans le journal (marqueur de fin +
+#     classification ApoLogTrace : seule l'instanciation AGRÉGÉE prouve le
+#     moteur) ---
+[[ -f "$SRC/src/RoomEq.Audio/SystemApo/ApoLogTrace.cs" \
+   && -f "$SRC/tests/RoomEq.Audio.Tests/ApoLogTraceTests.cs" ]] \
+  && grep -qF 'INonDelegatingUnknown' "$SRC/natif/roomeq-apo/apo/apo_abi.h" \
+  && grep -qF 'NDQueryInterface' "$SRC/natif/roomeq-apo/apo/RoomEqApo.h" \
+  && grep -qF 'NDQueryInterface' "$SRC/natif/roomeq-apo/apo/RoomEqApo.cpp" \
+  && grep -qF 'AGREGEE par le moteur audio' "$SRC/natif/roomeq-apo/apo/RoomEqApo.cpp" \
+  && ! grep -qF 'kClassNoAggregation' "$SRC/natif/roomeq-apo/apo/RoomEqApo.cpp" \
+  && grep -qF 'CoCreateInstance agrégé' "$SRC/src/RoomEq.Audio/SystemApo/ApoDllSelfTest.cs" \
+  && grep -qF 'SelfTestMarker' "$SRC/src/RoomEq.Audio/SystemApo/ApoDllSelfTest.cs" \
+  && grep -qF 'SelfTestMarker' "$SRC/src/RoomEq.Audio/SystemApo/ApoLogTrace.cs" \
+  && grep -qE 'ReadEngineTrace' "$SRC/src/RoomEq.Audio/SystemApo/ApoSetupCommands.cs" \
+  && grep -qE 'AggregatedSeen' "$SRC/src/RoomEq.Audio/SystemApo/ApoFailureDiagnostics.cs" \
+  && ! grep -qF 'a été instanciée par le moteur audio' \
+      "$SRC/src/RoomEq.Audio/SystemApo/ApoFailureDiagnostics.cs" \
+  && echo "   ✓ v3.9.9 : agrégation COM native (fabrique + INonDelegatingUnknown) + étape auto-test agrégée + marqueur de journal + verdict non piégé"
 
 echo "── Exécutables de version (même binaire, noms différents)…"
 [[ -f "$PUBLISH/RoomEq.App.exe" ]] || { echo "ERREUR : RoomEq.App.exe absent"; exit 1; }

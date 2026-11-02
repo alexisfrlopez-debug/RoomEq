@@ -19,7 +19,6 @@ const GUID kFormatIeeeFloat =
     RoomeqGuid(0x00000003, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71);
 
 constexpr long kFadeMs = 20;      // durée du fondu enchaîné entre deux courbes
-constexpr HRESULT kClassNoAggregation = static_cast<HRESULT>(0x80040110L);
 
 void CopyWstr(WCHAR* dst, const wchar_t* src, size_t cap)
 {
@@ -34,24 +33,56 @@ void CopyWstr(WCHAR* dst, const wchar_t* src, size_t cap)
 
 // ================================================================ IUnknown
 
-RoomEqApo::RoomEqApo()
+RoomEqApo::RoomEqApo(IUnknown* pUnkOuter)
 {
-    Log("APO instancie (RoomEqApo)");
+    // Technique Equalizer APO : sans contrôleur, l'objet est sa propre
+    // identité — les méthodes déléguantes routent alors vers notre IUnknown
+    // non déléguant (vtable binairement compatible) SANS branchement.
+    if (pUnkOuter != nullptr)
+        unkOuter_ = pUnkOuter;
+    else
+        unkOuter_ = reinterpret_cast<IUnknown*>(static_cast<INonDelegatingUnknown*>(this));
+    Log(pUnkOuter != nullptr ? "APO instanciee (AGREGEE par le moteur audio)"
+                             : "APO instanciee (directe)");
 }
 
 RoomEqApo::~RoomEqApo()
 {
     ReleaseChains();
     watcher_.Stop();
-    Log("APO detruit");
+    Log("APO detruite");
 }
 
+// Déléguant : l'identité (QI/AddRef/Release exposés aux clients de
+// l'agrégat) appartient au contrôleur quand l'objet est agrégé — et à
+// notre IUnknown non déléguant sinon (le pointeur unkOuter_ est le même
+// dans les deux cas : aucun branchement à l'exécution).
 HRESULT STDMETHODCALLTYPE RoomEqApo::QueryInterface(const GUID& riid, void** ppv)
+{
+    return unkOuter_->QueryInterface(riid, ppv);
+}
+
+ULONG STDMETHODCALLTYPE RoomEqApo::AddRef()
+{
+    return unkOuter_->AddRef();
+}
+
+ULONG STDMETHODCALLTYPE RoomEqApo::Release()
+{
+    return unkOuter_->Release();
+}
+
+// Non déléguant (IDENTITÉ) : c'est le pointeur que le moteur audio tient
+// depuis CoCreateInstance(pUnkOuter) — la durée de vie de l'objet est
+// pilotée EXCLUSIVEMENT par ce compteur, jamais par les déléguants.
+HRESULT STDMETHODCALLTYPE RoomEqApo::NDQueryInterface(const GUID& riid, void** ppv)
 {
     if (ppv == nullptr)
         return E_POINTER_;
     if (riid == IID_IUnknown_) {
-        *ppv = static_cast<IUnknown*>(static_cast<IAudioProcessingObject*>(this));
+        // identité de l'objet : TOUJOURS le sous-objet non déléguant — même
+        // pointeur à chaque appel (règle COM d'égalité des IUnknown)
+        *ppv = static_cast<INonDelegatingUnknown*>(this);
     } else if (riid == IID_IAudioProcessingObject) {
         *ppv = static_cast<IAudioProcessingObject*>(this);
     } else if (riid == IID_IAudioProcessingObjectRT) {
@@ -64,16 +95,16 @@ HRESULT STDMETHODCALLTYPE RoomEqApo::QueryInterface(const GUID& riid, void** ppv
         *ppv = nullptr;
         return E_NOINTERFACE_;
     }
-    static_cast<IUnknown*>(*ppv)->AddRef();
+    reinterpret_cast<IUnknown*>(*ppv)->AddRef();
     return S_OK_;
 }
 
-ULONG STDMETHODCALLTYPE RoomEqApo::AddRef()
+ULONG STDMETHODCALLTYPE RoomEqApo::NDAddRef()
 {
     return static_cast<ULONG>(refs_.fetch_add(1, std::memory_order_relaxed) + 1);
 }
 
-ULONG STDMETHODCALLTYPE RoomEqApo::Release()
+ULONG STDMETHODCALLTYPE RoomEqApo::NDRelease()
 {
     long n = refs_.fetch_sub(1, std::memory_order_acq_rel);
     if (n == 1) {
@@ -442,17 +473,23 @@ ULONG STDMETHODCALLTYPE RoomEqApoClassFactory::Release()
 HRESULT STDMETHODCALLTYPE RoomEqApoClassFactory::CreateInstance(IUnknown* pUnkOuter,
     const GUID& riid, void** ppv)
 {
+    // v3.9.9 — AGRÉGATION COM : le moteur audio (audiodg) instancie l'APO en
+    // passant un contrôleur NON NUL et en demandant IID_IUnknown (règle COM
+    // de l'agrégation). Refuser ici coupe la sortie entière (retour terrain
+    // v3.9.8 : le moteur abandonne l'APO, le graphe ne se construit pas,
+    // IAudioClient::Initialize échoue avec notre propre 0x80040110).
+    // Miroir exact de la fabrique d'Equalizer APO (ClassFactory.cpp).
+    if (pUnkOuter != nullptr && riid != IID_IUnknown_)
+        return E_NOINTERFACE_;
     if (ppv == nullptr)
         return E_POINTER_;
     *ppv = nullptr;
-    if (pUnkOuter != nullptr)
-        return kClassNoAggregation; // pas d'agrégation COM
 
-    auto* apo = new (std::nothrow) RoomEqApo();
+    auto* apo = new (std::nothrow) RoomEqApo(pUnkOuter);
     if (apo == nullptr)
         return E_POINTER_;
-    const HRESULT hr = apo->QueryInterface(riid, ppv);
-    apo->Release();
+    const HRESULT hr = apo->NDQueryInterface(riid, ppv);
+    apo->NDRelease();
     return hr;
 }
 

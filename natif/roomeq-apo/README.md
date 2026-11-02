@@ -38,11 +38,20 @@ sources compilent (1) en DLL Windows via Zig/MinGW et (2) dans le harnais de
 tests Linux (`roomeq_apo_tests`, lié directement). Les IIDs/structures sont
 vérifiés contre le SDK 10.0.10240 et le comportement d'Equalizer APO.
 
+**Agrégation COM (v3.9.9)** : audiodg instancie TOUS les sAPO avec un
+contrôleur d'agrégation (`pUnkOuter` non nul + `IID_IUnknown`) — la refuser
+coupe la sortie (retour terrain v3.9.8 : 0x80040110). L'objet implémente le
+pattern complet : `INonDelegatingUnknown` (vtable binairement compatible
+IUnknown, technique Equalizer APO), IUnknown déléguant au contrôleur,
+identité interne non déléguante seule détentrice de la durée de vie, fabrique
+acceptant `CreateInstance(pUnkOuter, IID_IUnknown)` — verrouillé par la
+suite d'agrégation du harnais (faux contrôleur à compteurs).
+
 ## Construire / tester
 
 ```bash
 # 1) harnais de tests natifs (Linux, g++ du socle — aucun sudo)
-natif/roomeq-apo/build-tests.sh      # → 112 vérifications, 0 échec attendu
+natif/roomeq-apo/build-tests.sh      # → 126 vérifications, 0 échec attendu
 
 # 2) DLL de livraison Windows (x64 + ARM64, Zig 0.14.1)
 natif/roomeq-apo/build-apo.sh        # → dist/RoomEqApo_{x64,arm64}.dll + zip

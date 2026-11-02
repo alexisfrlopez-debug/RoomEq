@@ -226,6 +226,26 @@ struct IAudioProcessingObjectConfiguration : IUnknown {
 struct IAudioSystemEffects : IUnknown {
 };
 
+// ============================================================ agrégation COM
+// Le moteur audio (audiodg) instancie les APO en AGRÉGATION COM : la
+// fabrique reçoit un pUnkOuter NON NUL et l'objet doit exposer un IUnknown
+// NON DÉLÉGUANT (identité interne). Refuser l'agrégation — CLASS_E_
+// NOAGGREGATION — fait abandonner l'APO par le moteur : le graphe de la
+// sortie ne se construit pas, la sortie devient MUETTE (retour terrain
+// v3.9.8 : la sonde WASAPI a remonté exactement 0x80040110).
+//
+// Technique Equalizer APO (EqualizerAPO.cpp) : une interface « non
+// déléguante » dont la vtable est BINAIREMENT IDENTIQUE à IUnknown (trois
+// méthodes, mêmes signatures, même ordre — seuls les noms diffèrent). Le
+// pointeur du sous-objet peut donc être lu comme un IUnknown* par le
+// contrôleur : reinterpret_cast sûr, pattern COM classique (ATL, Wine).
+// v3.9.9.
+struct INonDelegatingUnknown {
+    virtual HRESULT STDMETHODCALLTYPE NDQueryInterface(const GUID& riid, void** ppv) = 0;
+    virtual ULONG STDMETHODCALLTYPE NDAddRef() = 0;
+    virtual ULONG STDMETHODCALLTYPE NDRelease() = 0;
+};
+
 struct IClassFactory : IUnknown {
     virtual HRESULT STDMETHODCALLTYPE CreateInstance(
         IUnknown* pUnkOuter, const GUID& riid, void** ppv) = 0;

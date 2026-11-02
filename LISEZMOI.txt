@@ -1,4 +1,4 @@
-RoomEq 3.9.8 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
+RoomEq 3.9.9 — recodage TRIADE + EQ système sans pilote + greffons DAW + installation 1 clic
 =====================================================================================================
 
 CE QU'EST CETTE VERSION
@@ -7,8 +7,26 @@ CE QU'EST CETTE VERSION
     selon le protocole TRIADE : chaque module est défini par une spécification
     d'intention diffable (I/), implémenté par du code versionné (src/) et
     cartographié à adresse stable (CARTE.md) — 46 modules, 48 spécifications,
-    598 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 112),
+    608 tests verts + vérifications natives (AU 15 671 + VST 430/41 + APO 126),
     build 0 erreur 0 avertissement.
+  • CORRECTIF 3.9.9 — L'ÉGALISEUR ACCEPTE ENFIN LE MOTEUR AUDIO : votre
+    dernier message d'erreur (enfin complet — merci !) a désigné le coupable
+    noir sur blanc : erreur 0x80040110 « la classe ne gère pas l'agrégation ».
+    Le moteur audio de Windows (audiodg) instancie TOUS les égaliseurs
+    système en AGRÉGATION COM — un mécanisme d'imbrication d'objets que
+    notre DLL refusait poliment, croyant bien faire : le moteur abandonnait
+    alors l'égaliseur, le graphe de la sortie ne se construisait pas, et la
+    sortie devenait MUETTE (c'est le mécanisme qui coupe le son depuis le
+    début — Equalizer APO ne le rencontre jamais : ses objets l'acceptent
+    d'office). La DLL accepte désormais l'agrégation exactement comme la
+    référence (délégation d'identité au moteur, fabrique identique — 14
+    vérifications natives nouvelles le prouquent), et l'AUTO-TEST qui
+    précède chaque activation rejoue DÉSORMAIS la création agrégée : ce
+    défaut ne peut plus jamais atteindre votre registre. Au passage, le
+    message d'échec ne se fait plus piéger par les lignes de l'auto-test
+    dans le journal (il annonçait à tort « instanciée par le moteur » alors
+    que c'était notre propre test qui écrivait) : seule l'instanciation
+    AGRÉGÉE compte désormais comme preuve.
   • CORRECTIF 3.9.8 — POSITION ADAPTÉE AU PÉRIPHÉRIQUE + AUTO-TEST +
     DIAGNOSTIC : retour terrain 3.9.7 « activation du casque JBL échouée,
     le son a été préservé, le moteur n'a pas pu charger l'égaliseur » avec

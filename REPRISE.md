@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Projet** | RoomEq **v3.9.8** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1–v3.9.4 : correctifs activation (FxProperties → takeover registre → LUID interop → binding CloseHandle/kernel32), v3.9.5 : volume re-ciblé + chaîne de courbe observable + verrou ACL, v3.9.6 : recette complète de chargement (DisableProtectedAudioDG + inscription moteur + modes EFX), v3.9.7 : LE SON PASSE AVANT L'ÉGALISEUR — sonde WASAPI + rollback automatique + ACL bin vérifiée + écoute suivant le défaut Windows, et **v3.9.8 : DIAGNOSTIQUE AVANT DE SOUFFRIR — position ADAPTÉE AU PÉRIPHÉRIQUE (MFX pour les Bluetooth « combinés » de Windows 11 : « EFX will not work then », Equalizer APO DeviceAPOInfo.cpp — le casque JBL de l'utilisateur est ce cas), AUTO-TEST COM PRÉ-VOL de la DLL dans le processus élevé (échec = activation bloquée AVANT toute écriture, étape + HRESULT nommées), verdict d'échec DIFFÉRENTIEL complet (auto-test, prérequis moteur, trace de chargement, erreur exacte de la sonde, inventaire des positions, version Windows)** — 598 tests xUnit + harnais APO 112 vérifications |
+| **Projet** | RoomEq **v3.9.8** — recodage complet TRIADE **cristallisé et publié**, + export FabFilter Pro-Q 3 (D17), + anti-boucle au routage (D18), + greffon AudioUnit Ableton (D19), + installation « 1 clic » (D20 : Setup.exe Windows Velopack + .pkg macOS), + greffon VST 2 32 bits Windows (D21) avec correctifs v3.4.x/v3.5.x, v3.6.0 : l'AU en parité fonctionnelle du VST (D23), v3.7.0 : EQ SYSTÈME SANS PILOTE (D24, M-AUD-09), v3.8.0 : console allégée (D25), v3.9.0 : console retirée + verdict APO visible + instance unique (D26), v3.9.1–v3.9.4 : correctifs activation (FxProperties → takeover registre → LUID interop → binding CloseHandle/kernel32), v3.9.5 : volume re-ciblé + chaîne de courbe observable + verrou ACL, v3.9.6 : recette complète de chargement (DisableProtectedAudioDG + inscription moteur + modes EFX), v3.9.7 : LE SON PASSE AVANT L'ÉGALISEUR — sonde WASAPI + rollback automatique + ACL bin vérifiée + écoute suivant le défaut Windows, v3.9.8 : position adaptée + auto-test + verdict différentiel, et **v3.9.9 : L'APO ACCEPTE L'AGRÉGATION COM DU MOTEUR AUDIO — le retour terrain enfin complet a désigné NOTRE fabrique (sonde WASAPI 0x80040110 CLASS_E_NOAGGREGATION = notre code de refus) : audiodg instancie TOUS les sAPO avec un contrôleur COM (fait établi : nnyj/virtual-surround-sound + fabrique d'Equalizer APO lue) ; agrégation native miroir de la référence (INonDelegatingUnknown, fabrique), 10e étape d'auto-test « CoCreateInstance agrégé », marqueur de fin d'auto-test + classification ApoLogTrace (seule l'instanciation AGRÉGÉE prouve le moteur)** — 608 tests xUnit + harnais APO 126 vérifications |
 | **Base fonctionnelle** | v2.2.2 (GitHub `alexisfrlopez-debug/RoomEq` @ `deff25c`) |
 | **LANGUE (permanente)** | Répondre à l'utilisateur TOUJOURS en **français** (anglais accepté, chinois interdit — il ne le comprend pas) |
 | **Ce dépôt** | `/home/z/my-project/workspace/RoomEq` (sandbox recyclée en session 11 : re-cloné depuis GitHub, branche `v3-recodage`) — miroirs Drive + GitHub `alexisfrlopez-debug/RoomEq` |
@@ -17,7 +17,40 @@
 | **Sauvegarde** | `scripts/sync_backup.sh` — tests + commit + push GitHub + miroir Drive (**à chaque lot de travail**, D7) ; les **livrables** (zips `RoomEq-*` de `download/`) sont téléversés dans `Equalizer/RoomEq-v3/Livrables` par le même miroir (resumable, idempotent MD5) ; **RÈGLE DE LIVRAISON D22 (permanente)** : toute livraison = synchro Git+Drive obligatoire + archivage automatique des anciennes versions dans `Livrables/Archive` (voir § 2bis) |
 | **Jetons** | `../triade/.gdrive/` (GitHub + Drive OAuth) — jamais commités |
 
-## 1. État (fin session 31 — v3.9.8 vérifiée après restauration)
+## 1. État (fin session 32 — v3.9.9 : l'APO accepte l'agrégation COM du moteur)
+
+**Session 32 (2026-11-02)** — retour terrain v3.9.8 : « message d'erreur » —
+la capture EST ENFIN PARVENUE (4e signalement). Le verdict v3.9.8 a désigné
+le coupable en une ligne : **sonde WASAPI 0x80040110 CLASS_E_NOAGGREGATION
+= le code de refus de NOTRE fabrique COM**. Le moteur audio (audiodg)
+instancie TOUS les sAPO en AGRÉGATION COM (fait établi par deux sources
+primaires : nnyj/virtual-surround-sound — « audiodg AGGREGATES APOs…
+Returning CLASS_E_NOAGGREGATION makes the host silently abandon the APO » —
+et la fabrique d'Equalizer APO lue : `new EqualizerAPO(pUnkOuter)` +
+`NonDelegatingQueryInterface`). Notre refus → moteur abandonne l'APO →
+graphe non construit → sortie MUETTE : c'est LE mécanisme qui coupait le
+son depuis v3.9.6.
+
+- **v3.9.9 — trois volets** :
+  1. **Agrégation COM native** : `INonDelegatingUnknown` (apo_abi.h, vtable
+     binairement compatible IUnknown — technique EAPO), IUnknown déléguant
+     au contrôleur, identité interne non déléguante seule détentrice de la
+     durée de vie, fabrique miroir de la référence ; le constructeur
+     journalise « APO instanciee (AGREGEE par le moteur audio) ».
+  2. **10ᵉ étape d'auto-test « CoCreateInstance agrégé »** : contrôleur
+     CCW managé, création agrégée via l'inscription COM réelle, QI(IUnknown)
+     via l'agrégat = identité du contrôleur — un refus bloque l'activation
+     AVANT toute écriture registre.
+  3. **Verdict non piégé** : les lignes « APO instancié / LockForProcess »
+     du verdict v3.9.8 venaient de l'AUTO-TEST (même DLL, même journal) —
+     marqueur de fin + `ApoLogTrace` (None/DirectOnly/Aggregated) : seule
+     l'instanciation AGRÉGÉE prouve le moteur.
+- **Tests** : 608/608 xUnit (Core 237 + Audio 291 + App 80) ; harnais APO
+  112 → **126** (suite agrégation à faux contrôleur) ; DLL x64+arm64
+  recompilées.
+- **Prochaine étape** : validation terrain — Setup 3.9.9, réactiver l'EQ
+  sur le casque JBL : attendu « Vérifié : la sortie répond et l'APO est
+  chargé » et un son MODIFIÉ par la courbe (preset jbltuneflex2 appliqué).
 
 **Session 31 (2026-11-02)** — « continue » sans nouveau retour terrain :
 session de reprise après recyclage sandbox (dépôt local retombé à v3.6.0,

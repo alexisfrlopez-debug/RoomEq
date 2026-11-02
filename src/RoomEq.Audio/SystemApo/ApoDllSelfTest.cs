@@ -363,6 +363,63 @@ public static class ApoDllSelfTest
                 return Report(steps);
             }
             steps.Add(ApoSelfTestStep.Ok("UnlockForProcess", "déverrouillé"));
+
+            // ---- 10. AGRÉGATION COM (v3.9.9) : le moteur audio (audiodg)
+            //      instancie l'APO AVEC un contrôleur (pUnkOuter non nul) —
+            //      c'est le mécanisme que v3.9.8 refusait : CLASS_E_
+            //      NOAGGREGATION → moteur abandonne l'APO → graphe non
+            //      construit → sortie MUETTE (retour terrain). Cette étape
+            //      rejoue le parcours exact : création agrégée via
+            //      l'inscription COM réelle, interfaces obtenues par
+            //      l'inner, et l'identité (QI IUnknown) de l'agrégat doit
+            //      être celle du CONTRÔLEUR — définition même de l'agrégation.
+            object outer = new();
+            IntPtr punkOuter = Marshal.GetIUnknownForObject(outer);
+            IntPtr inner = IntPtr.Zero, aggIface = IntPtr.Zero, aggUnk = IntPtr.Zero;
+            try
+            {
+                // clsid/iidUnknown : déclarés à l'étape 3, même portée try
+                hr = CoCreateInstance(ref clsid, punkOuter, ClsctxInprocServer, ref iidUnknown, out inner);
+                if (hr != 0)
+                {
+                    steps.Add(ApoSelfTestStep.Fail("CoCreateInstance agrégé (moteur audio)",
+                        ApoHresult.DescribeFull(hr)
+                        + " — l'APO refuse l'agrégation COM exigée par le moteur audio"
+                        + " (défaut v3.9.8 : sortie coupée pour cette raison)"));
+                    return Report(steps);
+                }
+                Guid iidApo = IidIAudioProcessingObject;
+                int qhr = Marshal.QueryInterface(inner, ref iidApo, out aggIface);
+                if (qhr != 0)
+                {
+                    steps.Add(ApoSelfTestStep.Fail("CoCreateInstance agrégé (moteur audio)",
+                        "interface via l'inner : " + ApoHresult.DescribeFull(qhr)));
+                    return Report(steps);
+                }
+                qhr = Marshal.QueryInterface(aggIface, ref iidUnknown, out aggUnk);
+                if (qhr != 0)
+                {
+                    steps.Add(ApoSelfTestStep.Fail("CoCreateInstance agrégé (moteur audio)",
+                        "QI(IUnknown) via l'agrégat : " + ApoHresult.DescribeFull(qhr)));
+                    return Report(steps);
+                }
+                if (aggUnk != punkOuter)
+                {
+                    steps.Add(ApoSelfTestStep.Fail("CoCreateInstance agrégé (moteur audio)",
+                        "l'identité de l'agrégat n'est pas celle du contrôleur"
+                        + " (QI(IUnknown) ≠ outer) — la délégation d'agrégation est cassée"));
+                    return Report(steps);
+                }
+                steps.Add(ApoSelfTestStep.Ok("CoCreateInstance agrégé (moteur audio)",
+                    "création avec contrôleur acceptée, interfaces obtenues, identité déléguée"));
+            }
+            finally
+            {
+                if (aggUnk != IntPtr.Zero) Marshal.Release(aggUnk);
+                if (aggIface != IntPtr.Zero) Marshal.Release(aggIface);
+                if (inner != IntPtr.Zero) Marshal.Release(inner);
+                if (punkOuter != IntPtr.Zero) Marshal.Release(punkOuter);
+            }
         }
         catch (Exception ex)
         {
@@ -382,6 +439,28 @@ public static class ApoDllSelfTest
             // = celle du processus), et le processus d'installation exit juste
             // après — le nettoyage système suffit et évite tout déchargement
             // sous les pieds d'un RCW.
+
+            // v3.9.9 — MARQUEUR DE FIN D'AUTO-TEST : l'auto-test écrit dans le
+            // journal exactement les lignes de cycle de vie que le moteur
+            // écrit aussi (« APO instanciee », « LockForProcess »…) — le
+            // verdict v3.9.8 en avait déduit à TORT « instanciée par le
+            // moteur ». Le marqueur délimite ce qui est nôtre : seules les
+            // lignes POSTÉRIEURES comptent (ApoLogTrace.Classify).
+            try
+            {
+                string? dir = Path.GetDirectoryName(ApoConstants.ApoLogPath);
+                if (!string.IsNullOrEmpty(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                    File.AppendAllText(ApoConstants.ApoLogPath,
+                        ApoLogTrace.SelfTestMarker + Environment.NewLine);
+                }
+            }
+            catch
+            {
+                // journal inscriptible autrement (repli service) : pas bloquant —
+                // le marqueur manquant retombe sur le comportement historique
+            }
         }
         return Report(steps);
     }

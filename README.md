@@ -130,7 +130,27 @@ diffable** (couche I, dossier `I/`), implémenté par du **code versionné**
   WASAPI — l'exception n'est plus avalée —, inventaire des positions avec
   alerte multi*, version Windows) ; redémarrage du service audio
   attendant vraiment RUNNING (sc query, code numérique indépendant de la
-  langue) (spec I-AUD-09 v1.9, 550 → 598 tests)
+  langue) (spec I-AUD-09 v1.9, 550 → 598 tests) ; **v3.9.9** : le retour
+  terrain v3.9.8 ENFIN complet (capture du panneau : auto-test OK,
+  prérequis tous verts, journal présent — et sonde WASAPI 0x80040110
+  CLASS_E_NOAGGREGATION) a désigné NOTRE fabrique COM : elle refusait
+  l'AGRÉGATION, ignorant que le moteur audio (audiodg) instancie TOUS les
+  sAPO avec un contrôleur (« audiodg AGGREGATES APOs… Returning
+  CLASS_E_NOAGGREGATION makes the host silently abandon the APO »,
+  nnyj/virtual-surround-sound ; la fabrique d'Equalizer APO l'accepte :
+  new EqualizerAPO(pUnkOuter) + NonDelegatingQueryInterface — exigence
+  documentée nulle part, invisible sauf à écrire la fabrique à la main).
+  Refus → moteur abandonne l'APO → graphe non construit → sortie MUETTE :
+  c'est LE mécanisme qui coupait le son depuis le début. Correctifs :
+  agrégation COM native (INonDelegatingUnknown à vtable binairement
+  compatible IUnknown, IUnknown déléguant au contrôleur, identité interne
+  non déléguante, fabrique miroir de la référence — 14 vérifications
+  natives nouvelles), 10ᵉ étape d'auto-test qui rejoue la création
+  AGRÉGÉE (contrôleur CCW + délégation d'identité vérifiée : ce défaut
+  ne peut plus jamais atteindre le registre), et verdict non piégé par
+  les lignes de l'auto-test dans le journal (marqueur de fin +
+  classification ApoLogTrace : seule l'instanciation AGRÉGÉE prouve le
+  moteur) (spec I-AUD-09 v1.10, 598 → 608 tests, APO 112 → 126)
 - **Reprise** : lire `REPRISE.md` en premier
 - **Décisions** : `docs/DECISIONS.md` (D1-D26) · **Carte** : `CARTE.md`
 - **Natifs scellés** (pilote, ASIO, HAL macOS, installateurs) : `natif/REFERENCE-NATIF.md`

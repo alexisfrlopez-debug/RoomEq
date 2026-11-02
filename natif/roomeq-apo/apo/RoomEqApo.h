@@ -23,16 +23,24 @@ namespace roomeq::apo {
 
 /// L'objet APO RoomEq. Héritage COM multiple standard : le compilateur
 /// génère une vtable par interface de base, identique au layout MIDL/MSVC.
+/// v3.9.9 : hérite AUSSI de INonDelegatingUnknown (vtable binairement
+/// compatible IUnknown) — le moteur audio (audiodg) instancie les APO en
+/// AGRÉGATION COM : il passe un contrôleur (pUnkOuter) à la fabrique et
+/// pilote l'identité de l'objet par le IUnknown NON déléguant. Refuser
+/// l'agrégation coupe la sortie (retour terrain v3.9.8 : 0x80040110).
 class RoomEqApo final
     : public IAudioProcessingObject
     , public IAudioProcessingObjectRT
     , public IAudioProcessingObjectConfiguration
-    , public IAudioSystemEffects {
+    , public IAudioSystemEffects
+    , public INonDelegatingUnknown {
 public:
-    RoomEqApo();
-    ~RoomEqApo(); // libéré via Release() — pas de destructeur virtuel COM
+    explicit RoomEqApo(IUnknown* pUnkOuter = nullptr);
+    ~RoomEqApo(); // libéré via NDRelease() — pas de destructeur virtuel COM
 
-    // ---- IUnknown (commun aux quatre bases) ----
+    // ---- IUnknown (DÉLÉGUANT : l'identité appartient au contrôleur quand
+    //      l'objet est agrégé — à soi-même sinon, via le IUnknown non
+    //      déléguant de l'objet) ----
     HRESULT STDMETHODCALLTYPE QueryInterface(const GUID& riid, void** ppv) override;
     ULONG STDMETHODCALLTYPE AddRef() override;
     ULONG STDMETHODCALLTYPE Release() override;
@@ -61,6 +69,13 @@ public:
         APO_CONNECTION_DESCRIPTOR** ppOutputConnections) override;
     HRESULT STDMETHODCALLTYPE UnlockForProcess() override;
 
+    // ---- INonDelegatingUnknown (IDENTITÉ INTERNE : c'est par CE pointeur
+    //      que le contrôleur agrégateur gère la vie de l'objet ; seul le
+    //      verrouillage à travers ces méthodes ne délègue jamais) ----
+    HRESULT STDMETHODCALLTYPE NDQueryInterface(const GUID& riid, void** ppv) override;
+    ULONG STDMETHODCALLTYPE NDAddRef() override;
+    ULONG STDMETHODCALLTYPE NDRelease() override;
+
     // ---- coutures de diagnostic (harnais de tests uniquement) ----
     uint64_t TestRevision() const { return watcher_.CurrentRevision(); }
     bool TestIsPassthrough() const { return !locked_ || channels_ == 0; }
@@ -82,7 +97,13 @@ private:
     void AdoptPublishedChainLocked();
     void ReleaseChains();
 
-    std::atomic<long> refs_{1};
+    std::atomic<long> refs_{1};   // compteur NON déléguant (identité/durée de vie)
+
+    /// Contrôleur d'agrégation : pointeur EMPRUNTÉ (jamais AddRefé — règle
+    /// COM, pas de cycle). Null quand l'objet est créé seul : pointe alors
+    /// sur notre propre IUnknown non déléguant (technique Equalizer APO :
+    /// les méthodes déléguantes routent sans branchement).
+    IUnknown* unkOuter_;
 
     ConfigWatcher watcher_;
     bool locked_ = false;          // entre LockForProcess et UnlockForProcess

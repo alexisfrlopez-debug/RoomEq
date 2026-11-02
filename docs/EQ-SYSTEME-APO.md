@@ -320,6 +320,35 @@ enseignement de la lecture croisée : en mode INSTALL_SFX_EFX la référence
 chaîner l'effet du pilote) — une seule position suffit à RoomEq, dont
 l'APO ne chaîne pas d'enfants.
 
+**Fait établi v3.9.9 (le moteur audio AGRÈGE les APO)** : le retour
+terrain v3.9.8 enfin complet (auto-test OK, prérequis verts, journal
+présent, sonde = 0x80040110) a désigné NOTRE fabrique COM : elle refusait
+l'agrégation (`pUnkOuter != nullptr → CLASS_E_NOAGGREGATION`), ignorant
+que **audiodg instancie TOUS les sAPO en agrégation COM** — « *audiodg
+AGGREGATES APOs: IClassFactory::CreateInstance receives a non-null outer
+unknown. Returning CLASS_E_NOAGGREGATION makes the host silently abandon
+the APO after a factory probe* » (nnyj/virtual-surround-sound,
+apo-forwarder-internals.md, juillet 2026, implémentation indépendante du
+même mécanisme). Aucun document Microsoft ne mentionne l'exigence : la
+référence la satisfait sans y penser — sa fabrique (ClassFactory.cpp)
+passe le contrôleur au constructeur et répond par
+`NonDelegatingQueryInterface`, pattern ATL par défaut. Symptôme exact :
+le moteur abandonne l'APO après sa sonde de fabrique → le graphe de la
+sortie ne se construit pas → `IAudioClient::Initialize` échoue avec LE
+HRESULT DE NOTRE REFUS (0x80040110 remonté tel quel par la sonde WASAPI
+de RoomEq) → sortie muette. v3.9.9 implémente l'agrégation à
+l'identique de la référence : `INonDelegatingUnknown` (vtable
+binairement compatible IUnknown), IUnknown déléguant au contrôleur,
+identité interne non déléguante seule détentrice de la durée de vie,
+fabrique acceptant `CreateInstance(pUnkOuter, IID_IUnknown)` — et
+l'auto-test pré-vol rejoue désormais la création AGRÉGÉE (10ᵉ étape :
+ce défaut ne peut plus jamais atteindre le registre). Dernier piège
+fermé au passage : les lignes « APO instancié / LockForProcess /
+UnlockForProcess » que le verdict lisait venaient de l'AUTO-TEST
+pré-vol (même DLL, même journal) — un marqueur de fin les départage
+désormais et seule l'instanciation AGRÉGÉE compte comme preuve du
+moteur (`ApoLogTrace`).
+
 ### 3.3 Ce que ça devient dans RoomEq
 
 ```

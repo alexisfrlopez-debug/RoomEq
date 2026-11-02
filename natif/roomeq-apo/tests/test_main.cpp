@@ -231,6 +231,30 @@ struct ReferenceEq {
     }
 };
 
+// ------------------------------------------- contrôleur d'agrégation factice
+// Joue le rôle d'audiodg dans l'agrégation COM (v3.9.9) : compte les
+// AddRef/Release/QI délégués par l'APO, répond IUnknown → soi-même.
+struct FakeOuter final : IUnknown {
+    std::atomic<long> refs{1};
+    std::atomic<int> qiCalls{0};
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(const GUID& riid, void** ppv) override
+    {
+        ++qiCalls;
+        if (ppv == nullptr)
+            return E_POINTER_;
+        if (riid == IID_IUnknown_) {
+            ++refs;
+            *ppv = this;
+            return S_OK_;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE_; // un vrai agrégateur remettrait la main sur l'inner
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return ++refs; }
+    ULONG STDMETHODCALLTYPE Release() override { return --refs; }
+};
+
 // ------------------------------------------------- IAudioMediaType factice
 
 struct FakeMediaType final : IAudioMediaType {
@@ -460,10 +484,56 @@ int main()
         CHECK(rt->QueryInterface(nope, &bad) == E_NOINTERFACE_);
         CHECK(bad == nullptr);
 
-        // agrégation refusée
-        CHECK(factory->CreateInstance(reinterpret_cast<IUnknown*>(0x1234),
-                                      IID_IUnknown_, &pv)
-              == static_cast<HRESULT>(0x80040110L)); // CLASS_E_NOAGGREGATION
+        // v3.9.9 — AGRÉGATION COM : le moteur audio (audiodg) instancie l'APO
+        // avec un contrôleur NON NUL (retour terrain v3.9.8 : le refus
+        // CLASS_E_NOAGGREGATION coupait la sortie ; Equalizer APO l'accepte
+        // — ClassFactory.cpp : new EqualizerAPO(pUnkOuter) + NDQueryInterface).
+        FakeOuter aggOuter;
+
+        // (a) l'agrégation EXIGE IID_IUnknown (règle COM, garde Equalizer APO)
+        CHECK(factory->CreateInstance(&aggOuter, IID_IAudioProcessingObject, &pv)
+              == E_NOINTERFACE_);
+        // (b) création agrégée : S_OK + le IUnknown NON déléguant (inner)
+        pv = nullptr;
+        CHECK(factory->CreateInstance(&aggOuter, IID_IUnknown_, &pv) == S_OK_);
+        IUnknown* inner = static_cast<IUnknown*>(pv);
+        CHECK(inner != nullptr);
+        // le contrôleur n'est JAMAIS AddRefé par l'inner (pointeur emprunté,
+        // règle COM — sinon cycle de références)
+        CHECK(aggOuter.refs.load() == 1);
+
+        // (c) le moteur obtient les interfaces par l'inner (QI non déléguant)
+        IAudioProcessingObject* aggObj = nullptr;
+        CHECK(inner->QueryInterface(IID_IAudioProcessingObject,
+                                    reinterpret_cast<void**>(&aggObj)) == S_OK_);
+        CHECK(aggObj != nullptr);
+
+        // (d) AddRef/Release DÉLÉGUÉS : montent le compteur du CONTRÔLEUR
+        const long outerRefsBefore = aggOuter.refs.load();
+        aggObj->AddRef();
+        CHECK(aggOuter.refs.load() == outerRefsBefore + 1);
+        aggObj->Release();
+        CHECK(aggOuter.refs.load() == outerRefsBefore);
+
+        // (e) QI délégué de IUnknown : retourne L'IDENTITÉ DU CONTRÔLEUR —
+        // c'est la définition même de l'agrégation COM
+        IUnknown* aggUnk = nullptr;
+        CHECK(aggObj->QueryInterface(IID_IUnknown_,
+                                     reinterpret_cast<void**>(&aggUnk)) == S_OK_);
+        CHECK(aggUnk == &aggOuter);
+        aggUnk->Release();
+
+        // (f) un QI délégué d'interface inconnue passe AUSSI au contrôleur
+        const int qiBefore = aggOuter.qiCalls.load();
+        CHECK(aggObj->QueryInterface(nope, &bad) == E_NOINTERFACE_);
+        CHECK(aggOuter.qiCalls.load() == qiBefore + 1);
+        CHECK(bad == nullptr);
+
+        // (g) durée de vie : seule la référence INTERNE (inner) possède
+        // l'objet — sa libération est la destruction
+        aggObj->Release(); // rend la QI de (c) (au contrôleur)
+        CHECK(inner->Release() == 0); // → destruction de l'APO agrégée
+        CHECK(aggOuter.refs.load() == 1); // le contrôleur n'a rien gardé
     }
 
     // ================================================== 4. méthodes de contrôle

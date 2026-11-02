@@ -39,7 +39,8 @@ public sealed record ApoDeadEndpointContext(
     ApoSelfTestReport? SelfTest,
     ApoSlotInventory? Inventory,
     string SlotChosen,
-    string OsVersion);
+    string OsVersion,
+    bool AggregatedSeen = false);
 
 /// <summary>
 /// Compositeur PUR des verdicts de diagnostic v3.9.8 (correctif « EQ activé
@@ -102,11 +103,15 @@ public static class ApoFailureDiagnostics
             ? "Prérequis moteur : illisibles"
             : "Prérequis moteur : " + DescribeEngine(c.Engine));
 
-        // 3. Journal de l'APO : la trace « APO instancie » prouve que le
-        //    moteur a réellement instancié l'objet (absent = jamais chargée).
+        // 3. Journal de l'APO (v3.9.9 : CLASSÉ — le verdict v3.9.8 lisait les
+        //    lignes de l'AUTO-TEST et en déduisait à tort « instanciée par le
+        //    moteur » ; seules les lignes postérieures au marqueur comptent,
+        //    et l'instanciation AGRÉGÉE est la preuve directe du moteur).
         diag.Add(c.LogShowsLoad
-            ? "Journal de l'APO : trace de chargement PRÉSENTE (l'APO a été instanciée par le moteur audio)"
-            : "Journal de l'APO : AUCUNE trace de chargement — l'APO n'a jamais été instanciée par le moteur audio");
+            ? c.AggregatedSeen
+                ? "Journal de l'APO : instanciation AGRÉGÉE par le moteur audio (preuve directe — la DLL a été créée ET pilotée par audiodg)"
+                : "Journal de l'APO : lignes de cycle de vie présentes mais SANS instanciation agrégée (une création directe les écrit aussi — pas une preuve du moteur)"
+            : "Journal de l'APO : AUCUNE trace postérieure à l'auto-test — l'APO n'a pas été instanciée par le moteur audio");
         if (c.LogTail.Count > 0)
             diag.Add("Dernières lignes du journal : " + string.Join(" | ", c.LogTail));
 

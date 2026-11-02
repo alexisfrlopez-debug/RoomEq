@@ -152,7 +152,7 @@ public class ApoFailureDiagnosticsTests
         Assert.Contains("DIAGNOSTIC", message);
         Assert.Contains("Auto-test DLL : OK", message);                          // DLL saine → cause côté moteur
         Assert.Contains("Prérequis moteur", message);
-        Assert.Contains("AUCUNE trace de chargement", message);                  // jamais instanciée
+        Assert.Contains("AUCUNE trace postérieure à l'auto-test", message);         // jamais instanciée
         Assert.Contains("Dernières lignes du journal", message);
         Assert.Contains("0x88890008", message);                                  // erreur exacte de la sonde
         Assert.Contains("Position choisie : MFX", message);                      // position adaptée
@@ -176,9 +176,37 @@ public class ApoFailureDiagnosticsTests
 
         string message = ApoFailureDiagnostics.ComposeDeadEndpoint(context);
 
-        Assert.Contains("trace de chargement PRÉSENTE", message); // l'APO a été instanciée
+        // v3.9.9 : sans instanciation AGRÉGÉE, le libellé ne PRÉTEND plus que
+        // c'est le moteur — une création directe écrit les mêmes lignes
+        // (le verdict v3.9.8 lisait celles de l'auto-test et se trompait)
+        Assert.Contains("lignes de cycle de vie présentes", message);
+        Assert.Contains("SANS instanciation agrégée", message);
         Assert.Contains("Auto-test DLL : non exécuté", message);   // dégradé mais honnête
         Assert.DoesNotContain("Dernières lignes", message);       // pas de journal → pas de section
         Assert.DoesNotContain("Positions présentes", message);    // pas d'inventaire → pas de section
+    }
+
+    [Fact]
+    public void ComposeDeadEndpoint_WithAggregatedInstantiation_CallsItProof()
+    {
+        // v3.9.9 : la seule trace qui prouve le moteur SANS ambiguïté est
+        // l'instanciation AGRÉGÉE (contrôleur COM non nul) — le libellé
+        // l'énonce noir sur blanc
+        var context = new ApoDeadEndpointContext(
+            Engine: null,
+            LogShowsLoad: true,
+            AggregatedSeen: true,
+            LogTail: new[] { "APO instanciee (AGREGEE par le moteur audio)" },
+            ProbeError: null,
+            SelfTest: null,
+            Inventory: null,
+            SlotChosen: "EFX",
+            OsVersion: "test");
+
+        string message = ApoFailureDiagnostics.ComposeDeadEndpoint(context);
+
+        Assert.Contains("instanciation AGRÉGÉE par le moteur audio", message);
+        Assert.Contains("preuve directe", message);
+        Assert.DoesNotContain("SANS instanciation agrégée", message);
     }
 }
